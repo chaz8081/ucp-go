@@ -18,5 +18,6 @@ go run ./cmd/ucpgen \
   -schemas .ucp-spec/source/schemas \
   -out . \
   -spec-ref "$BRANCH@$SPEC_SHA"
-gofmt -l -w . >/dev/null
+gofmt -w .
 go build ./...
+go vet ./...

@@ -84,7 +84,7 @@ Release watch: a scheduled CI job checks for new spec `release/*` branches, rege
 |---|---|---|
 | SDK module (published) | none | stdlib `encoding/json`, `regexp`, `time`, `sync` suffice; validation is generated code |
 | `cmd/ucpgen` | none | `text/template`, `go/format`, `encoding/json` |
-| `conformance/` module | `github.com/santhosh-tekuri/jsonschema/v6` | The oracle. A correct draft-2020-12 validator is a project in itself; this is the de-facto standard pure-Go implementation with no transitive dependencies. Quarantined in its own module so the published SDK's `go.mod` stays empty. |
+| `conformance/` module | `github.com/santhosh-tekuri/jsonschema/v6` | The oracle. A correct draft-2020-12 validator is a project in itself; this is the de-facto standard pure-Go implementation. Not dependency-free, though: `golang.org/x/text` is linked (used for localized validation error output), and `github.com/dlclark/regexp2` appears in the module graph but is not linked (an optional ECMA-262 regex engine, unused unless explicitly enabled). Still approved — the footprint is small, stdlib doesn't cover a conformant validator, and quarantining it in its own module keeps the published SDK's `go.mod` empty regardless. |
 
 Adding any dependency requires: a documented reason in this spec's successor ADRs, a review of transitive deps, and confirmation stdlib cannot reasonably cover it.
 

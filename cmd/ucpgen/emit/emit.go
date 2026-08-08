@@ -4,6 +4,7 @@ package emit
 import (
 	"fmt"
 	"go/format"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -14,6 +15,61 @@ var initialisms = map[string]string{
 	"id": "ID", "url": "URL", "uri": "URI", "api": "API",
 	"ap2": "AP2", "ucp": "UCP", "mcp": "MCP", "a2a": "A2A",
 	"json": "JSON", "jwk": "JWK", "sku": "SKU", "ip": "IP",
+}
+
+// unimplementedAssertionKeywords are JSON Schema assertion/composition
+// keywords the emitter recognizes but does not implement yet. Their
+// presence — at a schema's top level or on any individual property — must
+// fail generation loudly: silently ignoring a known assertion keyword
+// would emit a Validate() that is quietly less strict than the schema
+// actually requires. additionalProperties is handled separately (see
+// checkAssertionKeywords) since only its schema form is unimplemented;
+// the boolean form (true/false) is fine to leave unenforced for now.
+var unimplementedAssertionKeywords = map[string]bool{
+	"enum": true, "const": true,
+	"minimum": true, "maximum": true, "exclusiveMinimum": true, "exclusiveMaximum": true, "multipleOf": true,
+	"minLength": true,
+	"minItems":  true, "maxItems": true, "uniqueItems": true,
+	"minProperties": true, "maxProperties": true,
+	"contains": true, "minContains": true, "maxContains": true,
+	"anyOf": true, "oneOf": true, "allOf": true, "not": true,
+	"if": true, "then": true, "else": true,
+	"dependentRequired": true, "dependentSchemas": true,
+	"propertyNames": true, "patternProperties": true,
+}
+
+// checkAssertionKeywords reports the first (in sorted key order, for
+// determinism) unimplemented JSON Schema assertion keyword present in
+// node, or "" if none. Keys not in unimplementedAssertionKeywords are left
+// alone — including annotation-only keywords (format, examples, default,
+// title, description, deprecated, readOnly, writeOnly), the $-metaschema
+// keywords ($schema, $id, $defs, $ref), ucp_* extension keys, and the
+// keywords this emitter does handle itself (type, properties, required,
+// maxLength, pattern, and additionalProperties' boolean form).
+//
+// format in particular is deliberately not flagged: JSON Schema
+// draft-2020-12 treats format as annotation-only by default (assertion
+// behavior is opt-in, via a vocabulary the spec doesn't enable here), and
+// the project's conformance oracle runs with assertFormat off — so
+// silently not enforcing format matches the oracle instead of diverging
+// from it.
+func checkAssertionKeywords(node map[string]any) string {
+	keys := make([]string, 0, len(node))
+	for k := range node {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if unimplementedAssertionKeywords[k] {
+			return k
+		}
+		if k == "additionalProperties" {
+			if _, isBool := node[k].(bool); !isBool {
+				return k
+			}
+		}
+	}
+	return ""
 }
 
 // GoName converts a schema identifier (snake_case, dotted, kebab-case, or
@@ -74,7 +130,7 @@ func goType(prop map[string]any) string {
 func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (string, error) {
 	title, _ := schema["title"].(string)
 	if title == "" {
-		return "", fmt.Errorf("%s: schema has no title", relPath)
+		return "", fmt.Errorf("schema has no title")
 	}
 	typeName := GoName(title)
 
@@ -82,10 +138,10 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 	_, hasPropsKey := schema["properties"]
 	if hasType {
 		if ts, ok := rawType.(string); !ok || ts != "object" {
-			return "", fmt.Errorf("%s: top-level type %q not supported yet (phase 2)", relPath, fmt.Sprintf("%v", rawType))
+			return "", fmt.Errorf("top-level type %q not supported yet (phase 2)", fmt.Sprintf("%v", rawType))
 		}
 	} else if !hasPropsKey {
-		return "", fmt.Errorf("%s: top-level type %q not supported yet (phase 2)", relPath, "<missing>")
+		return "", fmt.Errorf("top-level type %q not supported yet (phase 2)", "<missing>")
 	}
 
 	required := map[string]bool{}
@@ -93,14 +149,14 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 		reqs, isArray := reqRaw.([]any)
 		if !isArray {
 			if _, isBool := reqRaw.(bool); isBool {
-				return "", fmt.Errorf("%s: top-level required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", relPath)
+				return "", fmt.Errorf("top-level required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings")
 			}
-			return "", fmt.Errorf("%s: top-level required is %T, want an array of property-name strings", relPath, reqRaw)
+			return "", fmt.Errorf("top-level required is %T, want an array of property-name strings", reqRaw)
 		}
 		for _, r := range reqs {
 			s, ok := r.(string)
 			if !ok {
-				return "", fmt.Errorf("%s: required entry is not a string", relPath)
+				return "", fmt.Errorf("required entry is not a string")
 			}
 			required[s] = true
 		}
@@ -110,7 +166,10 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 		// Fail loud: a "properties" key that isn't a JSON object (e.g. a
 		// number or array) would otherwise silently type-assert to nil and
 		// emit an empty, unconstrained struct.
-		return "", fmt.Errorf("%s: properties is %T, want an object of property definitions", relPath, schema["properties"])
+		return "", fmt.Errorf("properties is %T, want an object of property definitions", schema["properties"])
+	}
+	if kw := checkAssertionKeywords(schema); kw != "" {
+		return "", fmt.Errorf("unsupported constraint keyword %q (phase 2)", kw)
 	}
 	names := make([]string, 0, len(props))
 	for name := range props {
@@ -133,14 +192,17 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 	for _, name := range names {
 		prop, ok := props[name].(map[string]any)
 		if !ok {
-			return "", fmt.Errorf("%s: property %q is not an object", relPath, name)
+			return "", fmt.Errorf("property %q is not an object", name)
+		}
+		if kw := checkAssertionKeywords(prop); kw != "" {
+			return "", fmt.Errorf("unsupported constraint keyword %q (phase 2)", kw)
 		}
 		fieldName := GoName(name)
 		if fieldName == "Validate" {
-			return "", fmt.Errorf("%s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", relPath, name, fieldName)
+			return "", fmt.Errorf("property %q sanitizes to Go field name %q, which collides with the generated Validate() method", name, fieldName)
 		}
 		if orig, dup := seenFields[fieldName]; dup {
-			return "", fmt.Errorf("%s: properties %q and %q both sanitize to Go field name %q", relPath, orig, name, fieldName)
+			return "", fmt.Errorf("properties %q and %q both sanitize to Go field name %q", orig, name, fieldName)
 		}
 		seenFields[fieldName] = name
 		fieldNames[name] = fieldName
@@ -177,7 +239,7 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 				// fail loudly instead of silently emitting an
 				// unconstrained field. Arrays/objects/unions deferred to
 				// phase 2.
-				return "", fmt.Errorf("%s: property %q has string constraints but unsupported type %v (phase 2)", relPath, name, prop["type"])
+				return "", fmt.Errorf("property %q has string constraints but unsupported type %v (phase 2)", name, prop["type"])
 			}
 			continue
 		}
@@ -186,7 +248,14 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 			mlRaw := prop["maxLength"]
 			ml, ok := mlRaw.(float64)
 			if !ok {
-				return "", fmt.Errorf("%s: property %q maxLength is %T, want a number", relPath, name, mlRaw)
+				return "", fmt.Errorf("property %q maxLength is %T, want a number", name, mlRaw)
+			}
+			if ml < 0 || ml != math.Trunc(ml) {
+				// JSON Schema's maxLength is a non-negative integer.
+				// Silently truncating a negative or fractional value (via
+				// int(ml)) would emit a Validate() that enforces a
+				// different bound than the schema actually specifies.
+				return "", fmt.Errorf("property %q maxLength %v is not a non-negative integer", name, ml)
 			}
 			n := int(ml)
 			msg := fmt.Sprintf("%s: exceeds maxLength %d", name, n)
@@ -204,12 +273,12 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 			patRaw := prop["pattern"]
 			pat, ok := patRaw.(string)
 			if !ok {
-				return "", fmt.Errorf("%s: property %q pattern is %T, want a string", relPath, name, patRaw)
+				return "", fmt.Errorf("property %q pattern is %T, want a string", name, patRaw)
 			}
 			// RE2 gate: fail generation loudly rather than emit a
 			// MustCompile that would panic at runtime.
 			if _, err := regexp.Compile(pat); err != nil {
-				return "", fmt.Errorf("%s: pattern %q for %q is not RE2-compatible: %v", relPath, pat, name, err)
+				return "", fmt.Errorf("pattern %q for %q is not RE2-compatible: %v", pat, name, err)
 			}
 			usesErrors, usesRegexp, usesSync = true, true, true
 			varName := fmt.Sprintf("pattern_%s_%s", typeName, fieldName)
@@ -270,7 +339,7 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 
 	result, err := format.Source([]byte(out.String()))
 	if err != nil {
-		return "", fmt.Errorf("%s: generated source does not parse: %w\n%s", relPath, err, out.String())
+		return "", fmt.Errorf("generated source does not parse: %w\n%s", err, out.String())
 	}
 	return string(result), nil
 }

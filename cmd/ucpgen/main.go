@@ -90,8 +90,12 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 		m.Schemas[rel] = ManifestEntry{
 			Type:    typeName,
 			Package: pkg,
-			File:    filepath.ToSlash(goPath),
-			Fields:  len(props),
+			// Relative to outDir, not goPath's absolute/outDir-prefixed
+			// form: regenerating into a scratch dir and diffing the
+			// resulting MANIFEST.json against a committed one must not
+			// spuriously fail just because outDir's location differs.
+			File:   filepath.ToSlash(strings.TrimSuffix(rel, ".json") + ".go"),
+			Fields: len(props),
 		}
 	}
 	// Fail closed: every loaded schema must have produced an entry. With

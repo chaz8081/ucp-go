@@ -140,6 +140,132 @@ func TestEmitFileRejectsPropertiesWrongType(t *testing.T) {
 	}
 }
 
+// C5 — known-but-unimplemented JSON Schema assertion keywords must fail
+// generation loudly rather than silently vanishing from Validate().
+
+func TestEmitFileRejectsUnimplementedPropertyEnum(t *testing.T) {
+	schema := map[string]any{
+		"title": "HasEnum",
+		"type":  "object",
+		"properties": map[string]any{
+			"status": map[string]any{"type": "string", "enum": []any{"a", "b"}},
+		},
+	}
+	_, err := EmitFile("shopping", "test/hasenum.json", schema, "release/test@deadbeef")
+	if err == nil {
+		t.Fatalf("EmitFile: expected error for unimplemented enum constraint, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported constraint keyword") || !strings.Contains(err.Error(), "enum") {
+		t.Errorf("error = %q, want mention of unsupported constraint keyword %q", err.Error(), "enum")
+	}
+}
+
+func TestEmitFileRejectsUnimplementedTopLevelKeyword(t *testing.T) {
+	schema := map[string]any{
+		"title": "HasConst",
+		"type":  "object",
+		"const": map[string]any{"foo": "bar"},
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string"},
+		},
+	}
+	_, err := EmitFile("shopping", "test/hasconst.json", schema, "release/test@deadbeef")
+	if err == nil {
+		t.Fatalf("EmitFile: expected error for unimplemented top-level const keyword, got nil")
+	}
+	if !strings.Contains(err.Error(), "const") {
+		t.Errorf("error = %q, want mention of const", err.Error())
+	}
+}
+
+func TestEmitFileRejectsAdditionalPropertiesSchemaForm(t *testing.T) {
+	schema := map[string]any{
+		"title":                "HasAP",
+		"type":                 "object",
+		"additionalProperties": map[string]any{"type": "string"},
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string"},
+		},
+	}
+	_, err := EmitFile("shopping", "test/hasap.json", schema, "release/test@deadbeef")
+	if err == nil {
+		t.Fatalf("EmitFile: expected error for additionalProperties schema form, got nil")
+	}
+	if !strings.Contains(err.Error(), "additionalProperties") {
+		t.Errorf("error = %q, want mention of additionalProperties", err.Error())
+	}
+}
+
+func TestEmitFileAllowsAdditionalPropertiesBooleanForm(t *testing.T) {
+	schema := map[string]any{
+		"title":                "HasAPBool",
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string"},
+		},
+	}
+	if _, err := EmitFile("shopping", "test/hasapbool.json", schema, "release/test@deadbeef"); err != nil {
+		t.Fatalf("EmitFile: unexpected error for boolean additionalProperties: %v", err)
+	}
+}
+
+func TestEmitFileAllowsFormatAnnotation(t *testing.T) {
+	// format is annotation-only in draft-2020-12 (assertion behavior needs
+	// an opt-in vocabulary the spec doesn't enable), and the conformance
+	// oracle runs with assertFormat off — so format must NOT error.
+	schema := map[string]any{
+		"title": "Has Format",
+		"type":  "object",
+		"properties": map[string]any{
+			"when": map[string]any{"type": "string", "format": "date-time"},
+		},
+	}
+	src, err := EmitFile("shopping", "test/hasformat.json", schema, "release/test@deadbeef")
+	if err != nil {
+		t.Fatalf("EmitFile: unexpected error for format-only schema: %v", err)
+	}
+	if !strings.Contains(src, "type HasFormat struct {") {
+		t.Errorf("missing struct decl\n%s", src)
+	}
+}
+
+// C6 — maxLength must be a non-negative, integer-valued number.
+
+func TestEmitFileRejectsNegativeMaxLength(t *testing.T) {
+	schema := map[string]any{
+		"title": "NegativeMaxLength",
+		"type":  "object",
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string", "maxLength": float64(-1)},
+		},
+	}
+	_, err := EmitFile("shopping", "test/negativemaxlength.json", schema, "release/test@deadbeef")
+	if err == nil {
+		t.Fatalf("EmitFile: expected error for negative maxLength, got nil")
+	}
+	if !strings.Contains(err.Error(), "maxLength") {
+		t.Errorf("error = %q, want mention of maxLength", err.Error())
+	}
+}
+
+func TestEmitFileRejectsFractionalMaxLength(t *testing.T) {
+	schema := map[string]any{
+		"title": "FractionalMaxLength",
+		"type":  "object",
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string", "maxLength": float64(2.5)},
+		},
+	}
+	_, err := EmitFile("shopping", "test/fractionalmaxlength.json", schema, "release/test@deadbeef")
+	if err == nil {
+		t.Fatalf("EmitFile: expected error for fractional maxLength, got nil")
+	}
+	if !strings.Contains(err.Error(), "maxLength") {
+		t.Errorf("error = %q, want mention of maxLength", err.Error())
+	}
+}
+
 // I5 — collision detection.
 
 func TestEmitFileRejectsFieldCollision(t *testing.T) {

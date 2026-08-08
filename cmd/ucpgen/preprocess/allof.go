@@ -11,7 +11,9 @@ import "fmt"
 // python-sdk's dict.update-based merge. Scalar keywords (anything
 // outside properties/required) keep the node's own value whenever the
 // node already sets one; only unset keys are filled in from the
-// branches. required is a node-first, order-preserving union: the
+// branches. Among the branches themselves, scalar keywords are
+// first-branch-wins — the inverse of properties' last-branch-wins.
+// required is a node-first, order-preserving union: the
 // node's own required entries are seeded first, then each branch's
 // entries are appended in branch order, skipping duplicates.
 func MergeAllOf(node, root map[string]any) error {
