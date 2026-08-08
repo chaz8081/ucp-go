@@ -32,9 +32,14 @@ func MergeAllOf(node, root map[string]any) error {
 	addRequired := func(list any) error {
 		items, ok := list.([]any)
 		if !ok {
-			// Absent, or not a list at all: nothing to add. (required
-			// is not itself required to be well-formed for this to be
-			// a no-op; only individual entries are checked below.)
+			// Absent, or not a list: nothing to add. The spec overloads
+			// "required" — shopping/fulfillment.json's embedded OpenRPC
+			// parameter descriptors under /embedded/methods/*/params use
+			// "required": true (a boolean, OpenRPC semantics, not the
+			// JSON Schema array keyword). Erroring here would break
+			// generation once the Phase 2 document walk visits those
+			// nodes, so non-array required stays a silent no-op; only
+			// individual array entries are checked below.
 			return nil
 		}
 		for _, r := range items {
@@ -86,7 +91,7 @@ func MergeAllOf(node, root map[string]any) error {
 			case "properties":
 				propsMap, ok := v.(map[string]any)
 				if !ok {
-					return fmt.Errorf("allOf branch %q is not an object: %T", k, v)
+					return fmt.Errorf("allOf branch properties is not an object: %T", v)
 				}
 				for pk, pv := range propsMap {
 					// Last branch wins: unconditional overwrite.
