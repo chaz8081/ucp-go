@@ -54,6 +54,8 @@ func TestGoName(t *testing.T) {
 	for in, want := range map[string]string{
 		"url": "URL", "line_item": "LineItem", "ap2_mandate": "AP2Mandate",
 		"id": "ID", "payment_handler": "PaymentHandler",
+		"dev.ucp.buyer_ip": "DevUCPBuyerIP",
+		"2fa_code":         "V2faCode",
 	} {
 		if got := GoName(in); got != want {
 			t.Errorf("GoName(%q) = %q, want %q", in, got, want)

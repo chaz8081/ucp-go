@@ -13,8 +13,9 @@ func TestEmitValidate(t *testing.T) {
 	for _, want := range []string{
 		"func (v *Link) Validate() error {",
 		`utf8.RuneCountInString(v.URL) > 2048`,
-		"patternLinkTitle",
+		"pattern_Link_Title",
 		"sync.OnceValue",
+		"errors.New(",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("emitted source missing %q\n---\n%s", want, src)
