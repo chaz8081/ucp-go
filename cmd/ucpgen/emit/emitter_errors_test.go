@@ -125,6 +125,21 @@ func TestEmitFileRejectsStringConstraintsOnUnsupportedType(t *testing.T) {
 	}
 }
 
+func TestEmitFileRejectsPropertiesWrongType(t *testing.T) {
+	schema := map[string]any{
+		"title":      "BadProperties",
+		"type":       "object",
+		"properties": 123, // not a map[string]any
+	}
+	_, err := EmitFile("shopping", "test/badproperties.json", schema, "release/test@deadbeef")
+	if err == nil {
+		t.Fatalf("EmitFile: expected error for non-object properties, got nil")
+	}
+	if !strings.Contains(err.Error(), "properties") {
+		t.Errorf("error = %q, want mention of properties", err.Error())
+	}
+}
+
 // I5 — collision detection.
 
 func TestEmitFileRejectsFieldCollision(t *testing.T) {

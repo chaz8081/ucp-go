@@ -105,7 +105,13 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 			required[s] = true
 		}
 	}
-	props, _ := schema["properties"].(map[string]any)
+	props, propsOK := schema["properties"].(map[string]any)
+	if hasPropsKey && !propsOK {
+		// Fail loud: a "properties" key that isn't a JSON object (e.g. a
+		// number or array) would otherwise silently type-assert to nil and
+		// emit an empty, unconstrained struct.
+		return "", fmt.Errorf("%s: properties is %T, want an object of property definitions", relPath, schema["properties"])
+	}
 	names := make([]string, 0, len(props))
 	for name := range props {
 		names = append(names, name)
