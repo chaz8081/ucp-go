@@ -6,7 +6,9 @@ import (
 )
 
 // ResolveLocalRef resolves a same-document JSON pointer such as
-// "#/$defs/money" against root and returns the referenced object.
+// "#/$defs/money" against root and returns the referenced object. The
+// returned map is the live node inside root, not a copy: callers that
+// mutate it mutate root's tree in place.
 func ResolveLocalRef(ref string, root map[string]any) (map[string]any, error) {
 	frag, ok := strings.CutPrefix(ref, "#/")
 	if !ok {

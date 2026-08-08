@@ -2,29 +2,59 @@ package preprocess
 
 import "fmt"
 
-// MergeAllOf collapses node's allOf branches into node itself.
-// Local $ref branches are resolved against root first. Properties and
-// required lists are unioned; for scalar keywords the node's own value
-// wins over branch values, matching the python-sdk preprocessor.
+// MergeAllOf collapses node's allOf branches into node itself. Local
+// $ref branches are resolved against root first (see the aliasing note
+// below). Properties use a last-write-wins policy: among the allOf
+// branches a later branch's property replaces an earlier branch's
+// property of the same name, and the branches' merged properties then
+// override the node's own properties of the same name — matching
+// python-sdk's dict.update-based merge. Scalar keywords (anything
+// outside properties/required) keep the node's own value whenever the
+// node already sets one; only unset keys are filled in from the
+// branches. required is a node-first, order-preserving union: the
+// node's own required entries are seeded first, then each branch's
+// entries are appended in branch order, skipping duplicates.
 func MergeAllOf(node, root map[string]any) error {
-	rawBranches, ok := node["allOf"].([]any)
-	if !ok {
+	rawAllOf, has := node["allOf"]
+	if !has {
 		return nil
 	}
+	rawBranches, ok := rawAllOf.([]any)
+	if !ok {
+		return fmt.Errorf("allOf is not an array: %T", rawAllOf)
+	}
+
 	mergedProps := map[string]any{}
 	var mergedReq []any
 	seenReq := map[string]bool{}
 	merged := map[string]any{}
 
-	addRequired := func(list any) {
-		items, _ := list.([]any)
-		for _, r := range items {
-			s, _ := r.(string)
-			if s != "" && !seenReq[s] {
-				seenReq[s] = true
-				mergedReq = append(mergedReq, s)
-			}
+	addRequired := func(list any) error {
+		items, ok := list.([]any)
+		if !ok {
+			// Absent, or not a list at all: nothing to add. (required
+			// is not itself required to be well-formed for this to be
+			// a no-op; only individual entries are checked below.)
+			return nil
 		}
+		for _, r := range items {
+			s, ok := r.(string)
+			if !ok {
+				return fmt.Errorf("required entry is not a string: %v (%T)", r, r)
+			}
+			if s == "" || seenReq[s] {
+				continue
+			}
+			seenReq[s] = true
+			mergedReq = append(mergedReq, s)
+		}
+		return nil
+	}
+
+	// Seed with the node's own required list first so its entries sort
+	// ahead of anything contributed by the branches below.
+	if err := addRequired(node["required"]); err != nil {
+		return err
 	}
 
 	for _, rb := range rawBranches {
@@ -37,6 +67,14 @@ func MergeAllOf(node, root map[string]any) error {
 			if err != nil {
 				return err
 			}
+			// resolved aliases the live node inside root (see
+			// ResolveLocalRef's doc comment); the recursive MergeAllOf
+			// call below mutates it in place, the same way the
+			// python-sdk preprocessor flattens $defs entries in place.
+			// Python instead deep-copies at the ref site, but since
+			// both approaches produce the same flattened JSON this
+			// only matters if a later pass mutates a property map that
+			// is reachable from more than one referring node.
 			branch = resolved
 		}
 		// Branches may themselves contain allOf (e.g. entity bases): recurse.
@@ -46,13 +84,18 @@ func MergeAllOf(node, root map[string]any) error {
 		for k, v := range branch {
 			switch k {
 			case "properties":
-				for pk, pv := range v.(map[string]any) {
-					if _, exists := mergedProps[pk]; !exists {
-						mergedProps[pk] = pv
-					}
+				propsMap, ok := v.(map[string]any)
+				if !ok {
+					return fmt.Errorf("allOf branch %q is not an object: %T", k, v)
+				}
+				for pk, pv := range propsMap {
+					// Last branch wins: unconditional overwrite.
+					mergedProps[pk] = pv
 				}
 			case "required":
-				addRequired(v)
+				if err := addRequired(v); err != nil {
+					return err
+				}
 			case "$ref", "title", "description":
 				// refs handled above; branch titles/descriptions never
 				// override the node's own documentation
@@ -71,16 +114,20 @@ func MergeAllOf(node, root map[string]any) error {
 			node[k] = v
 		}
 	}
-	if nodeProps, ok := node["properties"].(map[string]any); ok {
+	rawNodeProps, hasNodeProps := node["properties"]
+	if hasNodeProps {
+		nodeProps, ok := rawNodeProps.(map[string]any)
+		if !ok {
+			return fmt.Errorf("node properties is not an object: %T", rawNodeProps)
+		}
+		// Merged branch properties override the node's own, matching
+		// python-sdk's node.setdefault("properties", {}).update(...).
 		for pk, pv := range mergedProps {
-			if _, exists := nodeProps[pk]; !exists {
-				nodeProps[pk] = pv
-			}
+			nodeProps[pk] = pv
 		}
 	} else if len(mergedProps) > 0 {
 		node["properties"] = mergedProps
 	}
-	addRequired(node["required"])
 	if len(mergedReq) > 0 {
 		node["required"] = mergedReq
 	}
