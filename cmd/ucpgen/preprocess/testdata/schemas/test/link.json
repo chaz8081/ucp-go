@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/test/link.json",
+  "title": "Link",
+  "description": "A typed link.",
+  "type": "object",
+  "required": ["type", "url"],
+  "properties": {
+    "type": { "type": "string", "description": "Link relation type." },
+    "url": { "type": "string", "maxLength": 2048, "description": "Target URL." },
+    "title": { "type": "string", "pattern": "^[^\\n]*$" }
+  }
+}
