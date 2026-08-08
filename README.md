@@ -15,20 +15,22 @@ Status: pre-release. See `docs/specs/` for the design.
 
 The `ucpgen` pipeline (`cmd/ucpgen`) runs end-to-end today — load, `allOf`-merge,
 emit, manifest — and is exercised against the fixture schemas under
-`cmd/ucpgen/preprocess/testdata/schemas/` in CI:
+`cmd/ucpgen/preprocess/testdata/schemas/` by `go test ./...`:
 
     go run ./cmd/ucpgen -schemas <schemas-dir> -out <out-dir> -spec-ref <branch@sha>
 
-Full-spec generation is **Phase 2**: the real UCP spec has cross-file `$ref`s
-the preprocessor doesn't resolve yet (only local, same-file refs are handled
-so far), so running
+Full-spec generation is **Phase 2**: running
 
     ./generate.sh 2026-04-08
 
-against the actual spec schemas currently fails partway through. An allowlist
-flag for a subset of files that already round-trip cleanly is planned; until
-then, `generate.sh` is wired up but not yet a working end-to-end regeneration
-path for the real spec.
+against the actual spec schemas currently fails on the first schema (in sorted
+order, `capability.json`) with `top-level type "<missing>" not supported yet
+(phase 2)` — zero files get written. Several spec files carry their content
+entirely in `$defs` rather than a top-level `type`/`properties`, and the
+`$defs` document-walk needed to handle that (along with cross-file `$ref`
+resolution, also still pending) lands in Phase 2. Until then, `generate.sh`
+is wired up but not yet a working end-to-end regeneration path for the real
+spec.
 
 ### MANIFEST.json
 
