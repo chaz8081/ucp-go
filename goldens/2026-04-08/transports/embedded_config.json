@@ -1,0 +1,27 @@
+{
+  "$id": "https://ucp.dev/schemas/transports/embedded_config.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Per-session configuration for embedded transport binding. Allows businesses to vary EP availability and delegations based on cart contents, agent authorization, or policy.",
+  "properties": {
+    "color_scheme": {
+      "description": "Color schemes the business supports. Hosts use ec_color_scheme query parameter to request a scheme from this list.",
+      "items": {
+        "enum": [
+          "light",
+          "dark"
+        ],
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "delegate": {
+      "description": "Delegations the business allows. At service-level, declares available delegations. In UCP responses, confirms accepted delegations for this session.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "title": "Embedded Transport Config",
+  "type": "object"
+}

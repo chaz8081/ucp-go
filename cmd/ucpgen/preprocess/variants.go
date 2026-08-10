@@ -114,8 +114,15 @@ func externalPropertyRefs(rel string, schema map[string]any) [][2]string {
 			if !ok {
 				continue
 			}
-			if ref, ok := m["$ref"].(string); ok && !strings.Contains(ref, "#") {
-				out = append(out, [2]string{name, path.Join(path.Dir(rel), ref)})
+			// The file part alone decides the dependency: a ref carrying a
+			// fragment ("types/x.json#/$defs/y") still depends on x.json,
+			// while a purely local ref ("#/$defs/y") has no file part and
+			// depends on nothing. python-sdk f8b714b changed this from an
+			// "#" not in ref test to the same partition-on-# form.
+			if ref, ok := m["$ref"].(string); ok {
+				if refFile, _, _ := strings.Cut(ref, "#"); refFile != "" {
+					out = append(out, [2]string{name, path.Join(path.Dir(rel), refFile)})
+				}
 			}
 		}
 	}
@@ -318,17 +325,30 @@ func rewriteRefsToVariants(root map[string]any, op, rel string, needs map[string
 			continue
 		}
 		ref, ok := m["$ref"].(string)
-		if !ok || strings.Contains(ref, "#") {
+		if !ok {
 			continue
 		}
-		target := path.Join(path.Dir(rel), ref)
+		// Only the file part is redirected to the variant; any fragment is
+		// re-appended unchanged, and a purely local ref (empty file part) is
+		// left alone. python-sdk f8b714b introduced this fragment-preserving
+		// form, replacing an earlier version that skipped fragment-bearing
+		// refs entirely.
+		refFile, fragment, hasFragment := strings.Cut(ref, "#")
+		if refFile == "" {
+			continue
+		}
+		target := path.Join(path.Dir(rel), refFile)
 		if ops, ok := needs[target]; ok && ops[op] {
 			// python builds the replacement with Path math
-			// (ref_path.parent / f"{stem}_{op}_request.json", :458-461),
-			// which normalizes a leading "./" away; a raw suffix swap on the
+			// (ref_path.parent / f"{stem}_{op}_request.json"), which
+			// normalizes a leading "./" away; a raw suffix swap on the
 			// original string would keep it.
-			stem := strings.TrimSuffix(path.Base(ref), ".json")
-			m["$ref"] = path.Join(path.Dir(ref), stem+"_"+op+"_request.json")
+			stem := strings.TrimSuffix(path.Base(refFile), ".json")
+			newRef := path.Join(path.Dir(refFile), stem+"_"+op+"_request.json")
+			if hasFragment {
+				newRef += "#" + fragment
+			}
+			m["$ref"] = newRef
 		}
 	}
 }

@@ -1,0 +1,29 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/total_create_request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A cost breakdown entry with a category, amount, and optional display text.",
+  "if": {
+    "properties": {
+      "type": {
+        "enum": [
+          "discount",
+          "items_discount"
+        ]
+      }
+    },
+    "required": [
+      "type"
+    ]
+  },
+  "properties": {},
+  "required": [],
+  "then": {
+    "properties": {
+      "amount": {
+        "exclusiveMaximum": 0
+      }
+    }
+  },
+  "title": "Total Create Request",
+  "type": "object"
+}

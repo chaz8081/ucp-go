@@ -1,0 +1,46 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/line_item.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Line item object. Expected to use the currency of the parent object.",
+  "properties": {
+    "id": {
+      "type": "string",
+      "ucp_request": {
+        "create": "omit",
+        "update": "optional"
+      }
+    },
+    "item": {
+      "$ref": "item.json"
+    },
+    "parent_id": {
+      "description": "Parent line item identifier for any nested structures.",
+      "type": "string",
+      "ucp_request": {
+        "create": "omit",
+        "update": "optional"
+      }
+    },
+    "quantity": {
+      "description": "Quantity of the item being purchased.",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "totals": {
+      "description": "Line item totals breakdown.",
+      "items": {
+        "$ref": "total.json"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    }
+  },
+  "required": [
+    "id",
+    "item",
+    "quantity",
+    "totals"
+  ],
+  "title": "Line Item",
+  "type": "object"
+}

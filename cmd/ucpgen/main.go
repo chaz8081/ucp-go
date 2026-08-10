@@ -155,7 +155,10 @@ func runPreprocess(schemaDir, outDir string) error {
 // produced by the official python preprocessor can be compared against Go
 // output without formatting differences masquerading as content ones.
 func runCanonicalize(schemaDir, outDir string) error {
-	set, err := preprocess.LoadSchemas(schemaDir)
+	// Variants are included here: the input is an already-preprocessed tree
+	// whose *_request.json files are content to canonicalize, not generated
+	// output to be skipped.
+	set, err := preprocess.LoadSchemasIncludingVariants(schemaDir)
 	if err != nil {
 		return err
 	}

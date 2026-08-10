@@ -18,14 +18,28 @@ type SchemaSet struct {
 	Files map[string]map[string]any
 }
 
-// LoadSchemas reads every .json file under root into a SchemaSet.
+// LoadSchemas reads every source .json file under root into a SchemaSet,
+// skipping generated "*_request.json" variants.
 func LoadSchemas(root string) (*SchemaSet, error) {
+	return loadSchemas(root, true)
+}
+
+// LoadSchemasIncludingVariants reads every .json file under root, generated
+// request variants included. It exists for reading a tree that has ALREADY
+// been preprocessed — notably the python preprocessor's in-place output when
+// producing goldens — where the variants are content to be read rather than
+// output to be regenerated.
+func LoadSchemasIncludingVariants(root string) (*SchemaSet, error) {
+	return loadSchemas(root, false)
+}
+
+func loadSchemas(root string, skipVariants bool) (*SchemaSet, error) {
 	set := &SchemaSet{Root: root, Files: map[string]map[string]any{}}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".json") {
 			return err
 		}
-		if strings.HasSuffix(d.Name(), "_request.json") {
+		if skipVariants && strings.HasSuffix(d.Name(), "_request.json") {
 			// python-sdk skips these by basename at load time
 			// (preprocess_schemas.py:653): they are generated variant
 			// output (Task 8 writes them into the set), so a real-tree

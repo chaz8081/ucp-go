@@ -1,0 +1,76 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/totals.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contains": {
+    "properties": {
+      "type": {
+        "const": "subtotal"
+      }
+    },
+    "required": [
+      "type"
+    ]
+  },
+  "description": "Pricing breakdown provided by the business. MUST contain exactly one subtotal and one total entry. Detail types (tax, fee, discount, fulfillment) may appear multiple times for itemization. Platforms MUST render all entries in order using display_text and amount.",
+  "items": {
+    "allOf": [
+      {
+        "$ref": "total.json"
+      }
+    ],
+    "if": {
+      "properties": {
+        "type": {
+          "not": {
+            "enum": [
+              "subtotal",
+              "items_discount",
+              "discount",
+              "fulfillment",
+              "tax",
+              "fee",
+              "total"
+            ]
+          }
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "properties": {
+      "lines": {
+        "description": "Optional itemized breakdown. The parent entry is always rendered; lines are supplementary. Sum of line amounts MUST equal the parent entry amount.",
+        "items": {
+          "description": "Sub-line entry. Additional metadata MAY be included.",
+          "properties": {
+            "amount": {
+              "$ref": "signed_amount.json"
+            },
+            "display_text": {
+              "description": "Human-readable label for this sub-line.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "amount",
+            "display_text"
+          ],
+          "type": "object"
+        },
+        "type": "array",
+        "ucp_request": "omit"
+      }
+    },
+    "then": {
+      "required": [
+        "display_text"
+      ]
+    },
+    "type": "object"
+  },
+  "maxContains": 1,
+  "minContains": 1,
+  "title": "Totals",
+  "type": "array"
+}

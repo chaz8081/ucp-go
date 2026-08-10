@@ -1,0 +1,23 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/shipping_destination.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "postal_address.json"
+    }
+  ],
+  "description": "Shipping destination.",
+  "properties": {
+    "id": {
+      "description": "ID specific to this shipping destination.",
+      "type": "string",
+      "ucp_request": "optional"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "title": "Shipping Destination",
+  "type": "object",
+  "ucp_shared_request": true
+}

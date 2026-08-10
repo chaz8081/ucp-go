@@ -1,0 +1,22 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/retail_location_create_request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "A pickup location (retail store, locker, etc.).",
+  "properties": {
+    "address": {
+      "$ref": "postal_address_create_request.json",
+      "description": "Physical address of the location."
+    },
+    "name": {
+      "description": "Location name (e.g., store name).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Retail Location Create Request",
+  "type": "object",
+  "ucp_shared_request": true
+}

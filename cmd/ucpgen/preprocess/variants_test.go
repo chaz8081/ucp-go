@@ -328,3 +328,53 @@ func TestVariantStageReentrant(t *testing.T) {
 		}
 	}
 }
+
+func TestExternalPropertyRefsIncludesFragmentRefs(t *testing.T) {
+	// Upstream python-sdk (f8b714b) changed extract_external_refs to split
+	// the fragment off and depend on the FILE part, so a ref like
+	// "types/payment_instrument.json#/$defs/selected_payment_instrument"
+	// now creates a dependency. Pure local refs ("#/$defs/x") still don't.
+	schema := map[string]any{
+		"properties": map[string]any{
+			"instruments": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"$ref": "types/payment_instrument.json#/$defs/selected"},
+			},
+			"local": map[string]any{"$ref": "#/$defs/thing"},
+			"plain": map[string]any{"$ref": "types/buyer.json"},
+		},
+	}
+	got := externalPropertyRefs("shopping/payment.json", schema)
+	want := map[string]string{
+		"instruments": "shopping/types/payment_instrument.json",
+		"plain":       "shopping/types/buyer.json",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("refs = %v, want %v", got, want)
+	}
+	for _, pair := range got {
+		if want[pair[0]] != pair[1] {
+			t.Errorf("ref for %q = %q, want %q", pair[0], pair[1], want[pair[0]])
+		}
+	}
+}
+
+func TestRewriteRefsToVariantsPreservesFragment(t *testing.T) {
+	// The paired upstream change: the file part is rewritten to the variant
+	// and the fragment is re-appended unchanged.
+	needs := map[string]map[string]bool{
+		"shopping/types/payment_instrument.json": {"create": true},
+	}
+	data := map[string]any{
+		"items": map[string]any{"$ref": "types/payment_instrument.json#/$defs/selected"},
+		"local": map[string]any{"$ref": "#/$defs/untouched"},
+	}
+	rewriteRefsToVariants(data, "create", "shopping/payment.json", needs)
+	got := data["items"].(map[string]any)["$ref"]
+	if got != "types/payment_instrument_create_request.json#/$defs/selected" {
+		t.Errorf("$ref = %v, want variant with fragment preserved", got)
+	}
+	if got := data["local"].(map[string]any)["$ref"]; got != "#/$defs/untouched" {
+		t.Errorf("pure local ref must not be rewritten: %v", got)
+	}
+}

@@ -13,24 +13,43 @@ Status: pre-release. See `docs/specs/` for the design.
 
 ## Regenerating models
 
-The `ucpgen` pipeline (`cmd/ucpgen`) runs end-to-end today — load, `allOf`-merge,
-emit, manifest — and is exercised against the fixture schemas under
-`cmd/ucpgen/preprocess/testdata/schemas/` by `go test ./...`:
+`ucpgen` has two stages, which `./generate.sh <version>` runs in order.
 
-    go run ./cmd/ucpgen -schemas <schemas-dir> -out <out-dir> -spec-ref <branch@sha>
+**Stage 1 — `preprocess`** normalizes the raw spec schemas: whole-document
+`allOf` flattening, `ucp.json#/$defs/entity` inlining, union-branch
+distribution, dotted-`$defs` renaming, metadata-union normalization, and
+generation of the `*_create_request.json` / `_update_request.json` /
+`_complete_request.json` variants from `ucp_request` markers.
 
-Full-spec generation is **Phase 2**: running
+    go run ./cmd/ucpgen preprocess -schemas <spec>/source/schemas -out-schemas .gen-schemas
 
-    ./generate.sh 2026-04-08
+This stage handles the **full real spec**: the 78 source schemas in
+`release/2026-04-08` normalize into 145 files (78 sources plus 67 generated
+request variants), byte-identical to the output of the official python-sdk
+preprocessor — see [Goldens](#goldens) below.
 
-against the actual spec schemas currently fails on the first schema (in sorted
-order, `capability.json`) with `top-level type "<missing>" not supported yet
-(phase 2)` — zero files get written. Several spec files carry their content
-entirely in `$defs` rather than a top-level `type`/`properties`, and the
-`$defs` document-walk needed to handle that (along with cross-file `$ref`
-resolution, also still pending) lands in Phase 2. Until then, `generate.sh`
-is wired up but not yet a working end-to-end regeneration path for the real
-spec.
+**Stage 2 — `emit`** renders Go models from the normalized schemas.
+
+    go run ./cmd/ucpgen emit -schemas .gen-schemas -out . -spec-ref <branch@sha>
+
+Emitting the whole normalized spec is **Phase 3**: the emitter deliberately
+rejects shapes it doesn't yet support (schemas whose content lives entirely
+in `$defs`, unions, cross-file type references, and most constraint
+keywords) rather than silently generating models that under-validate. It
+runs today against flat object schemas, exercised by `go test ./...`.
+
+### Goldens
+
+`goldens/2026-04-08/` holds the preprocessed schema set produced by the
+**official python-sdk preprocessor**, re-encoded through this repo's
+canonical JSON encoder so that any difference is a difference in content
+rather than formatting. `conformance/` requires the Go preprocessor to
+reproduce it byte-for-byte, and `generate.sh` fails the run on any
+divergence.
+
+Maintainers regenerate goldens once per spec release with
+`scripts/make-goldens.sh <version>` (the only step that needs Python —
+contributors never do, since the goldens are committed JSON).
 
 ### MANIFEST.json
 

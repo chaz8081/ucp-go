@@ -1,0 +1,143 @@
+{
+  "$defs": {
+    "allocation": {
+      "description": "Breakdown of how a discount amount was allocated to a specific target.",
+      "properties": {
+        "amount": {
+          "$ref": "types/amount.json",
+          "description": "Amount allocated to this target in ISO 4217 minor units."
+        },
+        "path": {
+          "description": "JSONPath to the allocation target (e.g., '$.line_items[0]', '$.totals.shipping').",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "path"
+      ],
+      "type": "object"
+    },
+    "applied_discount": {
+      "description": "A discount that was successfully applied.",
+      "properties": {
+        "allocations": {
+          "description": "Breakdown of where this discount was allocated. Sum of allocation amounts equals total amount.",
+          "items": {
+            "$ref": "#/$defs/allocation"
+          },
+          "type": "array"
+        },
+        "amount": {
+          "$ref": "types/amount.json",
+          "description": "Total discount amount in ISO 4217 minor units."
+        },
+        "automatic": {
+          "default": false,
+          "description": "True if applied automatically by merchant rules (no code required).",
+          "type": "boolean"
+        },
+        "code": {
+          "description": "The discount code. Omitted for automatic discounts.",
+          "type": "string"
+        },
+        "eligibility": {
+          "$ref": "types/reverse_domain_name.json",
+          "description": "The eligibility claim accepted by the Business for this discount. Corresponds to a value from context.eligibility. Omitted for code-based and non-eligibility automatic discounts."
+        },
+        "method": {
+          "description": "Allocation method. 'each' = applied independently per item. 'across' = split proportionally by value.",
+          "enum": [
+            "each",
+            "across"
+          ],
+          "type": "string"
+        },
+        "priority": {
+          "description": "Stacking order for discount calculation. Lower numbers applied first (1 = first).",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "provisional": {
+          "default": false,
+          "description": "True if this discount requires additional verification.",
+          "type": "boolean"
+        },
+        "title": {
+          "description": "Human-readable discount name (e.g., 'Summer Sale 20% Off').",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "title"
+      ],
+      "type": "object"
+    },
+    "cart": {
+      "allOf": [
+        {
+          "$ref": "cart.json"
+        }
+      ],
+      "description": "Cart extended with discount capability.",
+      "properties": {
+        "discounts": {
+          "$ref": "#/$defs/discounts_object",
+          "ucp_request": {
+            "create": "optional",
+            "update": "optional"
+          }
+        }
+      },
+      "title": "Cart with Discount",
+      "type": "object"
+    },
+    "checkout": {
+      "allOf": [
+        {
+          "$ref": "checkout.json"
+        }
+      ],
+      "description": "Checkout extended with discount capability.",
+      "properties": {
+        "discounts": {
+          "$ref": "#/$defs/discounts_object",
+          "ucp_request": {
+            "complete": "omit",
+            "create": "optional",
+            "update": "optional"
+          }
+        }
+      },
+      "title": "Checkout with Discount",
+      "type": "object"
+    },
+    "discounts_object": {
+      "description": "Discount codes input and applied discounts output.",
+      "properties": {
+        "applied": {
+          "description": "Discounts successfully applied (code-based and automatic).",
+          "items": {
+            "$ref": "#/$defs/applied_discount"
+          },
+          "type": "array",
+          "ucp_request": "omit"
+        },
+        "codes": {
+          "description": "Discount codes to apply. Case-insensitive. Replaces previously submitted codes. Send empty array to clear.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://ucp.dev/schemas/shopping/discount.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Extends Cart and Checkout with discount support, including discount codes, automatic discounts, and eligibility-triggered provisional discounts.",
+  "name": "dev.ucp.shopping.discount",
+  "title": "Discount Extension"
+}

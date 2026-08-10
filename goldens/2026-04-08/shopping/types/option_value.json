@@ -1,0 +1,20 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/option_value.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A selectable value for a product option.",
+  "properties": {
+    "id": {
+      "description": "Optional server-assigned identifier for this option value. When present in a selected_option, the server SHOULD use it for matching instead of label.",
+      "type": "string"
+    },
+    "label": {
+      "description": "Display text for this option value (e.g., 'Small', 'Blue').",
+      "type": "string"
+    }
+  },
+  "required": [
+    "label"
+  ],
+  "title": "Option Value",
+  "type": "object"
+}

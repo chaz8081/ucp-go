@@ -1,0 +1,84 @@
+{
+  "$defs": {
+    "available_card_payment_instrument": {
+      "allOf": [
+        {
+          "$ref": "available_payment_instrument.json"
+        }
+      ],
+      "description": "Declares card instrument availability with card-specific constraints.",
+      "properties": {
+        "constraints": {
+          "properties": {
+            "brands": {
+              "description": "Limit to specific card brands (e.g., ['visa', 'mastercard', 'amex']).",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "type": "object"
+        },
+        "type": {
+          "const": "card"
+        }
+      },
+      "title": "Available Card Payment Instrument",
+      "type": "object"
+    }
+  },
+  "$id": "https://ucp.dev/schemas/shopping/types/card_payment_instrument.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "payment_instrument.json"
+    }
+  ],
+  "description": "A basic card payment instrument with visible card details. Can be inherited by a handler's instrument schema to define handler-specific display details or more complex credential structures.",
+  "properties": {
+    "display": {
+      "description": "Display information for this card payment instrument.",
+      "properties": {
+        "brand": {
+          "description": "The card brand/network (e.g., visa, mastercard, amex).",
+          "type": "string"
+        },
+        "card_art": {
+          "description": "An optional URI to a rich image representing the card (e.g., card art provided by the issuer).",
+          "format": "uri",
+          "type": "string"
+        },
+        "description": {
+          "description": "An optional rich text description of the card to display to the user (e.g., 'Visa ending in 1234, expires 12/2025').",
+          "type": "string"
+        },
+        "expiry_month": {
+          "description": "The month of the card's expiration date (1-12).",
+          "type": "integer"
+        },
+        "expiry_year": {
+          "description": "The year of the card's expiration date.",
+          "type": "integer"
+        },
+        "last_digits": {
+          "description": "Last 4 digits of the card number.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "type": {
+      "const": "card",
+      "description": "Indicates this is a card payment instrument.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "title": "Card Payment Instrument",
+  "type": "object"
+}

@@ -1,0 +1,14 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/platform_fulfillment_config.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Platform's fulfillment configuration.",
+  "properties": {
+    "supports_multi_group": {
+      "default": false,
+      "description": "Enables multiple groups per method.",
+      "type": "boolean"
+    }
+  },
+  "title": "Platform Fulfillment Config",
+  "type": "object"
+}
