@@ -155,6 +155,15 @@ func PropagateNeeds(set *SchemaSet, needs map[string]map[string]bool) {
 			for _, op := range opNames {
 				for _, pair := range refs[rel] {
 					propName, child := pair[0], pair[1]
+					// Python's schemas dict is loaded with the _request.json
+					// filter and never holds generated variants, so a variant
+					// can never become a propagation target (:615). Our set
+					// does hold them after GenerateVariants, so the invariant
+					// is restored explicitly — otherwise a ref to a variant
+					// would yield x_create_request_create_request.json.
+					if strings.Contains(child, "_request.json") {
+						continue
+					}
 					if _, exists := set.Files[child]; !exists {
 						continue
 					}
@@ -194,6 +203,12 @@ func GenerateVariants(set *SchemaSet, needs map[string]map[string]bool) {
 			ops = append(ops, op)
 		}
 		sort.Strings(ops)
+		if _, ok := set.Files[rel]; !ok {
+			// python raises KeyError here (:710); we skip, because a needs
+			// entry with no schema can only come from a caller bug and
+			// fail-loud belongs to the pipeline that assembled the set.
+			continue
+		}
 		for _, op := range ops {
 			variant := CopyTree(set.Files[rel]).(map[string]any)
 			applyVariantIdentity(variant, op, stemOf(rel))
@@ -228,7 +243,14 @@ func applyVariantIdentity(variant map[string]any, op, stem string) {
 	if baseTitle == "" {
 		baseTitle = stem
 	}
-	variant["title"] = baseTitle + " " + strings.ToUpper(op[:1]) + op[1:] + " Request"
+	// An empty op is reachable from `"ucp_request": {"": "required"}`. Python's
+	// "".capitalize() yields "", producing a double-space title rather than an
+	// error, so the capitalization is skipped rather than slicing op[:1].
+	capOp := op
+	if capOp != "" {
+		capOp = strings.ToUpper(capOp[:1]) + capOp[1:]
+	}
+	variant["title"] = baseTitle + " " + capOp + " Request"
 	if id, ok := variant["$id"].(string); ok && strings.Contains(id, "/") {
 		slash := strings.LastIndex(id, "/")
 		name := id[slash+1:]
@@ -248,6 +270,12 @@ func applyVariantIdentity(variant map[string]any, op, stem string) {
 // (:468-470, :489-490); it bails only when properties is present but not a
 // dict. A missing "properties" key is therefore NOT a bail condition here —
 // only a present-but-malformed one is, matching python's isinstance check.
+//
+// The emitted "required" list is in sorted property order, where python's is
+// in JSON insertion order. This deviation is forced rather than chosen: Go's
+// map[string]any loses key order at unmarshal, so python's order cannot be
+// reproduced. The canonical comparator sorts required arrays recursively on
+// both sides, which makes the two equivalent for golden comparison.
 func applyRequestRules(obj map[string]any, op, rel string, needs map[string]map[string]bool) {
 	raw, hasKey := obj["properties"]
 	if hasKey {
@@ -295,7 +323,12 @@ func rewriteRefsToVariants(root map[string]any, op, rel string, needs map[string
 		}
 		target := path.Join(path.Dir(rel), ref)
 		if ops, ok := needs[target]; ok && ops[op] {
-			m["$ref"] = strings.TrimSuffix(ref, ".json") + "_" + op + "_request.json"
+			// python builds the replacement with Path math
+			// (ref_path.parent / f"{stem}_{op}_request.json", :458-461),
+			// which normalizes a leading "./" away; a raw suffix swap on the
+			// original string would keep it.
+			stem := strings.TrimSuffix(path.Base(ref), ".json")
+			m["$ref"] = path.Join(path.Dir(ref), stem+"_"+op+"_request.json")
 		}
 	}
 }

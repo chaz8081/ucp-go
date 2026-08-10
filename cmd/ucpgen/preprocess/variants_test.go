@@ -216,3 +216,115 @@ func TestGenerateVariantsPropertylessObjectEmitsEmptyPropertiesAndRequired(t *te
 		t.Errorf("expected empty required array in JSON, got %s", s)
 	}
 }
+
+func TestApplyVariantIdentityEmptyOp(t *testing.T) {
+	// "ucp_request": {"": "required"} is valid JSON and yields an empty op.
+	// Python's "".capitalize() is "", producing a double-space title rather
+	// than crashing; Go must not panic on op[:1].
+	variant := map[string]any{"title": "A", "$id": "https://ucp.dev/schemas/a.json"}
+	applyVariantIdentity(variant, "", "a")
+	if got := variant["title"]; got != "A  Request" {
+		t.Errorf("title = %q, want %q (python double space)", got, "A  Request")
+	}
+	if got := variant["$id"]; got != "https://ucp.dev/schemas/a__request.json" {
+		t.Errorf("$id = %v, want a__request.json", got)
+	}
+}
+
+func TestPropagateNeedsSkipsVariantTargets(t *testing.T) {
+	// Python's schemas dict never holds generated variants (load-time filter),
+	// so a variant can never become a propagation target. Our set.Files does
+	// hold them after GenerateVariants, so the filter must be explicit.
+	set := &SchemaSet{Files: map[string]map[string]any{
+		"q.json": {
+			"title": "Q", "type": "object",
+			"properties": map[string]any{
+				"c": map[string]any{"ucp_request": "required", "$ref": "c_create_request.json"},
+			},
+		},
+		"c_create_request.json": {"title": "C Create Request", "type": "object"},
+	}}
+	needs := DiscoverVariantNeeds(set)
+	PropagateNeeds(set, needs)
+	if _, has := needs["c_create_request.json"]; has {
+		t.Errorf("variant file must never receive needs: %v", needs)
+	}
+	GenerateVariants(set, needs)
+	for _, p := range set.Paths() {
+		if strings.Count(p, "_request") > 1 {
+			t.Errorf("double-suffixed variant generated: %s", p)
+		}
+	}
+}
+
+func TestRewriteRefsToVariantsNormalizesDotSlash(t *testing.T) {
+	// python builds the new ref via Path math (ref_path.parent / stem_op),
+	// which drops a leading "./"; a raw TrimSuffix concat would keep it.
+	needs := map[string]map[string]bool{"child.json": {"create": true}}
+	data := map[string]any{"$ref": "./child.json"}
+	rewriteRefsToVariants(data, "create", "parent.json", needs)
+	if got := data["$ref"]; got != "child_create_request.json" {
+		t.Errorf("$ref = %v, want normalized child_create_request.json", got)
+	}
+}
+
+func TestGenerateVariantsSkipsUnknownPath(t *testing.T) {
+	// python raises KeyError here; we skip, leaving fail-loud to the caller.
+	set := &SchemaSet{Files: map[string]map[string]any{}}
+	GenerateVariants(set, map[string]map[string]bool{"ghost.json": {"create": true}})
+	if len(set.Files) != 0 {
+		t.Errorf("phantom variant emitted for unknown path: %v", set.Paths())
+	}
+}
+
+func TestVariantStageReentrant(t *testing.T) {
+	// The one property goldens can never cover: they run the pipeline once.
+	build := func() *SchemaSet {
+		return &SchemaSet{Files: map[string]map[string]any{
+			"parent.json": {
+				"title": "Parent", "type": "object",
+				"required": []any{"child"},
+				"properties": map[string]any{
+					"child": map[string]any{"ucp_request": "required", "$ref": "child.json"},
+				},
+			},
+			"child.json": {
+				"title": "Child", "type": "object",
+				"properties": map[string]any{"sku": map[string]any{"type": "string"}},
+			},
+		}}
+	}
+	stage := func(set *SchemaSet) {
+		needs := DiscoverVariantNeeds(set)
+		PropagateNeeds(set, needs)
+		GenerateVariants(set, needs)
+	}
+	set := build()
+	stage(set)
+	firstPaths := set.Paths()
+	firstBody := map[string]string{}
+	for _, p := range firstPaths {
+		raw, err := json.Marshal(set.Files[p])
+		if err != nil {
+			t.Fatal(err)
+		}
+		firstBody[p] = string(raw)
+	}
+
+	stage(set) // second run over the already-populated set
+	if !reflect.DeepEqual(set.Paths(), firstPaths) {
+		t.Errorf("file set changed on re-run:\n%v\n%v", firstPaths, set.Paths())
+	}
+	for _, p := range set.Paths() {
+		raw, err := json.Marshal(set.Files[p])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(raw) != firstBody[p] {
+			t.Errorf("%s changed on re-run:\n%s\n%s", p, firstBody[p], raw)
+		}
+		if strings.Count(p, "_request") > 1 {
+			t.Errorf("double-suffixed variant on re-run: %s", p)
+		}
+	}
+}
