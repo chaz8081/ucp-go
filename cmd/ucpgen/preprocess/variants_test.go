@@ -1,8 +1,10 @@
 package preprocess
 
 import (
+	"encoding/json"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -168,5 +170,49 @@ func TestPropagateNeedsUcpRules(t *testing.T) {
 	// No properties at root: no request rules applied, $defs carried as-is.
 	if _, has := uv["$defs"]; !has {
 		t.Error("ucp variant lost $defs")
+	}
+}
+
+// TestGenerateVariantsPropertylessObjectEmitsEmptyPropertiesAndRequired
+// covers a real spec-review divergence: python's applyRequestRules
+// equivalent defaults properties to {} via .get("properties", {}) and
+// unconditionally assigns properties/required on every object-shaped
+// variant (preprocess_schemas.py:468-470, 489-490), bailing only when
+// properties is present but not a dict. An object schema with no
+// "properties" key at all (e.g. attribution.json, fulfillment_destination
+// .json, message.json in the real spec) must still get an explicit empty
+// properties object and empty required array in its variant.
+func TestGenerateVariantsPropertylessObjectEmitsEmptyPropertiesAndRequired(t *testing.T) {
+	set := &SchemaSet{Files: map[string]map[string]any{
+		"shopping/attribution.json": {
+			"title": "Attribution",
+			"type":  "object",
+		},
+	}}
+	needs := map[string]map[string]bool{
+		"shopping/attribution.json": {"create": true},
+	}
+	GenerateVariants(set, needs)
+
+	v, ok := set.Files["shopping/attribution_create_request.json"]
+	if !ok {
+		t.Fatalf("create variant not added to set; files: %v", set.Paths())
+	}
+	if _, has := v["properties"]; !has {
+		t.Fatal("variant missing properties key")
+	}
+	if _, has := v["required"]; !has {
+		t.Fatal("variant missing required key")
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	s := string(out)
+	if !strings.Contains(s, `"properties":{}`) {
+		t.Errorf("expected empty properties object in JSON, got %s", s)
+	}
+	if !strings.Contains(s, `"required":[]`) {
+		t.Errorf("expected empty required array in JSON, got %s", s)
 	}
 }

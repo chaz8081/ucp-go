@@ -242,12 +242,20 @@ func applyVariantIdentity(variant map[string]any, op, stem string) {
 
 // applyRequestRules filters an object schema's properties for one op,
 // strips markers, and rewrites child refs to variants
-// (preprocess_schemas.py:464-490, 444-461).
+// (preprocess_schemas.py:464-490, 444-461). Python defaults properties to
+// {} via `.get("properties", {})` and unconditionally assigns
+// properties/required on every object-shaped variant it's called on
+// (:468-470, :489-490); it bails only when properties is present but not a
+// dict. A missing "properties" key is therefore NOT a bail condition here —
+// only a present-but-malformed one is, matching python's isinstance check.
 func applyRequestRules(obj map[string]any, op, rel string, needs map[string]map[string]bool) {
-	props, ok := obj["properties"].(map[string]any)
-	if !ok {
-		return
+	raw, hasKey := obj["properties"]
+	if hasKey {
+		if _, ok := raw.(map[string]any); !ok {
+			return // present but malformed: python's isinstance bail
+		}
 	}
+	props, _ := obj["properties"].(map[string]any) // nil when absent — zero iterations below
 	baseReq, _ := obj["required"].([]any)
 	newProps := map[string]any{}
 	newReq := []any{}
