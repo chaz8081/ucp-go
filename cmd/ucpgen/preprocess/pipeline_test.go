@@ -111,3 +111,84 @@ func TestPipelineSyntheticDottedRefs(t *testing.T) {
 		t.Errorf("cross-file ref nested inside wrapper's slim allOf not rewritten: %v", wrapperAllOf)
 	}
 }
+
+// TestPreprocessPipeline drives the whole orchestration on a minimal set:
+// an entity-based schema carrying a dotted def, a ucp metadata property,
+// and a variant marker must come out flattened, normalized, renamed, and
+// accompanied by its generated request variant.
+func TestPreprocessPipeline(t *testing.T) {
+	set := &SchemaSet{Files: map[string]map[string]any{
+		"ucp.json": {
+			"$defs": map[string]any{
+				"entity": map[string]any{
+					"type":       "object",
+					"properties": map[string]any{"id": map[string]any{"type": "string"}},
+				},
+				"platform_schema": map[string]any{},
+				"business_schema": map[string]any{},
+			},
+		},
+		"thing.json": {
+			"title": "Thing",
+			"$defs": map[string]any{
+				"dev.ucp.mount.extra": map[string]any{"type": "object"},
+			},
+			// The `ucp` property sits at the document root, as it does in
+			// every real spec file carrying one (e.g. shopping/order.json).
+			// Metadata normalization is Phase 0 and only reaches root
+			// properties, so a ucp property buried inside an allOf branch
+			// would not be truncated — by python either.
+			"properties": map[string]any{
+				"ucp": map[string]any{"$ref": "ucp.json#/$defs/platform_schema"},
+			},
+			"allOf": []any{
+				map[string]any{"$ref": "ucp.json#/$defs/entity"},
+				map[string]any{
+					"type":     "object",
+					"required": []any{"name"},
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string", "ucp_request": "required"},
+					},
+				},
+			},
+		},
+	}}
+	if err := Preprocess(set); err != nil {
+		t.Fatalf("Preprocess: %v", err)
+	}
+	thing := set.Files["thing.json"]
+	if _, has := thing["allOf"]; has {
+		t.Errorf("allOf not fully merged: %v", thing["allOf"])
+	}
+	props := thing["properties"].(map[string]any)
+	if _, ok := props["id"]; !ok {
+		t.Error("entity fields not inlined")
+	}
+	if got := props["ucp"].(map[string]any)["$ref"]; got != "ucp.json" {
+		t.Errorf("ucp ref not normalized: %v", got)
+	}
+	if _, ok := thing["$defs"].(map[string]any)["extra"]; !ok {
+		t.Error("dotted def not flattened")
+	}
+	if _, ok := set.Files["ucp.json"]["oneOf"]; !ok {
+		t.Error("ucp.json missing metadata union")
+	}
+	if _, ok := set.Files["thing_create_request.json"]; !ok {
+		t.Errorf("variant not generated; files: %v", set.Paths())
+	}
+}
+
+func TestPreprocessRequiresEntity(t *testing.T) {
+	// python raises when ucp.json has no $defs.entity (main():669-672);
+	// the pipeline is the layer that owns that gate.
+	noUcp := &SchemaSet{Files: map[string]map[string]any{"a.json": {"title": "A"}}}
+	if err := Preprocess(noUcp); err == nil {
+		t.Error("missing ucp.json must error")
+	}
+	noEntity := &SchemaSet{Files: map[string]map[string]any{
+		"ucp.json": {"$defs": map[string]any{"platform_schema": map[string]any{}}},
+	}}
+	if err := Preprocess(noEntity); err == nil {
+		t.Error("missing $defs.entity must error")
+	}
+}

@@ -57,10 +57,12 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 
 	m := &Manifest{SpecRef: specRef, Schemas: map[string]ManifestEntry{}}
 	for _, rel := range rels {
+		// Input contract: schemas are already normalized. The `preprocess`
+		// subcommand owns every transform now, so emit does no merging of
+		// its own — a root-level MergeAllOf here would be redundant with
+		// PreprocessDocument's whole-document walk and would silently
+		// diverge from it for nested nodes.
 		schema := set.Files[rel]
-		if err := preprocess.MergeAllOf(schema, schema); err != nil {
-			return nil, fmt.Errorf("%s: %w", rel, err)
-		}
 		pkg := "ucp"
 		if dir := filepath.Dir(rel); dir != "." {
 			pkg = strings.ReplaceAll(dir, "/", "") // shopping/types -> shoppingtypes; refined in phase 2
@@ -115,15 +117,92 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 	return m, os.WriteFile(filepath.Join(outDir, "MANIFEST.json"), append(raw, '\n'), 0o644)
 }
 
-func main() {
-	schemas := flag.String("schemas", "", "path to spec schemas root")
-	out := flag.String("out", ".", "output root")
-	specRef := flag.String("spec-ref", "unknown", "spec branch@sha provenance")
-	flag.Parse()
-	if *schemas == "" {
-		log.Fatal("-schemas is required")
+// writeCanonicalSet writes every schema in the set to outDir as canonical
+// JSON, preserving the set's relative paths.
+func writeCanonicalSet(set *preprocess.SchemaSet, outDir string) error {
+	for _, rel := range set.Paths() {
+		raw, err := preprocess.CanonicalJSON(set.Files[rel])
+		if err != nil {
+			return fmt.Errorf("%s: %w", rel, err)
+		}
+		dst := filepath.Join(outDir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(dst, append(raw, '\n'), 0o644); err != nil {
+			return err
+		}
 	}
-	if _, err := run(*schemas, *out, *specRef); err != nil {
-		log.Fatal(err)
+	return nil
+}
+
+// runPreprocess loads the raw spec schemas, normalizes the whole set, and
+// writes the canonical result — the input to the emit stage and the form
+// compared against the committed goldens.
+func runPreprocess(schemaDir, outDir string) error {
+	set, err := preprocess.LoadSchemas(schemaDir)
+	if err != nil {
+		return err
+	}
+	if err := preprocess.Preprocess(set); err != nil {
+		return err
+	}
+	return writeCanonicalSet(set, outDir)
+}
+
+// runCanonicalize rewrites an already-preprocessed schema tree through the
+// same canonical encoder without transforming it. It exists so goldens
+// produced by the official python preprocessor can be compared against Go
+// output without formatting differences masquerading as content ones.
+func runCanonicalize(schemaDir, outDir string) error {
+	set, err := preprocess.LoadSchemas(schemaDir)
+	if err != nil {
+		return err
+	}
+	return writeCanonicalSet(set, outDir)
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		log.Fatal("usage: ucpgen <preprocess|emit|canonicalize> [flags]")
+	}
+	cmd, args := os.Args[1], os.Args[2:]
+	switch cmd {
+	case "preprocess":
+		fs := flag.NewFlagSet("preprocess", flag.ExitOnError)
+		schemas := fs.String("schemas", "", "path to spec schemas root")
+		outSchemas := fs.String("out-schemas", "", "directory to write normalized schemas")
+		fs.Parse(args)
+		if *schemas == "" || *outSchemas == "" {
+			log.Fatal("-schemas and -out-schemas are required")
+		}
+		if err := runPreprocess(*schemas, *outSchemas); err != nil {
+			log.Fatal(err)
+		}
+	case "emit":
+		fs := flag.NewFlagSet("emit", flag.ExitOnError)
+		schemas := fs.String("schemas", "", "path to normalized schemas root")
+		out := fs.String("out", ".", "output root")
+		specRef := fs.String("spec-ref", "unknown", "spec branch@sha provenance")
+		fs.Parse(args)
+		if *schemas == "" {
+			log.Fatal("-schemas is required")
+		}
+		if _, err := run(*schemas, *out, *specRef); err != nil {
+			log.Fatal(err)
+		}
+	case "canonicalize":
+		fs := flag.NewFlagSet("canonicalize", flag.ExitOnError)
+		schemas := fs.String("schemas", "", "path to already-preprocessed schemas")
+		outSchemas := fs.String("out-schemas", "", "directory to write canonical copies")
+		fs.Parse(args)
+		if *schemas == "" || *outSchemas == "" {
+			log.Fatal("-schemas and -out-schemas are required")
+		}
+		if err := runCanonicalize(*schemas, *outSchemas); err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatalf("unknown subcommand %q (want preprocess, emit, or canonicalize)", cmd)
 	}
 }
