@@ -14,11 +14,16 @@ import (
 // Go sorts it, and the golden comparator sorts required arrays on both
 // sides before comparing.
 func DistributeToBranches(node map[string]any) {
-	// properties present but not an object is a malformed shape; this
-	// function has no error return, so it deliberately no-ops here
-	// rather than panicking — MergeAllOf's branch/property checks catch
-	// malformed properties upstream, before the document walk reaches
-	// this stage.
+	// properties present but not an object is a malformed shape, and it
+	// is NOT guaranteed to be caught upstream: MergeAllOf only validates
+	// properties on nodes that carry an allOf key, so a node with
+	// anyOf/oneOf but no allOf and malformed properties reaches this
+	// function completely unvalidated. This function has no error
+	// return by design, so it silently no-ops on that shape rather than
+	// propagating a failure — python's equivalent (dict.update()/.items()
+	// against a non-dict) raises AttributeError in the same case. This
+	// combination (malformed properties + anyOf/oneOf, no allOf) does
+	// not occur anywhere in the real UCP spec.
 	baseProps, ok := node["properties"].(map[string]any)
 	if !ok {
 		return
@@ -51,6 +56,14 @@ func DistributeToBranches(node map[string]any) {
 			var req []string
 			for _, lists := range [][]any{baseReq, asAnySlice(nb["required"])} {
 				for _, r := range lists {
+					// Non-string entries are silently dropped by the
+					// r.(string) failing the ok check below — a
+					// divergence from python, whose set()-based union
+					// preserves any hashable value regardless of type.
+					// See allof.go's addRequired for the related (but
+					// distinct) case of "required" itself being a bool
+					// rather than an array, from the spec's embedded
+					// OpenRPC descriptors.
 					if s, ok := r.(string); ok && !seen[s] {
 						seen[s] = true
 						req = append(req, s)
@@ -64,11 +77,15 @@ func DistributeToBranches(node map[string]any) {
 			}
 			nb["required"] = reqAny
 
-			if _, has := nb["type"]; !has && baseType != nil {
+			if _, has := nb["type"]; !has && baseType != nil && baseType != "" {
 				// Deep-copy: baseType may be an array-valued "type"
 				// ([]any), and assigning the same slice to every branch
 				// would let one branch's later mutation bleed into its
 				// siblings and into the node's own base type.
+				// baseType == "" is excluded deliberately: python
+				// inherits base type by truthiness (`if base_type:`),
+				// and an empty string is falsy there just like an unset
+				// key — inheriting it here would diverge from python.
 				nb["type"] = CopyTree(baseType)
 			}
 			updated = append(updated, nb)
@@ -111,20 +128,33 @@ func flattenEntityRef(node map[string]any, entityDef map[string]any) error {
 }
 
 // PreprocessDocument normalizes one schema file in place. Entity flattening
-// runs as a whole-document pre-pass over every node BEFORE the merge walk:
-// interleaving it per-node (as python does at preprocess_schemas.py:263-265)
-// is order-sensitive when a $defs entry holding an unresolved external ref
-// is $ref'd by a sibling — the pre-pass removes the only such case (the
-// entity ref) up front, making the reversed walk order-independent
-// (verified 78/78 against the python output on the real spec).
-// entityDef may be nil for schemas that never reference the entity base.
+// runs as a whole-document pre-pass over every node BEFORE the merge walk,
+// rather than interleaved per-node as python does
+// (preprocess_schemas.py:263-265). The mechanism this protects: of every
+// external allOf $ref in the real spec (25 of them), only a
+// ucp.json#/$defs/entity ref is ever converted into real inline content —
+// flattenEntityRef substitutes the ref for a deep copy of the entity def's
+// own properties/required/etc. Every other external ref is dropped
+// identically into a slim, unresolved allOf regardless of visit order, so
+// order never matters for those. It does matter for entity refs: 6 of the
+// spec's $defs entries carry one AND are themselves $ref'd by a sibling
+// def's allOf, so when MergeAllOf follows that local $ref and recursively
+// merges the copied target, the target's entity ref must already be real
+// content, or the entity's properties/required never make it into the
+// referencing node at all. A whole-document pre-pass guarantees every
+// entity ref is inlined before any merge starts, so this dependency can
+// never become visit-order-sensitive (verified 78/78 against the python
+// output on the real spec).
+// entityDef may be nil, or empty, for schemas that never reference the
+// entity base — python's `if entity_def:` treats an empty dict the same
+// as None, so len(entityDef) == 0 no-ops the pre-pass either way.
 func PreprocessDocument(schema map[string]any, entityDef map[string]any) error {
 	nodes := IterNodes(schema)
-	if entityDef != nil {
+	if len(entityDef) > 0 {
 		for _, n := range nodes {
 			if node, ok := n.(map[string]any); ok {
 				if err := flattenEntityRef(node, entityDef); err != nil {
-					return err
+					return fmt.Errorf("entity pre-pass: %w", err)
 				}
 			}
 		}

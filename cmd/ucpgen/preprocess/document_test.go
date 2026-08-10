@@ -76,6 +76,25 @@ func TestDistributeToBranchesTypeArrayNotAliased(t *testing.T) {
 	}
 }
 
+func TestDistributeToBranchesEmptyStringTypeNotInherited(t *testing.T) {
+	// python truthiness: an empty-string "type" is falsy, same as unset,
+	// so it must not be copied down onto branches that lack their own type.
+	node := map[string]any{
+		"type": "",
+		"properties": map[string]any{
+			"kind": map[string]any{"type": "string"},
+		},
+		"oneOf": []any{
+			map[string]any{"properties": map[string]any{"a": map[string]any{"type": "string"}}},
+		},
+	}
+	DistributeToBranches(node)
+	branch := node["oneOf"].([]any)[0].(map[string]any)
+	if _, has := branch["type"]; has {
+		t.Errorf("empty-string base type must not be inherited, branch has type %v", branch["type"])
+	}
+}
+
 func TestPreprocessDocumentNestedDefs(t *testing.T) {
 	schema := map[string]any{
 		"title": "Wrapper",
@@ -199,5 +218,28 @@ func TestPreprocessDocumentDeterministic(t *testing.T) {
 		if _, ok := props[want]; !ok {
 			t.Errorf("platform_schema missing inherited %q; has %v", want, props)
 		}
+	}
+}
+
+func TestPreprocessDocumentEmptyEntityDefNoop(t *testing.T) {
+	// python truthiness: an empty dict is falsy just like None, so an
+	// empty (but non-nil) entityDef must no-op the entity pre-pass exactly
+	// like passing nil — the entity ref stays as an unresolved $ref.
+	schema := map[string]any{
+		"title": "Thing",
+		"allOf": []any{
+			map[string]any{"$ref": "ucp.json#/$defs/entity"},
+			map[string]any{"required": []any{"id"}},
+		},
+	}
+	if err := PreprocessDocument(schema, map[string]any{}); err != nil {
+		t.Fatalf("PreprocessDocument: %v", err)
+	}
+	allOf, ok := schema["allOf"].([]any)
+	if !ok || len(allOf) != 1 {
+		t.Fatalf("expected the unresolved entity ref to remain as a slim allOf, got %v", schema["allOf"])
+	}
+	if ref := allOf[0].(map[string]any)["$ref"]; ref != "ucp.json#/$defs/entity" {
+		t.Errorf("entity ref should not be inlined when entityDef is empty, got %v", ref)
 	}
 }

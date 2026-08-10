@@ -25,6 +25,14 @@ func LoadSchemas(root string) (*SchemaSet, error) {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".json") {
 			return err
 		}
+		if strings.HasSuffix(d.Name(), "_request.json") {
+			// python-sdk skips these by basename at load time
+			// (preprocess_schemas.py:653): they are generated variant
+			// output (Task 8 writes them into the set), so a real-tree
+			// load must never re-ingest generated output as if it were
+			// source (verified: 138 vs 78 files after a python run).
+			return nil
+		}
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return err

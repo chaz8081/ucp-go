@@ -57,3 +57,26 @@ func TestRewriteExternalDefsRefs(t *testing.T) {
 		t.Errorf("external ref not rewritten: %v", got)
 	}
 }
+
+func TestRewriteExternalDefsRefsSkipsUcpJson(t *testing.T) {
+	// python-sdk's pass 1b skips ucp.json entirely when rewriting external
+	// $defs refs (preprocess_schemas.py:685-687); a ref living inside
+	// ucp.json itself must be left untouched even when it would otherwise
+	// be a rewrite match.
+	set := &SchemaSet{Files: map[string]map[string]any{
+		"ucp.json": {
+			"properties": map[string]any{
+				"x": map[string]any{"$ref": "types/total.json#/$defs/dev.ucp.mount.total"},
+			},
+		},
+		"types/total.json": {},
+	}}
+	renames := map[string]map[string]string{
+		"types/total.json": {"dev.ucp.mount.total": "total"},
+	}
+	RewriteExternalDefsRefs(set, renames)
+	got := set.Files["ucp.json"]["properties"].(map[string]any)["x"].(map[string]any)["$ref"]
+	if got != "types/total.json#/$defs/dev.ucp.mount.total" {
+		t.Errorf("ucp.json's own ref must be left untouched, got %v", got)
+	}
+}

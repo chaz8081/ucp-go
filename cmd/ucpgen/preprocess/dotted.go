@@ -26,7 +26,19 @@ func FlattenDottedDefs(schema map[string]any) map[string]string {
 	for k := range defs {
 		names = append(names, k)
 	}
-	sort.Strings(names) // deterministic rename resolution order
+	// Deterministic rename resolution order. NOTE: python resolves in
+	// original $defs insertion (file) order, not sorted order. When two
+	// dotted keys share the same TAIL and collide, resolution order
+	// decides which one wins the bare tail and which falls back to
+	// dot->underscore — so a sorted vs. file-order walk can pick a
+	// DIFFERENT winner for each, and therefore a different output NAME.
+	// Unlike ordering differences in arrays (required, oneOf, ...), this
+	// is not something any comparator can normalize away — the def keys
+	// themselves would differ. The current UCP spec has zero tail
+	// collisions, so this divergence has never been observed in
+	// practice, but it is a real parity risk if a future spec introduces
+	// one.
+	sort.Strings(names)
 	for _, old := range names {
 		if !strings.Contains(old, ".") {
 			continue
@@ -85,6 +97,12 @@ func rewriteLocalDefsRefs(root map[string]any, renameMap map[string]string) {
 // keyed by the target file's slash-relative path within the SchemaSet.
 func RewriteExternalDefsRefs(set *SchemaSet, renames map[string]map[string]string) {
 	for _, rel := range set.Paths() {
+		if strings.Contains(rel, "ucp.json") {
+			// python-sdk's pass 1b skips ucp.json entirely here
+			// (preprocess_schemas.py:685-687) — it never rewrites
+			// ucp.json's own outbound refs in this pass.
+			continue
+		}
 		schema := set.Files[rel]
 		for _, n := range IterNodes(schema) {
 			m, ok := n.(map[string]any)
