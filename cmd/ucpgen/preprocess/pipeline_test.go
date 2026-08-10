@@ -33,7 +33,10 @@ func TestPipelineSyntheticDottedRefs(t *testing.T) {
 			continue
 		}
 		schema := set.Files[rel]
-		renames[rel] = FlattenDottedDefs(schema)
+		// Mirror the real driver: only store non-empty rename maps.
+		if rm := FlattenDottedDefs(schema); len(rm) > 0 {
+			renames[rel] = rm
+		}
 		// nil entityDef: entity flattening is out of scope for this
 		// transform pair, so ucp.json#/$defs/entity refs are left as
 		// unresolved external refs throughout — see below.

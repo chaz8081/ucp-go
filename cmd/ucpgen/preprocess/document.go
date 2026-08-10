@@ -136,12 +136,17 @@ func flattenEntityRef(node map[string]any, entityDef map[string]any) error {
 // flattenEntityRef substitutes the ref for a deep copy of the entity def's
 // own properties/required/etc. Every other external ref is dropped
 // identically into a slim, unresolved allOf regardless of visit order, so
-// order never matters for those. It does matter for entity refs: 6 of the
-// spec's $defs entries carry one AND are themselves $ref'd by a sibling
-// def's allOf, so when MergeAllOf follows that local $ref and recursively
-// merges the copied target, the target's entity ref must already be real
-// content, or the entity's properties/required never make it into the
-// referencing node at all. A whole-document pre-pass guarantees every
+// order never matters for those. It does matter for entity refs: 3 of the
+// spec's $defs entries (capability, payment_handler, and service .json's
+// "base" defs) carry an entity ref AND are themselves $ref'd by a sibling
+// def's allOf — of 6 $defs entries total that carry some external allOf
+// ref and are locally $ref'd this way, these 3 are the entity-ref half;
+// the other 3 carry non-entity external refs, which are the
+// order-insensitive case above. For the entity-ref 3, when MergeAllOf
+// follows the local $ref and recursively merges the copied target, the
+// target's entity ref must already be real content, or the entity's
+// properties/required never make it into the referencing node at all.
+// A whole-document pre-pass guarantees every
 // entity ref is inlined before any merge starts, so this dependency can
 // never become visit-order-sensitive (verified 78/78 against the python
 // output on the real spec).
