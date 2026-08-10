@@ -99,6 +99,77 @@ func TestMergeAllOfPrecedence(t *testing.T) {
 	}
 }
 
+func TestMergeAllOfRemainingRefs(t *testing.T) {
+	root := map[string]any{}
+	node := map[string]any{
+		"allOf": []any{
+			map[string]any{"$ref": "payment_credential.json"},
+			map[string]any{"$ref": "#/$defs/missing"},
+			map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"n": map[string]any{"type": "string"}},
+			},
+		},
+	}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("unresolvable refs must not error: %v", err)
+	}
+	rem, ok := node["allOf"].([]any)
+	if !ok || len(rem) != 2 {
+		t.Fatalf("want slim allOf with 2 remaining refs, got %v", node["allOf"])
+	}
+	if rem[0].(map[string]any)["$ref"] != "payment_credential.json" {
+		t.Errorf("external ref not preserved: %v", rem[0])
+	}
+	if _, ok := node["properties"].(map[string]any)["n"]; !ok {
+		t.Error("inline branch properties lost")
+	}
+}
+
+func TestMergeAllOfPolyExtractionAndDocCarry(t *testing.T) {
+	root := map[string]any{}
+	node := map[string]any{
+		"allOf": []any{
+			map[string]any{
+				"title":       "Branch Title",
+				"description": "branch docs",
+				"oneOf":       []any{map[string]any{"type": "string"}},
+			},
+			map[string]any{
+				"anyOf": []any{map[string]any{"type": "integer"}},
+			},
+		},
+	}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+	if got := node["title"]; got != "Branch Title" {
+		t.Errorf("title = %v, want carried from branch", got)
+	}
+	if got := node["description"]; got != "branch docs" {
+		t.Errorf("description = %v, want carried", got)
+	}
+	if len(node["oneOf"].([]any)) != 1 || len(node["anyOf"].([]any)) != 1 {
+		t.Errorf("poly branches not extracted onto node: %v", node)
+	}
+}
+
+func TestMergeAllOfDeepCopiesResolvedRefs(t *testing.T) {
+	base := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"id": map[string]any{"type": "string"}},
+	}
+	root := map[string]any{"$defs": map[string]any{"base": base}}
+	node := map[string]any{"allOf": []any{map[string]any{"$ref": "#/$defs/base"}}}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+	node["properties"].(map[string]any)["id"].(map[string]any)["type"] = "MUTATED"
+	if base["properties"].(map[string]any)["id"].(map[string]any)["type"] != "string" {
+		t.Error("resolved ref was aliased, not deep-copied — mutation bled into $defs")
+	}
+}
+
 func TestMergeAllOfErrors(t *testing.T) {
 	tests := []struct {
 		name string
