@@ -10,6 +10,11 @@ import "sort"
 // Go sorts it, and the golden comparator sorts required arrays on both
 // sides before comparing.
 func DistributeToBranches(node map[string]any) {
+	// properties present but not an object is a malformed shape; this
+	// function has no error return, so it deliberately no-ops here
+	// rather than panicking — MergeAllOf's branch/property checks catch
+	// malformed properties upstream, before the document walk reaches
+	// this stage.
 	baseProps, ok := node["properties"].(map[string]any)
 	if !ok {
 		return
@@ -56,7 +61,11 @@ func DistributeToBranches(node map[string]any) {
 			nb["required"] = reqAny
 
 			if _, has := nb["type"]; !has && baseType != nil {
-				nb["type"] = baseType
+				// Deep-copy: baseType may be an array-valued "type"
+				// ([]any), and assigning the same slice to every branch
+				// would let one branch's later mutation bleed into its
+				// siblings and into the node's own base type.
+				nb["type"] = CopyTree(baseType)
 			}
 			updated = append(updated, nb)
 		}

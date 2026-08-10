@@ -4,11 +4,15 @@ import "sort"
 
 // IterNodes returns every map and slice node in the tree in stack-based
 // DFS discovery order, matching the python-sdk's iter_nodes
-// (preprocess_schemas.py:38-60). Callers needing approximate bottom-up
-// order iterate the result in reverse, as the document preprocessor does.
-// Sibling order is nondeterministic (map iteration); every transform
-// applied via this walker must be commutative across siblings — serialized
-// determinism is guaranteed separately by CanonicalJSON.
+// (preprocess_schemas.py:38-60). Traversal order is deterministic: a
+// map node's children are pushed in sorted key order (list nodes are
+// already ordered, so no sorting is needed there), and callers needing
+// approximate bottom-up order iterate the result in reverse, as the
+// document preprocessor does. Unlike python's iter_nodes, this walker
+// keeps no visited set — every tree it walks has already passed through
+// CopyTree (see MergeAllOf's ref resolution), so it is a genuine tree,
+// not a graph, and cannot contain the shared-reference cycles a visited
+// set would guard against.
 func IterNodes(root any) []any {
 	var out []any
 	stack := []any{root}
@@ -18,8 +22,13 @@ func IterNodes(root any) []any {
 		out = append(out, curr)
 		switch t := curr.(type) {
 		case map[string]any:
-			for _, child := range t {
-				switch child.(type) {
+			keys := make([]string, 0, len(t))
+			for k := range t {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				switch child := t[k]; child.(type) {
 				case map[string]any, []any:
 					stack = append(stack, child)
 				}

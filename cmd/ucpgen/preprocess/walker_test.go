@@ -39,6 +39,23 @@ func TestIterNodes(t *testing.T) {
 	}
 }
 
+func TestIterNodesDeterministicOrder(t *testing.T) {
+	root := map[string]any{
+		"alpha":   map[string]any{"z": true},
+		"beta":    map[string]any{"y": true},
+		"gamma":   map[string]any{"x": true},
+		"delta":   map[string]any{"w": true},
+		"epsilon": map[string]any{"v": true},
+	}
+	first := IterNodes(root)
+	for i := 0; i < 20; i++ {
+		got := IterNodes(root)
+		if !reflect.DeepEqual(got, first) {
+			t.Fatalf("run %d: IterNodes order is nondeterministic:\n first=%v\n got=%v", i, first, got)
+		}
+	}
+}
+
 func TestSchemaSetPaths(t *testing.T) {
 	set := &SchemaSet{Files: map[string]map[string]any{
 		"b.json": {}, "a/c.json": {}, "a.json": {},

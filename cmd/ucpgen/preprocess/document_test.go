@@ -49,3 +49,28 @@ func TestDistributeToBranches(t *testing.T) {
 		t.Error("distribution mutated the base node's properties")
 	}
 }
+
+func TestDistributeToBranchesTypeArrayNotAliased(t *testing.T) {
+	node := map[string]any{
+		"type": []any{"object", "null"},
+		"properties": map[string]any{
+			"kind": map[string]any{"type": "string"},
+		},
+		"oneOf": []any{
+			map[string]any{"properties": map[string]any{"a": map[string]any{"type": "string"}}},
+			map[string]any{"properties": map[string]any{"b": map[string]any{"type": "string"}}},
+		},
+	}
+	DistributeToBranches(node)
+	branches := node["oneOf"].([]any)
+	t0 := branches[0].(map[string]any)["type"].([]any)
+	t1 := branches[1].(map[string]any)["type"].([]any)
+	t0[0] = "MUTATED"
+	if t1[0] == "MUTATED" {
+		t.Error("branch type slices are aliased — mutating one branch changed another")
+	}
+	baseType := node["type"].([]any)
+	if baseType[0] == "MUTATED" {
+		t.Error("branch type slice aliased the node's own base type")
+	}
+}

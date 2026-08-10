@@ -170,6 +170,100 @@ func TestMergeAllOfDeepCopiesResolvedRefs(t *testing.T) {
 	}
 }
 
+func TestMergeAllOfSiblingDefRetainedRefs(t *testing.T) {
+	root := map[string]any{
+		"$defs": map[string]any{
+			"base": map[string]any{
+				"allOf": []any{
+					map[string]any{"$ref": "other.json#/$defs/x"},
+					map[string]any{"type": "object", "required": []any{"a"},
+						"properties": map[string]any{"a": map[string]any{"type": "string"}}},
+				},
+			},
+		},
+	}
+	node := map[string]any{"allOf": []any{map[string]any{"$ref": "#/$defs/base"}}}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+	if _, ok := node["properties"].(map[string]any)["a"]; !ok {
+		t.Error("property from sibling def lost")
+	}
+	if _, has := node["allOf"]; has {
+		t.Errorf("branch's slim allOf must not carry onto parent: %v", node["allOf"])
+	}
+}
+
+func TestMergeAllOfEmptyResolvedRefRemains(t *testing.T) {
+	root := map[string]any{"$defs": map[string]any{"x": map[string]any{}}}
+	node := map[string]any{"allOf": []any{map[string]any{"$ref": "#/$defs/x"}}}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+	rem, ok := node["allOf"].([]any)
+	if !ok || len(rem) != 1 {
+		t.Fatalf("want slim allOf with 1 remaining ref for empty resolved object, got %v", node["allOf"])
+	}
+	if rem[0].(map[string]any)["$ref"] != "#/$defs/x" {
+		t.Errorf("ref not preserved: %v", rem[0])
+	}
+}
+
+func TestMergeAllOfNonObjectRefDropped(t *testing.T) {
+	root := map[string]any{"$defs": map[string]any{"str": "not-an-object"}}
+	node := map[string]any{
+		"allOf": []any{
+			map[string]any{"$ref": "#/$defs/str"},
+			map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"n": map[string]any{"type": "string"}},
+			},
+		},
+	}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+	if _, has := node["allOf"]; has {
+		t.Errorf("ref resolving to a non-object must be dropped, not carried into allOf: %v", node["allOf"])
+	}
+	if _, ok := node["properties"].(map[string]any)["n"]; !ok {
+		t.Error("sibling branch properties lost")
+	}
+}
+
+func TestMergeAllOfRequiredPreservesNodeOwnList(t *testing.T) {
+	root := map[string]any{}
+	node := map[string]any{
+		"required": []any{"b", "b", ""},
+		"allOf": []any{
+			map[string]any{"required": []any{"a", "b"}},
+		},
+	}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+	got := node["required"].([]any)
+	want := []any{"b", "b", "", "a"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("required = %v, want %v", got, want)
+	}
+}
+
+func TestMergeAllOfRequiredUntouchedWhenNoBranchContributes(t *testing.T) {
+	root := map[string]any{}
+	node := map[string]any{
+		"required": []any{"x", "x", ""},
+		"allOf":    []any{map[string]any{"type": "object"}},
+	}
+	if err := MergeAllOf(node, root); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+	want := []any{"x", "x", ""}
+	if !reflect.DeepEqual(node["required"], want) {
+		t.Errorf("required = %v, want untouched %v", node["required"], want)
+	}
+}
+
 func TestMergeAllOfErrors(t *testing.T) {
 	tests := []struct {
 		name string
