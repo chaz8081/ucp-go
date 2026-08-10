@@ -62,9 +62,19 @@ from what.
 
 ### conformance/
 
-`conformance/` is a separate Go module that checks generated models agree
-with a real draft-2020-12 JSON Schema validator (the "oracle") on the same
-fixture payloads. It's the one place in the repo that carries an external
-dependency (`github.com/santhosh-tekuri/jsonschema/v6`); see `docs/specs/`
-§7 for why it's approved and quarantined there instead of in the published
-SDK module.
+`conformance/` is a separate Go module holding the checks that need more
+than the SDK itself: the goldens comparison above, agreement between
+generated models and a real draft-2020-12 JSON Schema validator (the
+"oracle"), and a guard that the hand-copied mirror in the oracle test still
+matches what the emitter produces. It's the one place in the repo that
+carries an external dependency (`github.com/santhosh-tekuri/jsonschema/v6`);
+see `docs/specs/` §7 for why it's approved and quarantined there instead of
+in the published SDK module.
+
+Being a separate module means **`go test ./...` at the repo root does not
+run it** — run it explicitly:
+
+    (cd conformance && go test ./...)
+
+Anything that changes the `ucpgen` command-line surface or the emitter's
+output needs both suites.

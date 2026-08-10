@@ -101,14 +101,14 @@ func TestGeneratedOutputMatchesMirror(t *testing.T) {
 		t.Fatalf("resolve repo root: %v", err)
 	}
 
-	cmd := exec.Command("go", "run", "./cmd/ucpgen",
+	cmd := exec.Command("go", "run", "./cmd/ucpgen", "emit",
 		"-schemas", "./cmd/ucpgen/preprocess/testdata/schemas",
 		"-out", outDir,
 		"-spec-ref", "drift-check",
 	)
 	cmd.Dir = rootDir
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("go run ./cmd/ucpgen: %v\n%s", err, out)
+		t.Fatalf("go run ./cmd/ucpgen emit: %v\n%s", err, out)
 	}
 
 	generated, err := os.ReadFile(filepath.Join(outDir, "test", "link.go"))
