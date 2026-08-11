@@ -193,6 +193,101 @@ func TestCompileConstraintsMapChecks(t *testing.T) {
 		`field property name: does not match pattern`)
 }
 
+// TestCompileObjectSelfCountsPresentProperties covers description.json:
+// three optional fields and "at least one format must be provided". The
+// count has to be of properties actually set, which for a struct means
+// non-nil fields plus whatever landed in Extra.
+func TestCompileObjectSelfCountsPresentProperties(t *testing.T) {
+	e := newFileEmitter(idxFixture(t), "shopping/types/description.json", "types")
+	c := &constraintSet{}
+	schema := map[string]any{"type": "object", "minProperties": float64(1)}
+	fields := []structField{
+		{jsonName: "html", goName: "HTML"},
+		{jsonName: "plain", goName: "Plain"},
+	}
+	if err := compileObjectSelf(e, c, "Description", schema, fields, true); err != nil {
+		t.Fatalf("compileObjectSelf: %v", err)
+	}
+	got := c.checks.String()
+	for _, want := range []string{
+		"if v.HTML != nil {", "if v.Plain != nil {", "len(v.Extra)",
+		"Description: has fewer than minProperties 1",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if !e.enforced.has(schema, "minProperties") {
+		t.Error("minProperties was checked but not recorded as enforced")
+	}
+}
+
+// A required property is present by construction, so it contributes to the
+// count without a runtime test.
+func TestCompileObjectSelfCountsRequiredWithoutATest(t *testing.T) {
+	e := newFileEmitter(idxFixture(t), "shopping/types/description.json", "types")
+	c := &constraintSet{}
+	schema := map[string]any{"type": "object", "minProperties": float64(2)}
+	fields := []structField{
+		{jsonName: "id", goName: "ID", required: true},
+		{jsonName: "plain", goName: "Plain"},
+	}
+	if err := compileObjectSelf(e, c, "Thing", schema, fields, false); err != nil {
+		t.Fatalf("compileObjectSelf: %v", err)
+	}
+	got := c.checks.String()
+	if strings.Contains(got, "v.ID != nil") {
+		t.Errorf("a required field needs no presence test:\n%s", got)
+	}
+	if !strings.Contains(got, "n := 1") {
+		t.Errorf("required fields should seed the count:\n%s", got)
+	}
+}
+
+// TestCompileObjectSelfPropertyNames covers signals.json: an open object
+// whose extension keys must match a pattern.
+func TestCompileObjectSelfPropertyNames(t *testing.T) {
+	e := newFileEmitter(idxFixture(t), "shopping/types/signals.json", "types")
+	c := &constraintSet{}
+	schema := map[string]any{
+		"type":          "object",
+		"propertyNames": map[string]any{"pattern": `^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$`},
+	}
+	fields := []structField{{jsonName: "dev.ucp.buyer_ip", goName: "DevUCPBuyerIP"}}
+	if err := compileObjectSelf(e, c, "Signals", schema, fields, true); err != nil {
+		t.Fatalf("compileObjectSelf: %v", err)
+	}
+	got := c.vars.String() + c.checks.String()
+	for _, want := range []string{
+		"pattern_Signals_Key", "for k := range v.Extra",
+		"Signals property name: does not match pattern",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+// A named property that violates the schema's own propertyNames would make
+// the generated check incomplete — the runtime loop only sees Extra — so it
+// must fail generation rather than pass silently.
+func TestCompileObjectSelfRejectsNamedPropertyFailingPropertyNames(t *testing.T) {
+	e := newFileEmitter(idxFixture(t), "shopping/types/signals.json", "types")
+	c := &constraintSet{}
+	schema := map[string]any{
+		"type":          "object",
+		"propertyNames": map[string]any{"pattern": `^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$`},
+	}
+	fields := []structField{{jsonName: "NotReverseDomain", goName: "NotReverseDomain"}}
+	err := compileObjectSelf(e, c, "Signals", schema, fields, true)
+	if err == nil {
+		t.Fatal("a named property violating propertyNames must fail generation")
+	}
+	if !strings.Contains(err.Error(), "NotReverseDomain") {
+		t.Errorf("error should name the offending property: %v", err)
+	}
+}
+
 // TestCompileConstraintsReportsWhatItEnforced lets the caller subtract
 // enforced keywords from what it reports as a coverage gap, so a keyword is
 // never both checked and advertised as unchecked.

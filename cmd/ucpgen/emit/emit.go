@@ -615,6 +615,13 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		fieldTypes[name] = typ
 	}
 
+	// UCP is an extension-first protocol: an open object exists so that
+	// extensions can contribute keys the base schema never lists. Without a
+	// catch-all, decoding drops every such key and re-encoding cannot
+	// restore it — signals.json's own description says the type exists so
+	// "multiple extensions contribute to the shared namespace".
+	open := isOpenObject(schema)
+
 	var c constraintSet
 	for _, name := range names {
 		prop := props[name].(map[string]any)
@@ -622,6 +629,13 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 			accessFor(fieldTypes[name], required[name]), prop); err != nil {
 			return err
 		}
+	}
+	fields := make([]structField, 0, len(names))
+	for _, name := range names {
+		fields = append(fields, structField{jsonName: name, goName: fieldNames[name], required: required[name]})
+	}
+	if err := compileObjectSelf(e, &c, typeName, schema, fields, open); err != nil {
+		return err
 	}
 
 	writeDoc(body, typeName, schema)
@@ -654,12 +668,6 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		}
 		fmt.Fprintf(body, "\t%s %s `json:%q`\n", fieldNames[name], fieldTypes[name], tag)
 	}
-	// UCP is an extension-first protocol: an open object exists so that
-	// extensions can contribute keys the base schema never lists. Without a
-	// catch-all, decoding drops every such key and re-encoding cannot
-	// restore it — signals.json's own description says the type exists so
-	// "multiple extensions contribute to the shared namespace".
-	open := isOpenObject(schema)
 	if open {
 		e.imports["encoding/json"] = "json"
 		body.WriteString("\n\t// Extra holds properties the schema does not name. The schema is\n\t// open (additionalProperties is not false), so extension keys are\n\t// preserved here and re-emitted on marshal rather than dropped.\n")

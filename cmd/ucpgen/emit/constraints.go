@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // accessKind describes how a checked value is reached from the Validate
@@ -274,6 +275,14 @@ func compileInto(e *fileEmitter, c *constraintSet, t target, node map[string]any
 	}
 
 	if len(declared) == 0 {
+		return nil
+	}
+
+	// An inline object promoted to its own named type carries its
+	// object-level constraints there, via compileObjectSelf, which needs the
+	// field list this call does not have. Leaving them here would double
+	// them up; the keywords stay reported until that type is rendered.
+	if kind == shapeStruct {
 		return nil
 	}
 
@@ -575,6 +584,131 @@ func (c *constraintSet) uniqueCheck(e *fileEmitter, t target, guard, value, scal
 	}
 	c.checks.WriteString("}\n")
 	c.checks.WriteString(closed)
+}
+
+// structField is what an object-level check needs to know about one
+// property: what it is called on each side, and whether it is always there.
+type structField struct {
+	jsonName string
+	goName   string
+	required bool
+}
+
+// compileObjectSelf emits the checks an object schema places on itself
+// rather than on any one property.
+//
+// A struct is not a map, so these cannot reuse compileMap: the property
+// count is the number of fields actually set plus whatever extension keys
+// landed in Extra, and the only names checkable at runtime are Extra's —
+// the named ones are fixed by the schema and so are verified here, while
+// the code is being generated.
+func compileObjectSelf(e *fileEmitter, c *constraintSet, typeName string, schema map[string]any, fields []structField, open bool) error {
+	t := target{typeName: typeName, varStem: typeName, label: typeName, expr: "v", access: accessValue}
+
+	for _, kw := range []string{"minProperties", "maxProperties"} {
+		if _, ok := schema[kw]; !ok {
+			continue
+		}
+		n, err := integerBound(t, schema, kw)
+		if err != nil {
+			return err
+		}
+		e.usesErrors = true
+		op, wording := "<", "has fewer than minProperties"
+		if kw == "maxProperties" {
+			op, wording = ">", "has more than maxProperties"
+		}
+		// Required properties are present by construction, so they seed the
+		// count without a runtime test.
+		base := 0
+		for _, f := range fields {
+			if f.required {
+				base++
+			}
+		}
+		c.checks.WriteString("{\n")
+		fmt.Fprintf(&c.checks, "n := %d\n", base)
+		for _, f := range fields {
+			if f.required {
+				continue
+			}
+			// Every optional field is nilable: renderStruct gives a pointer to
+			// anything that is not already a slice, map or json.RawMessage.
+			fmt.Fprintf(&c.checks, "if v.%s != nil {\nn++\n}\n", f.goName)
+		}
+		if open {
+			c.checks.WriteString("n += len(v.Extra)\n")
+		}
+		fmt.Fprintf(&c.checks, "if n %s %d {\nreturn errors.New(%q)\n}\n}\n",
+			op, n, fmt.Sprintf("%s: %s %d", typeName, wording, n))
+		e.enforced.mark(schema, kw)
+	}
+
+	names, ok := schema["propertyNames"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	// The named properties are literals the schema author wrote, so they are
+	// checkable now. Letting one through that violates the constraint would
+	// leave the generated code quietly weaker than the schema, since the
+	// runtime loop below only ever sees the keys the schema did not name.
+	for _, f := range fields {
+		if err := checkLiteralAgainst(names, f.jsonName); err != nil {
+			return fmt.Errorf("%s: property %q violates the schema's own propertyNames: %w", typeName, f.jsonName, err)
+		}
+	}
+	if !open {
+		// A closed object has no other keys, so the check is fully discharged
+		// by the verification above.
+		e.enforced.mark(schema, "propertyNames")
+		return nil
+	}
+
+	key := c.loopVar()
+	sub := t.derive("property name", "_Key", key, accessElement)
+	var body constraintSet
+	body.loops = c.loops
+	if err := compileStringChecks(e, &body, sub, names); err != nil {
+		return err
+	}
+	c.loops = body.loops
+	c.vars.WriteString(body.vars.String())
+	if body.checks.Len() > 0 {
+		fmt.Fprintf(&c.checks, "for %s := range v.Extra {\n", key)
+		c.checks.WriteString(body.checks.String())
+		c.checks.WriteString("}\n")
+	}
+	e.enforced.mark(schema, "propertyNames")
+	return nil
+}
+
+// checkLiteralAgainst evaluates a string subschema against a known value,
+// at generation time.
+func checkLiteralAgainst(node map[string]any, value string) error {
+	if pattern, ok := node["pattern"].(string); ok {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return fmt.Errorf("pattern %q is not RE2-compatible: %v", pattern, err)
+		}
+		if !re.MatchString(value) {
+			return fmt.Errorf("does not match pattern %q", pattern)
+		}
+	}
+	if max, ok := node["maxLength"].(float64); ok && float64(utf8.RuneCountInString(value)) > max {
+		return fmt.Errorf("exceeds maxLength %v", max)
+	}
+	if min, ok := node["minLength"].(float64); ok && float64(utf8.RuneCountInString(value)) < min {
+		return fmt.Errorf("is shorter than minLength %v", min)
+	}
+	if values, ok := node["enum"].([]any); ok {
+		for _, v := range values {
+			if s, _ := v.(string); s == value {
+				return nil
+			}
+		}
+		return fmt.Errorf("is not one of the permitted values")
+	}
+	return nil
 }
 
 // compileMap emits a map's own checks and recurses into its keys.
