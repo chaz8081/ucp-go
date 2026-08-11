@@ -44,15 +44,15 @@ func TestRunPipeline(t *testing.T) {
 // prefixer; EmitFile's errors must be prefix-free.
 func TestRunErrorNotDoublePrefixed(t *testing.T) {
 	schemaDir := t.TempDir()
-	// A schema with a title but a non-object top-level type triggers one
-	// of EmitFile's own errors.
-	bad := `{"title": "Bad", "type": "string", "pattern": "^[a-z]+$"}`
+	// patternProperties changes the shape of the object it appears on, so
+	// the emitter refuses it — one of EmitFile's own errors.
+	bad := `{"title": "Bad", "type": "object", "properties": {"cfg": {"type": "object", "patternProperties": {"^x": {"type": "string"}}}}}`
 	if err := os.WriteFile(filepath.Join(schemaDir, "bad.json"), []byte(bad), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, err := run(schemaDir, t.TempDir(), "release/test@deadbeef")
 	if err == nil {
-		t.Fatalf("run: expected error for non-object top-level schema, got nil")
+		t.Fatalf("run: expected error for patternProperties, got nil")
 	}
 	if got := strings.Count(err.Error(), "bad.json"); got != 1 {
 		t.Fatalf("run error mentions %q %d times, want exactly 1 (no doubled prefix): %q", "bad.json", got, err.Error())
