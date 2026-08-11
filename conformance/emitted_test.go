@@ -132,6 +132,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/chaz8081/ucp-go/shopping"
 	"github.com/chaz8081/ucp-go/shopping/types"
@@ -146,8 +147,11 @@ func main() {
 	// A union-typed required field must decode: ` + "`ucp`" + ` is required on
 	// Cart, Checkout and Order, and a bare interface would make all three
 	// undecodable.
+	// Every property checkout.json requires is supplied, and status is a
+	// value its enum actually permits — the payload has to satisfy the
+	// generated checks, not merely decode.
 	var c shopping.Checkout
-	if err := json.Unmarshal([]byte(` + "`" + `{"id":"chk_1","status":"ready_for_payment","ucp":{"version":"2026-04-08"}}` + "`" + `), &c); err != nil {
+	if err := json.Unmarshal([]byte(` + "`" + `{"id":"chk_1","currency":"USD","status":"ready_for_complete","line_items":[],"links":[],"totals":[],"ucp":{"version":"2026-04-08"}}` + "`" + `), &c); err != nil {
 		fail("checkout decode: %v", err)
 	}
 	if c.ID != "chk_1" {
@@ -171,6 +175,44 @@ func main() {
 			fail("shipping_destination lost inherited field %q: %s", k, out)
 		}
 	}
+	// A required property absent from the JSON must be rejected. Decoded to
+	// its zero value it is indistinguishable from one that was present, so
+	// this is the check that needs the recorded presence to work at all.
+	var empty shopping.Checkout
+	if err := json.Unmarshal([]byte(` + "`{}`" + `), &empty); err != nil {
+		fail("empty checkout decode: %v", err)
+	}
+	if err := empty.Validate(); err == nil {
+		fail("Validate accepted {} for a schema with required properties")
+	}
+
+	// The payload that decoded at the top supplies every required property,
+	// so no presence violation may be reported for it. Whole-document
+	// validity is deliberately not asserted here: the ` + "`ucp`" + ` field is a
+	// oneOf over ucp.json's alternatives, and whether a given metadata
+	// object matches exactly one of them is a question the differential
+	// harness cannot settle either — ucp.json is one of the schemas the
+	// oracle cannot compile, because capability.json references a
+	// "#/$defs/version" it does not define.
+	if err := c.Validate(); err != nil && strings.Contains(err.Error(), "required property is missing") {
+		fail("Validate reported a missing required property on a complete checkout: %v", err)
+	}
+
+	// A value built in Go was never decoded and so carries no presence
+	// information. Judging it on an empty record would fail every request
+	// the SDK is used to construct, which is most of what it is for — so
+	// the presence check is skipped and only the value checks run. Those
+	// still apply: a required enum left at its zero value really is
+	// invalid, whether or not the value came from JSON.
+	built := shopping.Checkout{ID: "chk_2", Currency: "USD", Status: "ready_for_complete"}
+	if err := built.Validate(); err != nil {
+		fail("Validate rejected a hand-constructed value: %v", err)
+	}
+	blank := shopping.Checkout{ID: "chk_3"}
+	if err := blank.Validate(); err == nil {
+		fail("Validate accepted a hand-constructed value whose required enum is empty")
+	}
+
 	// An open object must preserve keys the schema never names: UCP is an
 	// extension-first protocol and signals.json exists so that multiple
 	// extensions can contribute to a shared namespace.

@@ -2,12 +2,22 @@ module github.com/chaz8081/ucp-go/conformance
 
 go 1.24
 
-// Inert Phase 2 pre-wiring: no `require` on the root module yet. The
-// oracle currently validates against a hand-copied mirror of ucpgen's
-// output (see oracle_test.go), not an import — this replace directive
-// just has the path ready for when Phase 2 wires a real import.
+// The differential harness imports the emitter to work out which Go type
+// each schema produces, so it can drive the generated models by name. The
+// generated models themselves are not imported — they are not committed —
+// so the harness generates them into a temporary module and talks to a
+// probe program built there.
+//
+// This is also why every dependency lives in this module: the root must
+// keep zero require lines.
 replace github.com/chaz8081/ucp-go => ..
 
-require github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+require (
+	github.com/dlclark/regexp2 v1.11.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+)
 
-require golang.org/x/text v0.14.0 // indirect
+require (
+	github.com/chaz8081/ucp-go v0.0.0
+	golang.org/x/text v0.14.0 // indirect
+)
