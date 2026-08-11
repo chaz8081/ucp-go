@@ -8,6 +8,9 @@ go 1.24
 // just has the path ready for when Phase 2 wires a real import.
 replace github.com/chaz8081/ucp-go => ..
 
-require github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+require (
+	github.com/dlclark/regexp2 v1.11.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+)
 
 require golang.org/x/text v0.14.0 // indirect

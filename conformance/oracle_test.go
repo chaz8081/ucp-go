@@ -1,5 +1,3 @@
-// Package conformance verifies generated models against the canonical
-// JSON Schemas using a draft-2020-12 validator as the oracle.
 package conformance
 
 import (
@@ -13,8 +11,6 @@ import (
 	"sync"
 	"testing"
 	"unicode/utf8"
-
-	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 const fixtureSchema = "../cmd/ucpgen/preprocess/testdata/schemas/test/link.json"
@@ -47,8 +43,7 @@ func (v *Link) Validate() error {
 
 func oracleVerdict(t *testing.T, payload []byte) bool {
 	t.Helper()
-	c := jsonschema.NewCompiler()
-	sch, err := c.Compile(fixtureSchema)
+	sch, err := newCompiler().Compile(fixtureSchema)
 	if err != nil {
 		t.Fatalf("compile schema: %v", err)
 	}
