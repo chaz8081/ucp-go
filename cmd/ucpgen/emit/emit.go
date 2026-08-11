@@ -633,6 +633,7 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	fields := make([]structField, 0, len(names))
 	for _, name := range names {
 		fields = append(fields, structField{jsonName: name, goName: fieldNames[name], required: required[name]})
+		compileNested(&c, fieldNames[name], fieldTypes[name])
 	}
 	if err := compileObjectSelf(e, &c, typeName, schema, fields, open); err != nil {
 		return err
@@ -757,6 +758,7 @@ func renderValidate(body *strings.Builder, typeName string, c *constraintSet) {
 	fmt.Fprintf(body, "func (v *%s) Validate() error {\n", typeName)
 	body.WriteString(c.presence.String())
 	body.WriteString(c.checks.String())
+	body.WriteString(c.nested.String())
 	body.WriteString("\treturn nil\n}\n\n")
 }
 

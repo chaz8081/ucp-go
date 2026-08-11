@@ -77,9 +77,16 @@ func TestBuildTypeIndexRejectsCollision(t *testing.T) {
 // instead of assembling an index by hand.
 func emitOne(t *testing.T, rel string, schema map[string]any) (string, error) {
 	t.Helper()
-	idx, err := BuildTypeIndex(map[string]map[string]any{rel: schema}, "m")
+	return emitFromCorpus(t, rel, map[string]map[string]any{rel: schema})
+}
+
+// emitFromCorpus emits one file of a multi-file corpus, which is what a
+// cross-file $ref needs in order to resolve.
+func emitFromCorpus(t *testing.T, rel string, corpus map[string]map[string]any) (string, error) {
+	t.Helper()
+	idx, err := BuildTypeIndex(corpus, "m")
 	if err != nil {
 		return "", err
 	}
-	return EmitFile(idx, "m", rel, schema, "release/test@deadbeef")
+	return EmitFile(idx, "m", rel, corpus[rel], "release/test@deadbeef")
 }

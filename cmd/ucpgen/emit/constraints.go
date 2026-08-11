@@ -78,6 +78,9 @@ type constraintSet struct {
 	// failure than a bad value.
 	presence strings.Builder
 	checks   strings.Builder
+	// nested holds the recursive Validate calls, emitted after this type's
+	// own checks so an error names the shallowest thing that is wrong.
+	nested strings.Builder
 	// loops counts the range loops emitted so far, so nested ones can take
 	// distinct variable names.
 	loops int
