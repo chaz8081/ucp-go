@@ -115,6 +115,12 @@ func (e *fileEmitter) goTypeExpr(node map[string]any, fieldName string) (string,
 		}
 	}
 
+	// A type-affecting keyword must halt generation wherever it appears —
+	// inside items and additionalProperties too, not only on a property.
+	if kw := checkTypeAffectingKeywords(node); kw != "" {
+		return "", fmt.Errorf("%q: keyword %q changes the schema's shape and is not modeled yet (phase 4)", fieldName, kw)
+	}
+
 	switch t := node["type"].(type) {
 	case string:
 		return e.goTypeForNamed(t, node, fieldName)
@@ -136,6 +142,28 @@ func (e *fileEmitter) goTypeExpr(node map[string]any, fieldName string) (string,
 		}
 		return "*" + inner, nil
 	case nil:
+		// JSON Schema implies the type from the keywords present. The
+		// merged ucp.json narrowings re-state capabilities/services with
+		// only additionalProperties, so short-circuiting to `any` here
+		// would type the metadata envelope's three registry fields as
+		// `any` when map[string][]T is fully derivable.
+		if _, ok := node["properties"]; ok {
+			return e.goTypeForNamed("object", node, fieldName)
+		}
+		if _, ok := node["additionalProperties"].(map[string]any); ok {
+			return e.goTypeForNamed("object", node, fieldName)
+		}
+		if _, ok := node["items"]; ok {
+			return e.goTypeForNamed("array", node, fieldName)
+		}
+		if _, ok := node["const"].(string); ok {
+			return "string", nil
+		}
+		if enum, ok := node["enum"].([]any); ok && len(enum) > 0 {
+			if _, isString := enum[0].(string); isString {
+				return "string", nil
+			}
+		}
 		return "any", nil
 	default:
 		return "", fmt.Errorf("field %q has non-string type %T", fieldName, node["type"])

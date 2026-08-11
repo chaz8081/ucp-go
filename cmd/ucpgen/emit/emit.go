@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/format"
 	"math"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -128,12 +129,12 @@ func GoName(s string) string {
 // property. idx must already contain every type in the corpus so that
 // cross-file references resolve.
 func EmitFile(idx *TypeIndex, modulePath, relPath string, schema map[string]any, specRef string) (string, error) {
-	return EmitFileWithBreaks(idx, modulePath, relPath, schema, specRef, nil)
+	return EmitFileWithBreaks(idx, modulePath, relPath, schema, specRef, nil, nil)
 }
 
 // EmitFileWithBreaks is EmitFile with the cycle-breaking edge set for the
 // package this schema belongs to (see CycleBreaks).
-func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[string]any, specRef string, breaks map[string]bool) (string, error) {
+func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[string]any, specRef string, breaks map[string]bool, corpus map[string]map[string]any) (string, error) {
 	pkg, _ := PackageForSchema(relPath, modulePath)
 	e := newFileEmitterWithBreaks(idx, relPath, pkg, breaks)
 
@@ -141,7 +142,7 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 	// pipeline (mirroring python), so they arrive with allOf still unmerged
 	// inside their $defs. Merge locally so every renderer below sees a flat
 	// node.
-	if err := mergeLocalAllOf(schema); err != nil {
+	if err := mergeAllOf(schema, relPath, corpus); err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
 
@@ -195,9 +196,18 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 	return assembleFile(e, relPath, pkg, specRef, body.String())
 }
 
-// mergeLocalAllOf flattens any allOf at the document root and inside each
-// $def, in place.
-func mergeLocalAllOf(schema map[string]any) error {
+// mergeAllOf flattens allOf at the document root and inside each $def.
+//
+// preprocess.MergeAllOf resolves only same-document refs and re-emits
+// cross-file branches as a residual allOf. Those branches carry real
+// inherited fields — shipping_destination.json is allOf[postal_address.json]
+// plus one own property, so ignoring the residual would silently drop nine
+// address fields — so they are resolved here against the rest of the
+// corpus, which the emitter (unlike the preprocessor) has in hand.
+func mergeAllOf(schema map[string]any, relPath string, corpus map[string]map[string]any) error {
+	if err := resolveCrossFileAllOf(schema, relPath, corpus, map[string]bool{}); err != nil {
+		return err
+	}
 	if err := preprocess.MergeAllOf(schema, schema); err != nil {
 		return err
 	}
@@ -212,11 +222,128 @@ func mergeLocalAllOf(schema map[string]any) error {
 		if !ok {
 			continue
 		}
+		if err := resolveCrossFileAllOf(def, relPath, corpus, map[string]bool{}); err != nil {
+			return fmt.Errorf("$defs/%s: %w", name, err)
+		}
 		if err := preprocess.MergeAllOf(def, schema); err != nil {
 			return fmt.Errorf("$defs/%s: %w", name, err)
 		}
 	}
+	if residual, ok := schema["allOf"].([]any); ok && len(residual) > 0 {
+		return fmt.Errorf("allOf branches remain unresolved after merging: %v", residual)
+	}
 	return nil
+}
+
+// resolveCrossFileAllOf replaces each cross-file $ref branch of a node's
+// allOf with a deep copy of the referenced schema, so the subsequent local
+// merge folds its fields in. seen guards against a ref cycle between files.
+func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[string]map[string]any, seen map[string]bool) error {
+	branches, ok := node["allOf"].([]any)
+	if !ok || corpus == nil {
+		return nil
+	}
+	for i, raw := range branches {
+		branch, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		ref, ok := branch["$ref"].(string)
+		if !ok {
+			continue
+		}
+		filePart, fragment, _ := strings.Cut(ref, "#")
+		if filePart == "" {
+			continue // local ref: preprocess.MergeAllOf handles it
+		}
+		target := path.Join(path.Dir(relPath), filePart)
+		targetSchema, ok := corpus[target]
+		if !ok {
+			return fmt.Errorf("allOf references %q, which is not in the corpus", ref)
+		}
+		resolved := targetSchema
+		if fragment != "" {
+			defName, hasPrefix := strings.CutPrefix(fragment, defsFragmentPrefix)
+			if !hasPrefix || strings.Contains(defName, "/") {
+				return fmt.Errorf("allOf ref %q has an unsupported fragment", ref)
+			}
+			defs, _ := targetSchema["$defs"].(map[string]any)
+			resolved, ok = defs[defName].(map[string]any)
+			if !ok {
+				return fmt.Errorf("allOf ref %q resolves to no schema", ref)
+			}
+		}
+		if seen[target+"#"+fragment] {
+			return fmt.Errorf("allOf ref cycle through %q", ref)
+		}
+		seen[target+"#"+fragment] = true
+
+		inlined := preprocess.CopyTree(resolved).(map[string]any)
+		// Relative refs inside the borrowed schema were written against its
+		// own directory; once inlined they are read against the borrowing
+		// file's. Without rebasing, product.json's "category.json" becomes
+		// shopping/category.json instead of shopping/types/category.json.
+		rebaseRefs(inlined, path.Dir(target), path.Dir(relPath))
+		// The branch contributes fields, not identity: a borrowed title or
+		// description would otherwise override the borrowing type's own.
+		delete(inlined, "title")
+		delete(inlined, "description")
+		delete(inlined, "$id")
+		delete(inlined, "$schema")
+		delete(inlined, "$defs")
+		// The inlined schema may itself inherit across files.
+		if err := resolveCrossFileAllOf(inlined, target, corpus, seen); err != nil {
+			return err
+		}
+		branches[i] = inlined
+	}
+	return nil
+}
+
+// rebaseRefs rewrites every relative cross-file $ref in a subtree that was
+// moved from fromDir to toDir, so it still names the same schema.
+func rebaseRefs(node any, fromDir, toDir string) {
+	if fromDir == toDir {
+		return
+	}
+	switch t := node.(type) {
+	case map[string]any:
+		if ref, ok := t["$ref"].(string); ok {
+			if filePart, fragment, hasFrag := strings.Cut(ref, "#"); filePart != "" {
+				rebased := relPathBetween(toDir, path.Join(fromDir, filePart))
+				if hasFrag {
+					rebased += "#" + fragment
+				}
+				t["$ref"] = rebased
+			}
+		}
+		for _, v := range t {
+			rebaseRefs(v, fromDir, toDir)
+		}
+	case []any:
+		for _, v := range t {
+			rebaseRefs(v, fromDir, toDir)
+		}
+	}
+}
+
+// relPathBetween returns the slash-relative path from dir to target.
+func relPathBetween(dir, target string) string {
+	if dir == "." || dir == "" {
+		return target
+	}
+	dirParts := strings.Split(dir, "/")
+	targetParts := strings.Split(target, "/")
+	common := 0
+	for common < len(dirParts) && common < len(targetParts) && dirParts[common] == targetParts[common] {
+		common++
+	}
+	var out []string
+	for i := common; i < len(dirParts); i++ {
+		out = append(out, "..")
+	}
+	out = append(out, targetParts[common:]...)
+	return strings.Join(out, "/")
 }
 
 // renderNamedType writes one named Go type — struct, union interface, or
@@ -242,7 +369,7 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if hasUnion(schema) && !hasProps {
 		keyword, members := unionMembers(schema)
 		if allRefMembers(members) {
-			return renderUnionInterface(e, body, typeName, keyword, members, schema)
+			return renderUnion(e, body, typeName, keyword, members, schema)
 		}
 		// Mixed or inline members: modeled as raw JSON by goTypeExpr.
 	}
@@ -290,29 +417,57 @@ func allRefMembers(members []any) bool {
 	return len(members) > 0
 }
 
-// renderUnionInterface emits a closed union as an interface with an
-// unexported marker method, implemented by each member type.
-func renderUnionInterface(e *fileEmitter, body *strings.Builder, typeName, keyword string, members []any, schema map[string]any) error {
-	marker := "is" + typeName
-	var implNames []string
+// renderUnion emits a closed union as a struct with one optional field per
+// member, plus UnmarshalJSON/MarshalJSON.
+//
+// A marker interface would be the tidier Go shape, but encoding/json cannot
+// unmarshal into an interface: `ucp` is a required union-typed field on
+// Cart, Checkout and Order, so a bare interface makes the protocol's
+// primary response types undecodable. A struct of pointers decodes, keeps
+// every member statically typed, and round-trips.
+//
+// Members are tried in declaration order and the first that unmarshals
+// without error wins. The spec declares no discriminator at the union
+// level, so this is the available strategy; a discriminated decode is
+// phase 4.
+func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string, members []any, schema map[string]any) error {
+	type unionMember struct{ field, typ string }
+	var fields []unionMember
 	for _, m := range members {
 		ref := m.(map[string]any)["$ref"].(string)
 		target, err := ResolveRef(e.idx, e.rel, ref)
 		if err != nil {
 			return err
 		}
-		if target.Package != e.pkg {
-			return fmt.Errorf("union %s has member %s in package %s; Go cannot implement an interface for a type declared in another package (phase 4)", typeName, target.Name, target.Package)
-		}
-		implNames = append(implNames, target.Name)
+		fields = append(fields, unionMember{field: target.Name, typ: e.qualify(target)})
 	}
+
+	e.imports["encoding/json"] = "json"
+	e.usesErrors = true
+
 	writeDoc(body, typeName, schema)
-	fmt.Fprintf(body, "//\n// %s is a closed %s union; exactly the types below implement it.\n", typeName, keyword)
-	fmt.Fprintf(body, "type %s interface {\n\t%s()\n}\n\n", typeName, marker)
-	for _, name := range implNames {
-		fmt.Fprintf(body, "func (%s) %s() {}\n", name, marker)
+	fmt.Fprintf(body, "//\n// %s is a closed %s union: exactly one field is set.\n", typeName, keyword)
+	fmt.Fprintf(body, "type %s struct {\n", typeName)
+	for _, f := range fields {
+		fmt.Fprintf(body, "\t%s *%s `json:\"-\"`\n", f.field, f.typ)
 	}
-	body.WriteString("\n")
+	body.WriteString("}\n\n")
+
+	// UnmarshalJSON: first member that decodes cleanly wins.
+	fmt.Fprintf(body, "// UnmarshalJSON decodes the first union member that accepts the input.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	for _, f := range fields {
+		fmt.Fprintf(body, "\tvar as%s %s\n\tif err := json.Unmarshal(data, &as%s); err == nil {\n\t\tv.%s = &as%s\n\t\treturn nil\n\t}\n", f.field, f.typ, f.field, f.field, f.field)
+	}
+	fmt.Fprintf(body, "\treturn errors.New(%q)\n}\n\n", typeName+": no union member accepted the input")
+
+	// MarshalJSON: emit whichever member is set.
+	fmt.Fprintf(body, "// MarshalJSON encodes whichever union member is set.\nfunc (v %s) MarshalJSON() ([]byte, error) {\n", typeName)
+	for _, f := range fields {
+		fmt.Fprintf(body, "\tif v.%s != nil {\n\t\treturn json.Marshal(v.%s)\n\t}\n", f.field, f.field)
+	}
+	fmt.Fprintf(body, "\treturn nil, errors.New(%q)\n}\n\n", typeName+": no union member is set")
+
+	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n\treturn nil\n}\n\n", typeName)
 	return nil
 }
 

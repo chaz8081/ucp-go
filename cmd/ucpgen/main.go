@@ -40,7 +40,13 @@ type ManifestEntry struct {
 const modulePath = "github.com/chaz8081/ucp-go"
 
 func run(schemaDir, outDir, specRef string) (*Manifest, error) {
-	set, err := preprocess.LoadSchemas(schemaDir)
+	// Variants are content here, not output to be regenerated: emit's input
+	// is the already-normalized tree, where *_request.json files are 67 of
+	// the corpus's 145 schemas and carry the protocol's entire request
+	// surface. Skipping them (as a raw-spec load must) drops them with no
+	// error, and the coverage check below cannot notice because they were
+	// never in the set.
+	set, err := preprocess.LoadSchemasIncludingVariants(schemaDir)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +83,7 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 		// diverge from it for nested nodes.
 		schema := set.Files[rel]
 		pkg, _ := emit.PackageForSchema(rel, modulePath)
-		src, err := emit.EmitFileWithBreaks(idx, modulePath, rel, schema, specRef, breaks[pkg])
+		src, err := emit.EmitFileWithBreaks(idx, modulePath, rel, schema, specRef, breaks[pkg], set.Files)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", rel, err)
 		}
