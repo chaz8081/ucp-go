@@ -673,12 +673,23 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		body.WriteString("\n\t// Extra holds properties the schema does not name. The schema is\n\t// open (additionalProperties is not false), so extension keys are\n\t// preserved here and re-emitted on marshal rather than dropped.\n")
 		body.WriteString("\tExtra map[string]json.RawMessage `json:\"-\"`\n")
 	}
+	req := requiredNames(fields)
+	if len(req) > 0 {
+		e.imports["encoding/json"] = "json"
+		renderPresenceField(body)
+	}
 	fmt.Fprintf(body, "}\n")
 
-	if open {
-		renderExtraCodec(body, typeName, names, fieldNames, required)
+	switch {
+	case open:
+		// One UnmarshalJSON per type: an open object's decoder carries the
+		// presence capture rather than getting a second one of its own.
+		renderExtraCodec(body, typeName, names, fieldNames, req)
+	case len(req) > 0:
+		renderPresenceCodec(body, typeName, req)
 	}
 
+	compilePresenceChecks(e, &c, req)
 	renderValidate(body, typeName, &c)
 	return nil
 }
@@ -710,11 +721,16 @@ func isOpenObject(schema map[string]any) bool {
 // renderExtraCodec emits UnmarshalJSON/MarshalJSON that route unknown keys
 // through Extra. The struct's own fields are decoded via an alias type,
 // which drops the custom methods and so avoids infinite recursion.
-func renderExtraCodec(body *strings.Builder, typeName string, names []string, fieldNames map[string]string, required map[string]bool) {
+func renderExtraCodec(body *strings.Builder, typeName string, names []string, fieldNames map[string]string, required []string) {
 	alias := typeName + "Alias"
 	fmt.Fprintf(body, "\n// UnmarshalJSON decodes the named properties and keeps everything else\n// in Extra.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
 	fmt.Fprintf(body, "\ttype %s %s\n\tvar named %s\n\tif err := json.Unmarshal(data, &named); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(named)\n\n", alias, typeName, alias, typeName)
 	body.WriteString("\tvar all map[string]json.RawMessage\n\tif err := json.Unmarshal(data, &all); err != nil {\n\t\treturn err\n\t}\n")
+	// Presence is captured before the named keys are removed below, since
+	// that is what makes a key disappear from `all`.
+	if len(required) > 0 {
+		renderPresenceCapture(body, required)
+	}
 	for _, name := range names {
 		fmt.Fprintf(body, "\tdelete(all, %q)\n", name)
 	}
@@ -739,6 +755,7 @@ func renderValidate(body *strings.Builder, typeName string, c *constraintSet) {
 	}
 	body.WriteString("// Validate reports the first constraint violation, or nil.\n")
 	fmt.Fprintf(body, "func (v *%s) Validate() error {\n", typeName)
+	body.WriteString(c.presence.String())
 	body.WriteString(c.checks.String())
 	body.WriteString("\treturn nil\n}\n\n")
 }

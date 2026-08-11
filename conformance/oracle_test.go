@@ -19,11 +19,46 @@ const fixtureSchema = "../cmd/ucpgen/preprocess/testdata/schemas/test/link.json"
 // Phase 2 wires real generated packages, this local copy is replaced by
 // an import of the generated code.
 type Link struct {
-	Title *string `json:"title,omitempty"`
+	Title *string `json:"title,omitzero"`
 	// Link relation type.
 	Type string `json:"type"`
 	// Target URL.
 	URL string `json:"url"`
+
+	Extra map[string]json.RawMessage `json:"-"`
+
+	present map[string]bool
+}
+
+// UnmarshalJSON is copied from ucpgen output. The oracle harness drives
+// both sides from JSON bytes, so the SDK side has to decode through the
+// generated codec — that is where the required-property presence the
+// mirrored Validate reads on gets recorded.
+func (v *Link) UnmarshalJSON(data []byte) error {
+	type LinkAlias Link
+	var named LinkAlias
+	if err := json.Unmarshal(data, &named); err != nil {
+		return err
+	}
+	*v = Link(named)
+
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal(data, &all); err != nil {
+		return err
+	}
+	v.present = make(map[string]bool, 2)
+	for _, name := range []string{"type", "url"} {
+		if _, ok := all[name]; ok {
+			v.present[name] = true
+		}
+	}
+	delete(all, "title")
+	delete(all, "type")
+	delete(all, "url")
+	if len(all) > 0 {
+		v.Extra = all
+	}
+	return nil
 }
 
 // The following is copied verbatim from ucpgen output for test/link.json;
@@ -32,6 +67,14 @@ var pattern_Link_Title = sync.OnceValue(func() *regexp.Regexp { return regexp.Mu
 
 // Validate reports the first constraint violation, or nil.
 func (v *Link) Validate() error {
+	if v.present != nil {
+		if !v.present["type"] {
+			return errors.New("type: required property is missing")
+		}
+		if !v.present["url"] {
+			return errors.New("url: required property is missing")
+		}
+	}
 	if v.Title != nil && !pattern_Link_Title().MatchString(*v.Title) {
 		return errors.New("title: does not match pattern")
 	}
@@ -74,6 +117,14 @@ const (
 	canonicalPatternVar = `var pattern_Link_Title = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^[^\\n]*$") })`
 	canonicalValidate   = `// Validate reports the first constraint violation, or nil.
 func (v *Link) Validate() error {
+	if v.present != nil {
+		if !v.present["type"] {
+			return errors.New("type: required property is missing")
+		}
+		if !v.present["url"] {
+			return errors.New("url: required property is missing")
+		}
+	}
 	if v.Title != nil && !pattern_Link_Title().MatchString(*v.Title) {
 		return errors.New("title: does not match pattern")
 	}
@@ -82,6 +133,12 @@ func (v *Link) Validate() error {
 	}
 	return nil
 }`
+	canonicalPresenceCapture = `	v.present = make(map[string]bool, 2)
+	for _, name := range []string{"type", "url"} {
+		if _, ok := all[name]; ok {
+			v.present[name] = true
+		}
+	}`
 )
 
 func TestGeneratedOutputMatchesMirror(t *testing.T) {
@@ -112,7 +169,7 @@ func TestGeneratedOutputMatchesMirror(t *testing.T) {
 	}
 	src := string(generated)
 
-	for _, want := range []string{canonicalPatternVar, canonicalValidate} {
+	for _, want := range []string{canonicalPatternVar, canonicalValidate, canonicalPresenceCapture} {
 		if !strings.Contains(src, want) {
 			t.Errorf("ucpgen's real output for test/link.json no longer contains:\n%s\n\nthe Link mirror in this file is stale — update it to match\n---\ngenerated:\n%s", want, src)
 		}

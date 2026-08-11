@@ -72,8 +72,12 @@ func (a accessKind) resolve(expr string) (guard, value string) {
 // package-level variables (compiled patterns) and the check statements that
 // make up its Validate body.
 type constraintSet struct {
-	vars   strings.Builder
-	checks strings.Builder
+	vars strings.Builder
+	// presence holds the required-property checks, kept apart from checks so
+	// they can be emitted first: an absent property is a more fundamental
+	// failure than a bad value.
+	presence strings.Builder
+	checks   strings.Builder
 	// loops counts the range loops emitted so far, so nested ones can take
 	// distinct variable names.
 	loops int
