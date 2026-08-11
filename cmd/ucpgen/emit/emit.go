@@ -4,9 +4,7 @@ package emit
 import (
 	"fmt"
 	"go/format"
-	"math"
 	"path"
-	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -437,39 +435,16 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 // Validate here would leave the constraint unenforced precisely where it
 // carries the most meaning.
 func renderAliasValidate(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any, underlying string) error {
-	var patternVars, checks strings.Builder
-	if underlying == "string" {
-		if raw, ok := schema["maxLength"]; ok {
-			ml, isNum := raw.(float64)
-			if !isNum {
-				return fmt.Errorf("%s: maxLength is %T, want a number", typeName, raw)
-			}
-			if ml < 0 || ml != math.Trunc(ml) {
-				return fmt.Errorf("%s: maxLength %v is not a non-negative integer", typeName, ml)
-			}
-			e.usesErrors, e.usesUtf8 = true, true
-			fmt.Fprintf(&checks, "\tif utf8.RuneCountInString(string(*v)) > %d {\n\t\treturn errors.New(%q)\n\t}\n",
-				int(ml), fmt.Sprintf("%s: exceeds maxLength %d", typeName, int(ml)))
-		}
-		if raw, ok := schema["pattern"]; ok {
-			pat, isStr := raw.(string)
-			if !isStr {
-				return fmt.Errorf("%s: pattern is %T, want a string", typeName, raw)
-			}
-			if _, err := regexp.Compile(pat); err != nil {
-				return fmt.Errorf("%s: pattern %q is not RE2-compatible: %v", typeName, pat, err)
-			}
-			e.usesErrors, e.usesRegexp, e.usesSync = true, true, true
-			varName := "pattern_" + typeName
-			fmt.Fprintf(&patternVars, "var %s = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(%q) })\n\n", varName, pat)
-			fmt.Fprintf(&checks, "\tif !%s().MatchString(string(*v)) {\n\t\treturn errors.New(%q)\n\t}\n",
-				varName, typeName+": does not match pattern")
-		}
+	var c constraintSet
+	// The receiver is a named type over its underlying one, so the value has
+	// to be converted back before a stdlib check can see it.
+	if err := compileConstraints(e, &c, typeName, "", "string(*v)", accessValue, schema); err != nil {
+		return err
 	}
-	if patternVars.Len() > 0 {
-		body.WriteString(patternVars.String())
+	if c.vars.Len() > 0 {
+		body.WriteString(c.vars.String())
 	}
-	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s\treturn nil\n}\n\n", typeName, checks.String())
+	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s\treturn nil\n}\n\n", typeName, c.checks.String())
 	return nil
 }
 
@@ -712,78 +687,28 @@ func renderExtraCodec(body *strings.Builder, typeName string, names []string, fi
 // Validate is always emitted, even with zero checks, so callers can rely on
 // a uniform interface{ Validate() error } across every generated type.
 func renderValidate(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any, props map[string]any, names []string, fieldNames map[string]string, required map[string]bool) error {
-	var patternVars, checks strings.Builder
+	var c constraintSet
 	for _, name := range names {
 		prop := props[name].(map[string]any)
-		fieldName := fieldNames[name]
-		isRequired := required[name]
-		isString := prop["type"] == "string"
-
-		_, hasML := prop["maxLength"]
-		_, hasPattern := prop["pattern"]
-
-		if !isString {
-			if hasML || hasPattern {
-				// Keeps the emitter honest: a constraint on a shape whose
-				// check we cannot express fails loudly instead of silently
-				// emitting an unconstrained field.
-				return fmt.Errorf("%s: property %q has string constraints but unsupported type %v (phase 4)", typeName, name, prop["type"])
-			}
-			continue
+		// Constrained properties are strings, and renderStruct gives every
+		// optional string a pointer (isNilableType is false for "string"), so
+		// optional here always means one level of indirection.
+		access := accessValue
+		if !required[name] {
+			access = accessPointer
 		}
-
-		if hasML {
-			mlRaw := prop["maxLength"]
-			ml, ok := mlRaw.(float64)
-			if !ok {
-				return fmt.Errorf("%s: property %q maxLength is %T, want a number", typeName, name, mlRaw)
-			}
-			if ml < 0 || ml != math.Trunc(ml) {
-				return fmt.Errorf("%s: property %q maxLength %v is not a non-negative integer", typeName, name, ml)
-			}
-			n := int(ml)
-			msg := fmt.Sprintf("%s: exceeds maxLength %d", name, n)
-			e.usesErrors, e.usesUtf8 = true, true
-			// maxLength counts Unicode code points per JSON Schema, not bytes.
-			if isRequired {
-				fmt.Fprintf(&checks, "\tif utf8.RuneCountInString(v.%s) > %d {\n\t\treturn errors.New(%q)\n\t}\n", fieldName, n, msg)
-			} else {
-				fmt.Fprintf(&checks, "\tif v.%s != nil && utf8.RuneCountInString(*v.%s) > %d {\n\t\treturn errors.New(%q)\n\t}\n", fieldName, fieldName, n, msg)
-			}
-		}
-
-		if hasPattern {
-			patRaw := prop["pattern"]
-			pat, ok := patRaw.(string)
-			if !ok {
-				return fmt.Errorf("%s: property %q pattern is %T, want a string", typeName, name, patRaw)
-			}
-			// RE2 gate: fail generation loudly rather than emit a MustCompile
-			// that would panic at runtime.
-			if _, err := regexp.Compile(pat); err != nil {
-				return fmt.Errorf("%s: pattern %q for %q is not RE2-compatible: %v", typeName, pat, name, err)
-			}
-			e.usesErrors, e.usesRegexp, e.usesSync = true, true, true
-			varName := fmt.Sprintf("pattern_%s_%s", typeName, fieldName)
-			fmt.Fprintf(&patternVars, "var %s = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(%q) })\n\n", varName, pat)
-			msg := fmt.Sprintf("%s: does not match pattern", name)
-			// JSON Schema pattern is an unanchored search, so MatchString
-			// (not a full-string match) is intentional.
-			if isRequired {
-				fmt.Fprintf(&checks, "\tif !%s().MatchString(v.%s) {\n\t\treturn errors.New(%q)\n\t}\n", varName, fieldName, msg)
-			} else {
-				fmt.Fprintf(&checks, "\tif v.%s != nil && !%s().MatchString(*v.%s) {\n\t\treturn errors.New(%q)\n\t}\n", fieldName, varName, fieldName, msg)
-			}
+		if err := compileConstraints(e, &c, typeName, name, "v."+fieldNames[name], access, prop); err != nil {
+			return err
 		}
 	}
 
 	body.WriteString("\n")
-	if patternVars.Len() > 0 {
-		body.WriteString(patternVars.String())
+	if c.vars.Len() > 0 {
+		body.WriteString(c.vars.String())
 	}
 	body.WriteString("// Validate reports the first constraint violation, or nil.\n")
 	fmt.Fprintf(body, "func (v *%s) Validate() error {\n", typeName)
-	body.WriteString(checks.String())
+	body.WriteString(c.checks.String())
 	body.WriteString("\treturn nil\n}\n\n")
 	return nil
 }
