@@ -86,11 +86,19 @@ func checkTypeAffectingKeywords(node map[string]any) string {
 }
 
 // unenforcedKeywords returns, sorted, the validation-only keywords present
-// in node. They are reported in the generated output rather than enforced.
-func unenforcedKeywords(node map[string]any) []string {
+// in node that no generated check covers. They are reported in the
+// generated output rather than enforced.
+//
+// A keyword stays in validationOnlyKeywords even once the compiler can
+// check it, because whether it IS checked depends on where it appears: an
+// enum on a property becomes a real check, while the same enum inside an
+// `if` branch or an unmodeled anyOf member does not. Subtracting per node,
+// rather than removing the keyword from the set outright, is what keeps
+// those positions visible instead of silently unenforced.
+func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
 	var out []string
 	for k := range node {
-		if validationOnlyKeywords[k] {
+		if validationOnlyKeywords[k] && !e.enforced.has(node, k) {
 			out = append(out, k)
 		}
 	}
@@ -413,6 +421,13 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if err != nil {
 		return err
 	}
+	// Constraints are compiled before anything is written, so the doc
+	// comment below reports only the keywords no check ended up covering.
+	var c constraintSet
+	if err := compileConstraints(e, &c, typeName, "", aliasExpr(underlying), accessValue, schema); err != nil {
+		return err
+	}
+
 	writeDoc(body, typeName, schema)
 	if keyword, members := unionMembers(schema); len(members) > 0 {
 		fmt.Fprintf(body, "//\n// This schema is a %s of %d alternatives with no shared\n// properties, so it is carried as raw JSON. Typed alternatives are\n// phase 4.\n", keyword, len(members))
@@ -421,31 +436,32 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	// ReverseDomainName is a string whose whole purpose is its pattern — so
 	// an unenforced constraint here is the most misleading place to omit
 	// the note.
-	if kws := unenforcedKeywords(schema); len(kws) > 0 {
-		e.unenforced[typeName] = kws
+	if kws := e.unenforcedKeywords(schema); len(kws) > 0 {
+		e.unenforced[typeName] = schema
 		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
 	}
 	fmt.Fprintf(body, "type %s %s\n\n", typeName, underlying)
-	return renderAliasValidate(e, body, typeName, schema, underlying)
-}
 
-// renderAliasValidate emits Validate for a named non-struct type. A named
-// primitive usually exists for its constraint — ReverseDomainName is a
-// string whose entire purpose is its pattern — so emitting an empty
-// Validate here would leave the constraint unenforced precisely where it
-// carries the most meaning.
-func renderAliasValidate(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any, underlying string) error {
-	var c constraintSet
-	// The receiver is a named type over its underlying one, so the value has
-	// to be converted back before a stdlib check can see it.
-	if err := compileConstraints(e, &c, typeName, "", "string(*v)", accessValue, schema); err != nil {
-		return err
-	}
+	// A named primitive usually exists for its constraint, so emitting an
+	// empty Validate here would leave it unenforced precisely where it
+	// carries the most meaning.
 	if c.vars.Len() > 0 {
 		body.WriteString(c.vars.String())
 	}
 	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s\treturn nil\n}\n\n", typeName, c.checks.String())
 	return nil
+}
+
+// aliasExpr reaches a named type's own value from its Validate receiver.
+// The receiver is a distinct type from the one it is defined over, so a
+// stdlib check has to see it converted back.
+func aliasExpr(underlying string) string {
+	if strings.HasPrefix(underlying, "[]") || strings.HasPrefix(underlying, "map[") {
+		// A conversion is unnecessary for a composite: len and range work on
+		// the named type directly, and `[]T(*v)` would just add noise.
+		return "*v"
+	}
+	return underlying + "(*v)"
 }
 
 func allRefMembers(members []any) bool {
@@ -552,18 +568,14 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	e.prefix = typeName
 	defer func() { e.prefix = savedPrefix }()
 
-	writeDoc(body, typeName, schema)
-	if keyword, members := unionMembers(schema); len(members) > 0 {
-		fmt.Fprintf(body, "//\n// The schema also declares %d %s variants that narrow or replace\n// these fields; they are not modeled as distinct types yet (phase 4),\n// so this type reflects only the shared base.\n", len(members), keyword)
-	}
-	if kws := unenforcedKeywords(schema); len(kws) > 0 {
-		e.unenforced[typeName] = kws
-		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4) on the object itself: %s.\n", strings.Join(kws, ", "))
-	}
-	fmt.Fprintf(body, "type %s struct {\n", typeName)
-
+	// Types are resolved for every property first, because the constraint
+	// compiler needs to know whether a field is a pointer before it can
+	// emit a check against it — and the constraints in turn have to be
+	// compiled before any doc comment is written, so that a comment reports
+	// only the keywords no check ended up covering.
 	seenFields := map[string]string{}
 	fieldNames := make(map[string]string, len(names))
+	fieldTypes := make(map[string]string, len(names))
 	for _, name := range names {
 		prop, ok := props[name].(map[string]any)
 		if !ok {
@@ -582,16 +594,54 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		seenFields[fieldName] = name
 		fieldNames[name] = fieldName
 
-		if desc, _ := prop["description"].(string); desc != "" {
-			fmt.Fprintf(body, "\t// %s\n", strings.ReplaceAll(desc, "\n", "\n\t// "))
-		}
-		if kws := unenforcedKeywords(prop); len(kws) > 0 {
-			e.unenforced[name] = kws
-			fmt.Fprintf(body, "\t//\n\t// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
-		}
 		typ, err := e.goTypeExpr(prop, name)
 		if err != nil {
 			return err
+		}
+		// omitzero, not omitempty: on a slice or map, omitempty omits both
+		// nil and empty, so an absent field and a present-but-empty one
+		// serialize identically and the distinction is lost. omitzero omits
+		// only the zero value, which recovers it — verified: []string(nil)
+		// omits, []string{} emits "[]".
+		//
+		// That makes a pointer unnecessary for types that are already
+		// nilable. Slices, maps and json.RawMessage keep their natural shape
+		// so callers write c.Links[0] rather than (*c.Links)[0]; scalars
+		// still need the pointer, since a non-pointer string cannot
+		// distinguish absent from "".
+		if !required[name] && !isNilableType(typ) {
+			typ = "*" + typ
+		}
+		fieldTypes[name] = typ
+	}
+
+	var c constraintSet
+	for _, name := range names {
+		prop := props[name].(map[string]any)
+		if err := compileConstraints(e, &c, typeName, name, "v."+fieldNames[name],
+			accessFor(fieldTypes[name], required[name]), prop); err != nil {
+			return err
+		}
+	}
+
+	writeDoc(body, typeName, schema)
+	if keyword, members := unionMembers(schema); len(members) > 0 {
+		fmt.Fprintf(body, "//\n// The schema also declares %d %s variants that narrow or replace\n// these fields; they are not modeled as distinct types yet (phase 4),\n// so this type reflects only the shared base.\n", len(members), keyword)
+	}
+	if kws := e.unenforcedKeywords(schema); len(kws) > 0 {
+		e.unenforced[typeName] = schema
+		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4) on the object itself: %s.\n", strings.Join(kws, ", "))
+	}
+	fmt.Fprintf(body, "type %s struct {\n", typeName)
+
+	for _, name := range names {
+		prop := props[name].(map[string]any)
+		if desc, _ := prop["description"].(string); desc != "" {
+			fmt.Fprintf(body, "\t// %s\n", strings.ReplaceAll(desc, "\n", "\n\t// "))
+		}
+		if kws := e.unenforcedKeywords(prop); len(kws) > 0 {
+			e.unenforced[name] = prop
+			fmt.Fprintf(body, "\t//\n\t// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
 		}
 		if ref, hasRef := prop["$ref"].(string); hasRef {
 			if was, degraded := e.degradedRefs[ref]; degraded {
@@ -600,23 +650,9 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		}
 		tag := name
 		if !required[name] {
-			// omitzero, not omitempty: on a slice or map, omitempty omits
-			// both nil and empty, so an absent field and a present-but-empty
-			// one serialize identically and the distinction is lost.
-			// omitzero omits only the zero value, which recovers it —
-			// verified: []string(nil) omits, []string{} emits "[]".
-			//
-			// That makes a pointer unnecessary for types that are already
-			// nilable. Slices, maps and json.RawMessage keep their natural
-			// shape so callers write c.Links[0] rather than (*c.Links)[0];
-			// scalars still need the pointer, since a non-pointer string
-			// cannot distinguish absent from "".
 			tag = name + ",omitzero"
-			if !isNilableType(typ) {
-				typ = "*" + typ
-			}
 		}
-		fmt.Fprintf(body, "\t%s %s `json:%q`\n", fieldName, typ, tag)
+		fmt.Fprintf(body, "\t%s %s `json:%q`\n", fieldNames[name], fieldTypes[name], tag)
 	}
 	// UCP is an extension-first protocol: an open object exists so that
 	// extensions can contribute keys the base schema never lists. Without a
@@ -635,7 +671,8 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		renderExtraCodec(body, typeName, names, fieldNames, required)
 	}
 
-	return renderValidate(e, body, typeName, schema, props, names, fieldNames, required)
+	renderValidate(body, typeName, &c)
+	return nil
 }
 
 // isNilableType reports whether a Go type expression already has a nil
@@ -683,25 +720,11 @@ func renderExtraCodec(body *strings.Builder, typeName string, names []string, fi
 	body.WriteString("\tfor k, val := range v.Extra {\n\t\tif _, named := merged[k]; !named {\n\t\t\tmerged[k] = val\n\t\t}\n\t}\n\treturn json.Marshal(merged)\n}\n")
 }
 
-// renderValidate emits the pattern vars and Validate method for a struct.
-// Validate is always emitted, even with zero checks, so callers can rely on
-// a uniform interface{ Validate() error } across every generated type.
-func renderValidate(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any, props map[string]any, names []string, fieldNames map[string]string, required map[string]bool) error {
-	var c constraintSet
-	for _, name := range names {
-		prop := props[name].(map[string]any)
-		// Constrained properties are strings, and renderStruct gives every
-		// optional string a pointer (isNilableType is false for "string"), so
-		// optional here always means one level of indirection.
-		access := accessValue
-		if !required[name] {
-			access = accessPointer
-		}
-		if err := compileConstraints(e, &c, typeName, name, "v."+fieldNames[name], access, prop); err != nil {
-			return err
-		}
-	}
-
+// renderValidate emits the pattern vars and Validate method for a struct
+// from constraints its caller has already compiled. Validate is always
+// emitted, even with zero checks, so callers can rely on a uniform
+// interface{ Validate() error } across every generated type.
+func renderValidate(body *strings.Builder, typeName string, c *constraintSet) {
 	body.WriteString("\n")
 	if c.vars.Len() > 0 {
 		body.WriteString(c.vars.String())
@@ -710,7 +733,6 @@ func renderValidate(e *fileEmitter, body *strings.Builder, typeName string, sche
 	fmt.Fprintf(body, "func (v *%s) Validate() error {\n", typeName)
 	body.WriteString(c.checks.String())
 	body.WriteString("\treturn nil\n}\n\n")
-	return nil
 }
 
 // assembleFile prepends the generated header, package clause, and the

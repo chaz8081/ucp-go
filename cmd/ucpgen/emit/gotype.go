@@ -29,10 +29,15 @@ type fileEmitter struct {
 	// stdlib imports the generated Validate machinery needs.
 	usesErrors, usesRegexp, usesSync, usesUtf8 bool
 
-	// unenforced records validation-only keywords seen per property, so the
+	// unenforced records the schema node reached at each path, so the
 	// manifest can carry a machine-readable coverage gap alongside the doc
 	// comments in the generated source.
-	unenforced map[string][]string
+	unenforced map[string]map[string]any
+
+	// enforced records, per schema node, the keywords a generated check
+	// already covers, so the same keyword is never both checked and
+	// reported as a coverage gap.
+	enforced enforcedKeywords
 
 	// degradedRefs records $refs typed as raw JSON to keep the package
 	// graph acyclic (see goTypeExpr), so the affected fields can say so.
@@ -52,7 +57,8 @@ func newFileEmitterWithBreaks(idx *TypeIndex, rel, pkg string, breaks map[string
 		idx: idx, rel: rel, pkg: pkg,
 		imports:       map[string]string{},
 		nestedSchemas: map[string]map[string]any{},
-		unenforced:    map[string][]string{},
+		unenforced:    map[string]map[string]any{},
+		enforced:      enforcedKeywords{},
 		degradedRefs:  map[string]string{},
 		breaks:        breaks,
 	}
@@ -243,19 +249,29 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 // noteUnenforced records the validation-only keywords present on a node,
 // keyed by the path that reaches it, so every occurrence is reported —
 // inside items and additionalProperties as well as on a property itself.
+// The list is resolved lazily, in Unenforced: whether a keyword is
+// enforced depends on checks the emitter has not necessarily compiled yet
+// when the node is first reached, and a node recorded as a gap before its
+// check exists would stay wrongly recorded.
 func (e *fileEmitter) noteUnenforced(fieldPath string, node map[string]any) {
-	if kws := unenforcedKeywords(node); len(kws) > 0 {
-		key := e.prefix + "." + fieldPath
-		if _, seen := e.unenforced[key]; !seen {
-			e.unenforced[key] = kws
-		}
+	key := e.prefix + "." + fieldPath
+	if _, seen := e.unenforced[key]; !seen {
+		e.unenforced[key] = node
 	}
 }
 
 // Unenforced returns the validation-only keywords this file's types declare
 // but do not check, keyed by "Type.field-path". The manifest carries it so
 // the coverage gap is machine-readable, not only a comment in the source.
-func (e *fileEmitter) Unenforced() map[string][]string { return e.unenforced }
+func (e *fileEmitter) Unenforced() map[string][]string {
+	out := map[string][]string{}
+	for key, node := range e.unenforced {
+		if kws := e.unenforcedKeywords(node); len(kws) > 0 {
+			out[key] = kws
+		}
+	}
+	return out
+}
 
 // sameSchema reports whether two schema nodes are structurally identical,
 // which makes reusing one generated name for both harmless.
