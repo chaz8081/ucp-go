@@ -38,7 +38,7 @@ func TestEmitStruct(t *testing.T) {
 	for _, want := range []string{
 		"Type string `json:\"type\"`",
 		"URL string `json:\"url\"`",
-		"Title *string `json:\"title,omitempty\"`",
+		"Title *string `json:\"title,omitzero\"`",
 	} {
 		if !strings.Contains(collapsed, want) {
 			t.Errorf("emitted source missing %q\n---\n%s", want, src)

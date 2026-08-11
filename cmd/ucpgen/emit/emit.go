@@ -625,7 +625,21 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		}
 		tag := name
 		if !required[name] {
-			typ, tag = "*"+typ, name+",omitempty"
+			// omitzero, not omitempty: on a slice or map, omitempty omits
+			// both nil and empty, so an absent field and a present-but-empty
+			// one serialize identically and the distinction is lost.
+			// omitzero omits only the zero value, which recovers it —
+			// verified: []string(nil) omits, []string{} emits "[]".
+			//
+			// That makes a pointer unnecessary for types that are already
+			// nilable. Slices, maps and json.RawMessage keep their natural
+			// shape so callers write c.Links[0] rather than (*c.Links)[0];
+			// scalars still need the pointer, since a non-pointer string
+			// cannot distinguish absent from "".
+			tag = name + ",omitzero"
+			if !isNilableType(typ) {
+				typ = "*" + typ
+			}
 		}
 		fmt.Fprintf(body, "\t%s %s `json:%q`\n", fieldName, typ, tag)
 	}
@@ -647,6 +661,15 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	}
 
 	return renderValidate(e, body, typeName, schema, props, names, fieldNames, required)
+}
+
+// isNilableType reports whether a Go type expression already has a nil
+// zero value, making a pointer redundant for optionality.
+func isNilableType(typ string) bool {
+	return strings.HasPrefix(typ, "[]") ||
+		strings.HasPrefix(typ, "map[") ||
+		typ == "json.RawMessage" ||
+		typ == "any"
 }
 
 // isOpenObject reports whether a schema admits properties it does not

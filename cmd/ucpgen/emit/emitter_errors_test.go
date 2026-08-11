@@ -160,7 +160,7 @@ func TestEmitFileAdditionalPropertiesSchemaFormBecomesMap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("emitOne: %v", err)
 	}
-	if !strings.Contains(collapse(src), "Tags *map[string]string") {
+	if !strings.Contains(collapse(src), "Tags map[string]string") {
 		t.Errorf("additionalProperties schema form should emit a map:\n%s", src)
 	}
 }
