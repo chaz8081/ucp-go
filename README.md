@@ -32,11 +32,37 @@ preprocessor — see [Goldens](#goldens) below.
 
     go run ./cmd/ucpgen emit -schemas .gen-schemas -out . -spec-ref <branch@sha>
 
-Emitting the whole normalized spec is **Phase 3**: the emitter deliberately
-rejects shapes it doesn't yet support (schemas whose content lives entirely
-in `$defs`, unions, cross-file type references, and most constraint
-keywords) rather than silently generating models that under-validate. It
-runs today against flat object schemas, exercised by `go test ./...`.
+This stage also handles the full spec: all 145 normalized schemas emit into
+five packages that build and vet cleanly. Directory basenames are the package
+names (`shopping/types` → package `types`), file-level types are named from
+`title`, and `$def` types are qualified by file stem (`CapabilityBase`) —
+unqualified `$def` names collide 18 times across the corpus.
+
+Generated models:
+
+- preserve unknown keys. Objects the schema leaves open carry an
+  `Extra map[string]json.RawMessage` and re-emit it on marshal, so extension
+  keys survive a round trip.
+- decode unions. A `$ref`-only union becomes a struct with one optional
+  typed field per member plus `UnmarshalJSON`/`MarshalJSON`; `ucp` is a
+  required union field on Cart, Checkout and Order, so a marker interface
+  (which `encoding/json` cannot unmarshal into) would make those types
+  undecodable.
+- enforce `maxLength` and `pattern`, including on named primitives such as
+  `ReverseDomainName`, whose entire purpose is its pattern.
+
+What is **not** enforced yet is visible rather than silent: every remaining
+validation keyword (`enum`, `const`, numeric bounds, `minItems`,
+`uniqueItems`, `format`, …) is reported in a doc comment on the affected
+type or field, and recorded per schema under `unenforced` in
+`MANIFEST.json`. Keywords that would change a schema's *shape* rather than
+merely constrain it (currently `patternProperties`) still fail generation
+outright, because no correct Go type can be produced for them.
+
+Go forbids import cycles and JSON Schema does not, so the generator computes
+the package graph, finds cycles, and carries the offending reference as raw
+JSON with a comment explaining why. The corpus contains exactly one such
+cycle.
 
 ### Goldens
 

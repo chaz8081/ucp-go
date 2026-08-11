@@ -8,18 +8,19 @@ import (
 // C1 — non-object top-level schemas must error, not silently emit an empty
 // struct that accepts anything.
 
-func TestEmitFileRejectsNonObjectTopLevel(t *testing.T) {
+// A scalar top-level schema is a named alias type as of phase 3; it used
+// to be rejected outright.
+func TestEmitFileScalarTopLevelEmitsAlias(t *testing.T) {
 	schema := map[string]any{
-		"title":   "ReverseDomainName",
-		"type":    "string",
-		"pattern": "^[a-z]+$",
+		"title": "Reverse Domain Name",
+		"type":  "string",
 	}
-	_, err := EmitFile("shopping", "types/reverse_domain_name.json", schema, "release/test@deadbeef")
-	if err == nil {
-		t.Fatalf("EmitFile: expected error for non-object top-level type, got nil")
+	src, err := emitOne(t, "types/reverse_domain_name.json", schema)
+	if err != nil {
+		t.Fatalf("emitOne: %v", err)
 	}
-	if !strings.Contains(err.Error(), "top-level type") {
-		t.Errorf("error = %q, want mention of top-level type", err.Error())
+	if !strings.Contains(collapse(src), "type ReverseDomainName string") {
+		t.Errorf("scalar schema should emit a named alias:\n%s", src)
 	}
 }
 
@@ -27,12 +28,12 @@ func TestEmitFileRejectsMissingTypeAndProperties(t *testing.T) {
 	schema := map[string]any{
 		"title": "Empty",
 	}
-	_, err := EmitFile("shopping", "types/empty.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "types/empty.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for missing type and properties, got nil")
 	}
-	if !strings.Contains(err.Error(), "top-level type") {
-		t.Errorf("error = %q, want mention of top-level type", err.Error())
+	if !strings.Contains(err.Error(), "nothing to emit") {
+		t.Errorf("error = %q, want mention of an empty schema", err.Error())
 	}
 }
 
@@ -43,7 +44,7 @@ func TestEmitFileAllowsImplicitObjectType(t *testing.T) {
 			"name": map[string]any{"type": "string"},
 		},
 	}
-	src, err := EmitFile("shopping", "types/implicit.json", schema, "release/test@deadbeef")
+	src, err := emitOne(t, "types/implicit.json", schema)
 	if err != nil {
 		t.Fatalf("EmitFile: %v", err)
 	}
@@ -62,7 +63,7 @@ func TestEmitFileRejectsMaxLengthWrongType(t *testing.T) {
 			"name": map[string]any{"type": "string", "maxLength": 5}, // int, not float64
 		},
 	}
-	_, err := EmitFile("shopping", "test/badmaxlength.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/badmaxlength.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for non-numeric maxLength, got nil")
 	}
@@ -79,7 +80,7 @@ func TestEmitFileRejectsPatternWrongType(t *testing.T) {
 			"name": map[string]any{"type": "string", "pattern": 123},
 		},
 	}
-	_, err := EmitFile("shopping", "test/badpatterntype.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/badpatterntype.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for non-string pattern, got nil")
 	}
@@ -97,7 +98,7 @@ func TestEmitFileRejectsBooleanRequired(t *testing.T) {
 			"name": map[string]any{"type": "string"},
 		},
 	}
-	_, err := EmitFile("shopping", "test/openrpcparam.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/openrpcparam.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for boolean top-level required, got nil")
 	}
@@ -116,7 +117,7 @@ func TestEmitFileRejectsStringConstraintsOnUnsupportedType(t *testing.T) {
 			"method": map[string]any{"type": []any{"string", "null"}, "pattern": "^[a-z]+$"},
 		},
 	}
-	_, err := EmitFile("shopping", "test/fulfillment_available_method.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/fulfillment_available_method.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for string constraints on unsupported type, got nil")
 	}
@@ -131,7 +132,7 @@ func TestEmitFileRejectsPropertiesWrongType(t *testing.T) {
 		"type":       "object",
 		"properties": 123, // not a map[string]any
 	}
-	_, err := EmitFile("shopping", "test/badproperties.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/badproperties.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for non-object properties, got nil")
 	}
@@ -143,59 +144,26 @@ func TestEmitFileRejectsPropertiesWrongType(t *testing.T) {
 // C5 — known-but-unimplemented JSON Schema assertion keywords must fail
 // generation loudly rather than silently vanishing from Validate().
 
-func TestEmitFileRejectsUnimplementedPropertyEnum(t *testing.T) {
+// additionalProperties in its schema form is now a map value type.
+func TestEmitFileAdditionalPropertiesSchemaFormBecomesMap(t *testing.T) {
 	schema := map[string]any{
-		"title": "HasEnum",
+		"title": "Has AP",
 		"type":  "object",
 		"properties": map[string]any{
-			"status": map[string]any{"type": "string", "enum": []any{"a", "b"}},
+			"tags": map[string]any{
+				"type":                 "object",
+				"additionalProperties": map[string]any{"type": "string"},
+			},
 		},
 	}
-	_, err := EmitFile("shopping", "test/hasenum.json", schema, "release/test@deadbeef")
-	if err == nil {
-		t.Fatalf("EmitFile: expected error for unimplemented enum constraint, got nil")
+	src, err := emitOne(t, "test/hasap.json", schema)
+	if err != nil {
+		t.Fatalf("emitOne: %v", err)
 	}
-	if !strings.Contains(err.Error(), "unsupported constraint keyword") || !strings.Contains(err.Error(), "enum") {
-		t.Errorf("error = %q, want mention of unsupported constraint keyword %q", err.Error(), "enum")
-	}
-}
-
-func TestEmitFileRejectsUnimplementedTopLevelKeyword(t *testing.T) {
-	schema := map[string]any{
-		"title": "HasConst",
-		"type":  "object",
-		"const": map[string]any{"foo": "bar"},
-		"properties": map[string]any{
-			"name": map[string]any{"type": "string"},
-		},
-	}
-	_, err := EmitFile("shopping", "test/hasconst.json", schema, "release/test@deadbeef")
-	if err == nil {
-		t.Fatalf("EmitFile: expected error for unimplemented top-level const keyword, got nil")
-	}
-	if !strings.Contains(err.Error(), "const") {
-		t.Errorf("error = %q, want mention of const", err.Error())
+	if !strings.Contains(collapse(src), "Tags map[string]string") {
+		t.Errorf("additionalProperties schema form should emit a map:\n%s", src)
 	}
 }
-
-func TestEmitFileRejectsAdditionalPropertiesSchemaForm(t *testing.T) {
-	schema := map[string]any{
-		"title":                "HasAP",
-		"type":                 "object",
-		"additionalProperties": map[string]any{"type": "string"},
-		"properties": map[string]any{
-			"name": map[string]any{"type": "string"},
-		},
-	}
-	_, err := EmitFile("shopping", "test/hasap.json", schema, "release/test@deadbeef")
-	if err == nil {
-		t.Fatalf("EmitFile: expected error for additionalProperties schema form, got nil")
-	}
-	if !strings.Contains(err.Error(), "additionalProperties") {
-		t.Errorf("error = %q, want mention of additionalProperties", err.Error())
-	}
-}
-
 func TestEmitFileAllowsAdditionalPropertiesBooleanForm(t *testing.T) {
 	schema := map[string]any{
 		"title":                "HasAPBool",
@@ -205,7 +173,7 @@ func TestEmitFileAllowsAdditionalPropertiesBooleanForm(t *testing.T) {
 			"name": map[string]any{"type": "string"},
 		},
 	}
-	if _, err := EmitFile("shopping", "test/hasapbool.json", schema, "release/test@deadbeef"); err != nil {
+	if _, err := emitOne(t, "test/hasapbool.json", schema); err != nil {
 		t.Fatalf("EmitFile: unexpected error for boolean additionalProperties: %v", err)
 	}
 }
@@ -221,7 +189,7 @@ func TestEmitFileAllowsFormatAnnotation(t *testing.T) {
 			"when": map[string]any{"type": "string", "format": "date-time"},
 		},
 	}
-	src, err := EmitFile("shopping", "test/hasformat.json", schema, "release/test@deadbeef")
+	src, err := emitOne(t, "test/hasformat.json", schema)
 	if err != nil {
 		t.Fatalf("EmitFile: unexpected error for format-only schema: %v", err)
 	}
@@ -240,7 +208,7 @@ func TestEmitFileRejectsNegativeMaxLength(t *testing.T) {
 			"name": map[string]any{"type": "string", "maxLength": float64(-1)},
 		},
 	}
-	_, err := EmitFile("shopping", "test/negativemaxlength.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/negativemaxlength.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for negative maxLength, got nil")
 	}
@@ -257,7 +225,7 @@ func TestEmitFileRejectsFractionalMaxLength(t *testing.T) {
 			"name": map[string]any{"type": "string", "maxLength": float64(2.5)},
 		},
 	}
-	_, err := EmitFile("shopping", "test/fractionalmaxlength.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/fractionalmaxlength.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for fractional maxLength, got nil")
 	}
@@ -277,7 +245,7 @@ func TestEmitFileRejectsFieldCollision(t *testing.T) {
 			"line-item": map[string]any{"type": "string"},
 		},
 	}
-	_, err := EmitFile("shopping", "test/collision.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/collision.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for field name collision, got nil")
 	}
@@ -299,7 +267,7 @@ func TestEmitFileRejectsValidateNameCollision(t *testing.T) {
 			"validate": map[string]any{"type": "string"},
 		},
 	}
-	_, err := EmitFile("shopping", "test/validatecollision.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/validatecollision.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for Validate name collision, got nil")
 	}
@@ -318,7 +286,7 @@ func TestEmitFileSanitizesParentheticalTitle(t *testing.T) {
 			"name": map[string]any{"type": "string"},
 		},
 	}
-	src, err := EmitFile("shopping", "test/capability.json", schema, "release/test@deadbeef")
+	src, err := emitOne(t, "test/capability.json", schema)
 	if err != nil {
 		t.Fatalf("EmitFile: %v", err)
 	}
@@ -337,7 +305,7 @@ func TestEmitFileAlwaysEmitsValidate(t *testing.T) {
 			"name": map[string]any{"type": "string"},
 		},
 	}
-	src, err := EmitFile("shopping", "test/noconstraints.json", schema, "release/test@deadbeef")
+	src, err := emitOne(t, "test/noconstraints.json", schema)
 	if err != nil {
 		t.Fatalf("EmitFile: %v", err)
 	}
@@ -367,7 +335,7 @@ func TestEmitFileEscapesMultilineDescription(t *testing.T) {
 			"name": map[string]any{"type": "string", "description": "Field line one.\nField line two."},
 		},
 	}
-	src, err := EmitFile("shopping", "test/multiline.json", schema, "release/test@deadbeef")
+	src, err := emitOne(t, "test/multiline.json", schema)
 	if err != nil {
 		t.Fatalf("EmitFile: %v", err)
 	}

@@ -35,10 +35,23 @@ type ManifestEntry struct {
 	// stay visible in the manifest instead of looking identical to a
 	// normal type.
 	Fields int `json:"fields"`
+	// Unenforced records validation-only JSON Schema keywords this schema
+	// declares that the generated code does not check, keyed by "Type" or
+	// "Type.field-path". It makes the phase 4 gap machine readable rather
+	// than only a comment in the generated source.
+	Unenforced map[string][]string `json:"unenforced,omitempty"`
 }
 
+const modulePath = "github.com/chaz8081/ucp-go"
+
 func run(schemaDir, outDir, specRef string) (*Manifest, error) {
-	set, err := preprocess.LoadSchemas(schemaDir)
+	// Variants are content here, not output to be regenerated: emit's input
+	// is the already-normalized tree, where *_request.json files are 67 of
+	// the corpus's 145 schemas and carry the protocol's entire request
+	// surface. Skipping them (as a raw-spec load must) drops them with no
+	// error, and the coverage check below cannot notice because they were
+	// never in the set.
+	set, err := preprocess.LoadSchemasIncludingVariants(schemaDir)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +68,17 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 	}
 	sort.Strings(rels)
 
+	// The index must cover the whole corpus before any file renders, so a
+	// cross-file $ref can resolve to a type that has not been emitted yet.
+	idx, err := emit.BuildTypeIndex(set.Files, modulePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Go forbids import cycles; decide up front which reference edges must
+	// be carried as raw JSON so the emitted packages form a DAG.
+	breaks := emit.CycleBreaks(emit.BuildPackageGraph(set.Files, idx, modulePath), set.Files, modulePath)
+
 	m := &Manifest{SpecRef: specRef, Schemas: map[string]ManifestEntry{}}
 	for _, rel := range rels {
 		// Input contract: schemas are already normalized. The `preprocess`
@@ -63,11 +87,8 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 		// PreprocessDocument's whole-document walk and would silently
 		// diverge from it for nested nodes.
 		schema := set.Files[rel]
-		pkg := "ucp"
-		if dir := filepath.Dir(rel); dir != "." {
-			pkg = strings.ReplaceAll(dir, "/", "") // shopping/types -> shoppingtypes; refined in phase 2
-		}
-		src, err := emit.EmitFile(pkg, rel, schema, specRef)
+		pkg, importPath := emit.PackageForSchema(rel, modulePath)
+		src, err := emit.EmitFileWithBreaks(idx, modulePath, rel, schema, specRef, breaks[importPath], set.Files)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", rel, err)
 		}
@@ -96,8 +117,9 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 			// form: regenerating into a scratch dir and diffing the
 			// resulting MANIFEST.json against a committed one must not
 			// spuriously fail just because outDir's location differs.
-			File:   filepath.ToSlash(strings.TrimSuffix(rel, ".json") + ".go"),
-			Fields: len(props),
+			File:       filepath.ToSlash(strings.TrimSuffix(rel, ".json") + ".go"),
+			Fields:     len(props),
+			Unenforced: emit.LastUnenforced(),
 		}
 	}
 	// Fail closed: every loaded schema must have produced an entry. With
