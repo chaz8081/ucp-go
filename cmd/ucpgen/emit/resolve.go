@@ -31,12 +31,12 @@ func ResolveRef(idx *TypeIndex, from, ref string) (TypeRef, error) {
 	if fragment != "" {
 		rest, ok := strings.CutPrefix(fragment, defsFragmentPrefix)
 		if !ok {
-			return TypeRef{}, fmt.Errorf("%s: unsupported ref fragment in %q (only %s… is supported)", from, ref, defsFragmentPrefix)
+			return TypeRef{}, fmt.Errorf("unsupported ref fragment in %q (only %s… is supported)", ref, defsFragmentPrefix)
 		}
 		// A deeper pointer (e.g. #/$defs/x/properties/y) addresses an
 		// anonymous subschema, which has no registered type.
 		if name, tail, hasTail := strings.Cut(rest, "/"); hasTail {
-			return TypeRef{}, fmt.Errorf("%s: ref %q points inside a $def (%s → %s); no type is emitted for that location", from, ref, name, tail)
+			return TypeRef{}, fmt.Errorf("ref %q points inside a $def (%s → %s); no type is emitted for that location", ref, name, tail)
 		}
 		def = rest
 	}
@@ -63,7 +63,7 @@ func ResolveRef(idx *TypeIndex, from, ref string) (TypeRef, error) {
 		if def != "" {
 			where += "#/$defs/" + def
 		}
-		return TypeRef{}, fmt.Errorf("%s: ref %q resolves to %s, which emits no type", from, ref, where)
+		return TypeRef{}, fmt.Errorf("ref %q resolves to %s, which emits no type", ref, where)
 	}
 	return got, nil
 }

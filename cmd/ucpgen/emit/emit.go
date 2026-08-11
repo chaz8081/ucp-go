@@ -142,7 +142,7 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 	// inside their $defs. Merge locally so every renderer below sees a flat
 	// node.
 	if err := mergeLocalAllOf(schema); err != nil {
-		return "", fmt.Errorf("%s: %w", relPath, err)
+		return "", fmt.Errorf("%w", err)
 	}
 
 	var body strings.Builder
@@ -166,7 +166,7 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 	for _, name := range defNames {
 		def, ok := defs[name].(map[string]any)
 		if !ok {
-			return "", fmt.Errorf("%s: $defs/%s is %T, want an object", relPath, name, defs[name])
+			return "", fmt.Errorf("$defs/%s is %T, want an object", name, defs[name])
 		}
 		if isNamespaceDef(def) {
 			// A grouping object, not a schema — see isNamespaceDef. Recorded
@@ -176,7 +176,7 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 		}
 		ref, ok := idx.Lookup(relPath, name)
 		if !ok {
-			return "", fmt.Errorf("%s: $defs/%s is not in the index", relPath, name)
+			return "", fmt.Errorf("$defs/%s is not in the index", name)
 		}
 		if err := renderNamedType(e, &body, ref.Name, def); err != nil {
 			return "", err
@@ -223,7 +223,7 @@ func mergeLocalAllOf(schema map[string]any) error {
 // scalar alias — plus its Validate method.
 func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
 	if kw := checkTypeAffectingKeywords(schema); kw != "" {
-		return fmt.Errorf("%s: %s: keyword %q changes the schema's shape and is not modeled yet (phase 4)", e.rel, typeName, kw)
+		return fmt.Errorf("%s: keyword %q changes the schema's shape and is not modeled yet (phase 4)", typeName, kw)
 	}
 
 	if raw, hasKey := schema["properties"]; hasKey {
@@ -231,7 +231,7 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 			// A "properties" key that is not a JSON object would otherwise
 			// type-assert to nil and quietly emit an empty, unconstrained
 			// struct.
-			return fmt.Errorf("%s: %s: properties is %T, want an object of property definitions", e.rel, typeName, raw)
+			return fmt.Errorf("%s: properties is %T, want an object of property definitions", typeName, raw)
 		}
 	}
 	_, hasProps := schema["properties"].(map[string]any)
@@ -257,7 +257,7 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if _, hasType := schema["type"]; !hasType {
 		if _, hasRef := schema["$ref"]; !hasRef {
 			if _, hasDefs := schema["$defs"]; !hasDefs && !hasUnion(schema) {
-				return fmt.Errorf("%s: %s: schema declares neither type, properties, $defs, $ref nor a union; nothing to emit", e.rel, typeName)
+				return fmt.Errorf("%s: schema declares neither type, properties, $defs, $ref nor a union; nothing to emit", typeName)
 			}
 		}
 	}
@@ -302,7 +302,7 @@ func renderUnionInterface(e *fileEmitter, body *strings.Builder, typeName, keywo
 			return err
 		}
 		if target.Package != e.pkg {
-			return fmt.Errorf("%s: union %s has member %s in package %s; Go cannot implement an interface for a type declared in another package (phase 4)", e.rel, typeName, target.Name, target.Package)
+			return fmt.Errorf("union %s has member %s in package %s; Go cannot implement an interface for a type declared in another package (phase 4)", typeName, target.Name, target.Package)
 		}
 		implNames = append(implNames, target.Name)
 	}
@@ -329,14 +329,14 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		reqs, isArray := reqRaw.([]any)
 		if !isArray {
 			if _, isBool := reqRaw.(bool); isBool {
-				return fmt.Errorf("%s: %s: required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", e.rel, typeName)
+				return fmt.Errorf("%s: required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", typeName)
 			}
-			return fmt.Errorf("%s: %s: required is %T, want an array of property-name strings", e.rel, typeName, reqRaw)
+			return fmt.Errorf("%s: required is %T, want an array of property-name strings", typeName, reqRaw)
 		}
 		for _, r := range reqs {
 			s, ok := r.(string)
 			if !ok {
-				return fmt.Errorf("%s: %s: required entry is not a string", e.rel, typeName)
+				return fmt.Errorf("%s: required entry is not a string", typeName)
 			}
 			required[s] = true
 		}
@@ -364,17 +364,17 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	for _, name := range names {
 		prop, ok := props[name].(map[string]any)
 		if !ok {
-			return fmt.Errorf("%s: %s: property %q is not an object", e.rel, typeName, name)
+			return fmt.Errorf("%s: property %q is not an object", typeName, name)
 		}
 		if kw := checkTypeAffectingKeywords(prop); kw != "" {
-			return fmt.Errorf("%s: %s: property %q has keyword %q, which changes its shape and is not modeled yet (phase 4)", e.rel, typeName, name, kw)
+			return fmt.Errorf("%s: property %q has keyword %q, which changes its shape and is not modeled yet (phase 4)", typeName, name, kw)
 		}
 		fieldName := GoName(name)
 		if fieldName == "Validate" {
-			return fmt.Errorf("%s: %s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", e.rel, typeName, name, fieldName)
+			return fmt.Errorf("%s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", typeName, name, fieldName)
 		}
 		if orig, dup := seenFields[fieldName]; dup {
-			return fmt.Errorf("%s: %s: properties %q and %q both sanitize to Go field name %q", e.rel, typeName, orig, name, fieldName)
+			return fmt.Errorf("%s: properties %q and %q both sanitize to Go field name %q", typeName, orig, name, fieldName)
 		}
 		seenFields[fieldName] = name
 		fieldNames[name] = fieldName
@@ -425,7 +425,7 @@ func renderValidate(e *fileEmitter, body *strings.Builder, typeName string, sche
 				// Keeps the emitter honest: a constraint on a shape whose
 				// check we cannot express fails loudly instead of silently
 				// emitting an unconstrained field.
-				return fmt.Errorf("%s: %s: property %q has string constraints but unsupported type %v (phase 4)", e.rel, typeName, name, prop["type"])
+				return fmt.Errorf("%s: property %q has string constraints but unsupported type %v (phase 4)", typeName, name, prop["type"])
 			}
 			continue
 		}
@@ -434,10 +434,10 @@ func renderValidate(e *fileEmitter, body *strings.Builder, typeName string, sche
 			mlRaw := prop["maxLength"]
 			ml, ok := mlRaw.(float64)
 			if !ok {
-				return fmt.Errorf("%s: %s: property %q maxLength is %T, want a number", e.rel, typeName, name, mlRaw)
+				return fmt.Errorf("%s: property %q maxLength is %T, want a number", typeName, name, mlRaw)
 			}
 			if ml < 0 || ml != math.Trunc(ml) {
-				return fmt.Errorf("%s: %s: property %q maxLength %v is not a non-negative integer", e.rel, typeName, name, ml)
+				return fmt.Errorf("%s: property %q maxLength %v is not a non-negative integer", typeName, name, ml)
 			}
 			n := int(ml)
 			msg := fmt.Sprintf("%s: exceeds maxLength %d", name, n)
@@ -454,12 +454,12 @@ func renderValidate(e *fileEmitter, body *strings.Builder, typeName string, sche
 			patRaw := prop["pattern"]
 			pat, ok := patRaw.(string)
 			if !ok {
-				return fmt.Errorf("%s: %s: property %q pattern is %T, want a string", e.rel, typeName, name, patRaw)
+				return fmt.Errorf("%s: property %q pattern is %T, want a string", typeName, name, patRaw)
 			}
 			// RE2 gate: fail generation loudly rather than emit a MustCompile
 			// that would panic at runtime.
 			if _, err := regexp.Compile(pat); err != nil {
-				return fmt.Errorf("%s: %s: pattern %q for %q is not RE2-compatible: %v", e.rel, typeName, pat, name, err)
+				return fmt.Errorf("%s: pattern %q for %q is not RE2-compatible: %v", typeName, pat, name, err)
 			}
 			e.usesErrors, e.usesRegexp, e.usesSync = true, true, true
 			varName := fmt.Sprintf("pattern_%s_%s", typeName, fieldName)
@@ -524,7 +524,7 @@ func assembleFile(e *fileEmitter, relPath, pkg, specRef, body string) (string, e
 
 	result, err := format.Source([]byte(out.String()))
 	if err != nil {
-		return "", fmt.Errorf("%s: generated source does not parse: %w\n%s", relPath, err, out.String())
+		return "", fmt.Errorf("generated source does not parse: %w\n%s", err, out.String())
 	}
 	return string(result), nil
 }

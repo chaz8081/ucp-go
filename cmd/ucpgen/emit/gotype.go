@@ -138,7 +138,7 @@ func (e *fileEmitter) goTypeExpr(node map[string]any, fieldName string) (string,
 	case nil:
 		return "any", nil
 	default:
-		return "", fmt.Errorf("%s: field %q has non-string type %T", e.rel, fieldName, node["type"])
+		return "", fmt.Errorf("field %q has non-string type %T", fieldName, node["type"])
 	}
 }
 
@@ -189,7 +189,7 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 		// unknown keys.
 		return "map[string]any", nil
 	default:
-		return "", fmt.Errorf("%s: field %q has unsupported type %q", e.rel, fieldName, t)
+		return "", fmt.Errorf("field %q has unsupported type %q", fieldName, t)
 	}
 }
 
