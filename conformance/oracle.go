@@ -3,6 +3,8 @@
 package conformance
 
 import (
+	"fmt"
+
 	"github.com/dlclark/regexp2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -46,4 +48,29 @@ func newCompiler() *jsonschema.Compiler {
 	c := jsonschema.NewCompiler()
 	c.UseRegexpEngine(ecmaRegexp)
 	return c
+}
+
+// newCorpusCompiler returns a compiler with every schema in a corpus
+// already registered under its own $id.
+//
+// The spec's schemas identify themselves by https URLs and reference each
+// other relatively, so those references resolve against the $id rather than
+// against the file on disk. Without registering them the compiler would try
+// to fetch ucp.dev over the network — which would make the conformance
+// suite depend on the internet, and silently test a different version of
+// the spec than the goldens do.
+func newCorpusCompiler(corpus map[string]map[string]any) (*jsonschema.Compiler, map[string]string, error) {
+	c := newCompiler()
+	ids := make(map[string]string, len(corpus))
+	for rel, doc := range corpus {
+		id, _ := doc["$id"].(string)
+		if id == "" {
+			continue
+		}
+		if err := c.AddResource(id, doc); err != nil {
+			return nil, nil, fmt.Errorf("%s: add resource: %w", rel, err)
+		}
+		ids[rel] = id
+	}
+	return c, ids, nil
 }

@@ -507,17 +507,47 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 
 	writeDoc(body, typeName, schema)
 	fmt.Fprintf(body, "//\n// %s is a closed %s union: exactly one field is set.\n", typeName, keyword)
+	exclusive := keyword == "oneOf"
+
 	fmt.Fprintf(body, "type %s struct {\n", typeName)
 	for _, f := range fields {
 		fmt.Fprintf(body, "\t%s *%s `json:\"-\"`\n", f.field, f.typ)
 	}
+	if exclusive {
+		body.WriteString("\n\t// matched counts the alternatives the decoded input satisfied.\n")
+		body.WriteString("\t// oneOf permits exactly one, so more than one is a violation that\n")
+		body.WriteString("\t// only decoding can observe. Zero means this value was never\n")
+		body.WriteString("\t// decoded from JSON.\n")
+		body.WriteString("\tmatched int\n")
+	}
 	body.WriteString("}\n\n")
 
-	// UnmarshalJSON: first member that decodes cleanly wins.
-	fmt.Fprintf(body, "// UnmarshalJSON decodes the first union member that accepts the input.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	// A member that merely decodes is not a match: Go's decoder accepts any
+	// object into a struct whose fields are all optional, so the first
+	// member would almost always win regardless of what the JSON says. The
+	// member that also validates is the one the schema means, and decoding
+	// falls back to the first that parsed only so that the bytes are not
+	// lost — Validate then reports why they are wrong.
+	fmt.Fprintf(body, "// UnmarshalJSON decodes the union member that accepts the input,\n// preferring one that also validates.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	fmt.Fprintf(body, "\tvar matched, fallback %s\n\tmatches := 0\n\tparsed := false\n", typeName)
 	for _, f := range fields {
-		fmt.Fprintf(body, "\tvar as%s %s\n\tif err := json.Unmarshal(data, &as%s); err == nil {\n\t\tv.%s = &as%s\n\t\treturn nil\n\t}\n", f.field, f.typ, f.field, f.field, f.field)
+		fmt.Fprintf(body, "\tvar as%s %s\n\tif err := json.Unmarshal(data, &as%s); err == nil {\n", f.field, f.typ, f.field)
+		fmt.Fprintf(body, "\t\tif as%s.Validate() == nil {\n\t\t\tif matches == 0 {\n\t\t\t\tmatched = %s{%s: &as%s}\n\t\t\t}\n\t\t\tmatches++\n\t\t}\n", f.field, typeName, f.field, f.field)
+		fmt.Fprintf(body, "\t\tif !parsed {\n\t\t\tfallback, parsed = %s{%s: &as%s}, true\n\t\t}\n\t}\n", typeName, f.field, f.field)
 	}
+	body.WriteString("\tif matches > 0 {\n\t\t*v = matched\n")
+	if exclusive {
+		body.WriteString("\t\tv.matched = matches\n")
+	}
+	body.WriteString("\t\treturn nil\n\t}\n")
+	body.WriteString("\tif parsed {\n\t\t*v = fallback\n")
+	if exclusive {
+		// Zero would mean "never decoded", which this value was; one match
+		// is what a caller must reach, and the member's own Validate is what
+		// reports why it did not.
+		body.WriteString("\t\tv.matched = 1\n")
+	}
+	body.WriteString("\t\treturn nil\n\t}\n")
 	fmt.Fprintf(body, "\treturn errors.New(%q)\n}\n\n", typeName+": no union member accepted the input")
 
 	// MarshalJSON: emit whichever member is set.
@@ -527,7 +557,21 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 	}
 	fmt.Fprintf(body, "\treturn nil, errors.New(%q)\n}\n\n", typeName+": no union member is set")
 
-	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n\treturn nil\n}\n\n", typeName)
+	// A union is valid exactly when the alternative it holds is, so Validate
+	// delegates. Checking nothing here would accept any object at all: the
+	// members are the only place the union's constraints live.
+	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n", typeName)
+	if exclusive {
+		fmt.Fprintf(body, "\tif v.matched > 1 {\n\t\treturn errors.New(%q)\n\t}\n",
+			typeName+": input satisfies more than one alternative, and oneOf permits exactly one")
+	}
+	for _, f := range fields {
+		fmt.Fprintf(body, "\tif v.%s != nil {\n\t\treturn v.%s.Validate()\n\t}\n", f.field, f.field)
+	}
+	// A decoded union always holds a member, so reaching here means the
+	// value was built in Go and left empty — indistinguishable from one
+	// that was never provided, and judged the same way: not at all.
+	body.WriteString("\treturn nil\n}\n\n")
 	return nil
 }
 
