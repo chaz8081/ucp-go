@@ -16,7 +16,7 @@ type PackageGraph map[string]map[string]bool
 // which are always Go strings, so they produce no type and therefore no
 // import. Including them would invent 12 edges that the generated code
 // never has.
-func BuildPackageGraph(files map[string]map[string]any, idx *TypeIndex) PackageGraph {
+func BuildPackageGraph(files map[string]map[string]any, idx *TypeIndex, modulePath string) PackageGraph {
 	g := PackageGraph{}
 	rels := make([]string, 0, len(files))
 	for rel := range files {
@@ -25,7 +25,10 @@ func BuildPackageGraph(files map[string]map[string]any, idx *TypeIndex) PackageG
 	sort.Strings(rels)
 
 	for _, rel := range rels {
-		src, _ := PackageForSchema(rel, "")
+		// Import paths, not package names: see the note in BuildTypeIndex.
+		// A break computed for one "types" package must not be applied to a
+		// different directory that happens to share the basename.
+		_, src := PackageForSchema(rel, modulePath)
 		if g[src] == nil {
 			g[src] = map[string]bool{}
 		}
@@ -34,12 +37,29 @@ func BuildPackageGraph(files map[string]map[string]any, idx *TypeIndex) PackageG
 			if err != nil {
 				continue // unresolvable refs are reported during rendering
 			}
-			if target.Package != src {
-				g[src][target.Package] = true
+			if target.ImportPath != src {
+				g[src][target.ImportPath] = true
 			}
 		}
 	}
 	return g
+}
+
+// nonTypeProducingKeys hold subschemas the emitter never turns into a Go
+// type, so a $ref inside them creates no import. Including them would
+// invent package edges the generated code does not have — and a phantom
+// edge that closes a cycle would make CycleBreaks degrade a real,
+// perfectly typeable field to raw JSON.
+var nonTypeProducingKeys = map[string]bool{
+	"$ref":              true, // handled by the caller
+	"propertyNames":     true, // constrains map keys, which are always strings
+	"if":                true,
+	"then":              true,
+	"else":              true,
+	"not":               true,
+	"contains":          true,
+	"dependentSchemas":  true,
+	"patternProperties": true,
 }
 
 // collectRefs walks a schema and returns every $ref it contains, skipping
@@ -57,7 +77,7 @@ func collectRefs(node any) []string {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			if k == "propertyNames" || k == "$ref" {
+			if nonTypeProducingKeys[k] {
 				continue
 			}
 			out = append(out, collectRefs(t[k])...)
@@ -72,10 +92,10 @@ func collectRefs(node any) []string {
 
 // packageDepth is the directory nesting of a package, used to decide which
 // edge of a cycle to break. "ucp" (the schema-tree root) is depth 0.
-func packageDepth(files map[string]map[string]any, pkg string) int {
+func packageDepth(files map[string]map[string]any, modulePath, pkg string) int {
 	depth := -1
 	for rel := range files {
-		p, _ := PackageForSchema(rel, "")
+		_, p := PackageForSchema(rel, modulePath)
 		if p != pkg {
 			continue
 		}
@@ -102,7 +122,7 @@ func packageDepth(files map[string]map[string]any, pkg string) int {
 // shopping/types/error_response.json's `ucp` property points at the root
 // metadata union, while the root (through payment_handler.json) points down
 // into shopping/types. The broken edge is therefore types -> ucp.
-func CycleBreaks(g PackageGraph, files map[string]map[string]any) map[string]map[string]bool {
+func CycleBreaks(g PackageGraph, files map[string]map[string]any, modulePath string) map[string]map[string]bool {
 	breaks := map[string]map[string]bool{}
 
 	srcs := make([]string, 0, len(g))
@@ -119,10 +139,13 @@ func CycleBreaks(g PackageGraph, files map[string]map[string]any) map[string]map
 		if cycle == nil {
 			return breaks
 		}
+		// bestDepth starts below any real depth so the first edge always
+		// wins the comparison, making the `from < bestFrom` tie-break
+		// meaningful only between genuine peers.
 		bestFrom, bestTo, bestDepth := "", "", -1
 		for i, from := range cycle {
 			to := cycle[(i+1)%len(cycle)]
-			d := packageDepth(files, from)
+			d := packageDepth(files, modulePath, from)
 			if d > bestDepth || (d == bestDepth && from < bestFrom) {
 				bestFrom, bestTo, bestDepth = from, to, d
 			}

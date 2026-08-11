@@ -171,6 +171,24 @@ func main() {
 			fail("shipping_destination lost inherited field %q: %s", k, out)
 		}
 	}
+	// An open object must preserve keys the schema never names: UCP is an
+	// extension-first protocol and signals.json exists so that multiple
+	// extensions can contribute to a shared namespace.
+	var sig types.Signals
+	ext := ` + "`" + `{"dev.ucp.buyer_ip":"1.2.3.4","com.example.device_id":"abc"}` + "`" + `
+	if err := json.Unmarshal([]byte(ext), &sig); err != nil {
+		fail("signals decode: %v", err)
+	}
+	sigOut, err := json.Marshal(sig)
+	if err != nil {
+		fail("signals marshal: %v", err)
+	}
+	var sigGot map[string]any
+	json.Unmarshal(sigOut, &sigGot)
+	if _, ok := sigGot["com.example.device_id"]; !ok {
+		fail("signals dropped an extension key: %s", sigOut)
+	}
+
 	fmt.Println("round-trip ok")
 }
 `

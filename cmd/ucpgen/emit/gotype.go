@@ -1,6 +1,8 @@
 package emit
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 )
@@ -14,13 +16,15 @@ type nestedType struct {
 // fileEmitter carries the per-file state rendering accumulates: the imports
 // the file needs and the inline object types it must also emit.
 type fileEmitter struct {
-	idx      *TypeIndex
-	rel      string            // schema being rendered
-	pkg      string            // package it belongs to
-	prefix   string            // type-name prefix for nested types
-	imports  map[string]string // import path -> package name
-	nested   []nestedType
-	nestedAt map[string]bool // dedupe by generated name
+	idx     *TypeIndex
+	rel     string            // schema being rendered
+	pkg     string            // package it belongs to
+	prefix  string            // type-name prefix for nested types
+	imports map[string]string // import path -> package name
+	nested  []nestedType
+	// nestedSchemas maps a generated nested type name to the schema that
+	// produced it, so a reused name with a different shape is caught.
+	nestedSchemas map[string]map[string]any
 
 	// stdlib imports the generated Validate machinery needs.
 	usesErrors, usesRegexp, usesSync, usesUtf8 bool
@@ -34,8 +38,8 @@ type fileEmitter struct {
 	// graph acyclic (see goTypeExpr), so the affected fields can say so.
 	degradedRefs map[string]string
 
-	// breaks[dstPackage] marks an edge out of this package that must not be
-	// a real import; see CycleBreaks.
+	// breaks[dstImportPath] marks an edge out of this package that must not
+	// be a real import; see CycleBreaks.
 	breaks map[string]bool
 }
 
@@ -46,11 +50,11 @@ func newFileEmitter(idx *TypeIndex, rel, pkg string) *fileEmitter {
 func newFileEmitterWithBreaks(idx *TypeIndex, rel, pkg string, breaks map[string]bool) *fileEmitter {
 	e := &fileEmitter{
 		idx: idx, rel: rel, pkg: pkg,
-		imports:      map[string]string{},
-		nestedAt:     map[string]bool{},
-		unenforced:   map[string][]string{},
-		degradedRefs: map[string]string{},
-		breaks:       breaks,
+		imports:       map[string]string{},
+		nestedSchemas: map[string]map[string]any{},
+		unenforced:    map[string][]string{},
+		degradedRefs:  map[string]string{},
+		breaks:        breaks,
 	}
 	// Nested type names hang off the enclosing type, so a file's inline
 	// objects are namespaced by whatever type encloses them. Callers
@@ -94,7 +98,7 @@ func (e *fileEmitter) goTypeExpr(node map[string]any, fieldName string) (string,
 		// the two packages reference each other. CycleBreaks decides which
 		// edge to cut; the bytes still round-trip losslessly, and the
 		// affected field says so in a comment.
-		if e.breaks[target.Package] {
+		if e.breaks[target.ImportPath] {
 			e.degradedRefs[ref] = target.Package + "." + target.Name
 			e.imports["encoding/json"] = "json"
 			return "json.RawMessage", nil
@@ -120,6 +124,7 @@ func (e *fileEmitter) goTypeExpr(node map[string]any, fieldName string) (string,
 	if kw := checkTypeAffectingKeywords(node); kw != "" {
 		return "", fmt.Errorf("%q: keyword %q changes the schema's shape and is not modeled yet (phase 4)", fieldName, kw)
 	}
+	e.noteUnenforced(fieldName, node)
 
 	switch t := node["type"].(type) {
 	case string:
@@ -185,7 +190,7 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 		if !ok {
 			return "[]any", nil
 		}
-		inner, err := e.goTypeExpr(items, fieldName+"Item")
+		inner, err := e.goTypeExpr(items, fieldName+"_item")
 		if err != nil {
 			return "", err
 		}
@@ -199,7 +204,7 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 		// shopping/types into the root package's imports and create the
 		// corpus's only import cycle. It remains a phase 4 validation concern.
 		if ap, ok := node["additionalProperties"].(map[string]any); ok {
-			inner, err := e.goTypeExpr(ap, fieldName+"Value")
+			inner, err := e.goTypeExpr(ap, fieldName+"_value")
 			if err != nil {
 				return "", err
 			}
@@ -207,9 +212,23 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 		}
 		if _, ok := node["properties"].(map[string]any); ok {
 			name := e.prefix + GoName(fieldName)
-			if !e.nestedAt[name] {
-				e.nestedAt[name] = true
+			// Two different inline objects mapping to one name would emit
+			// two type declarations with that name. format.Source only
+			// parses, so the duplicate escapes the emitter and surfaces as
+			// a compile error in whatever consumes the output — or not at
+			// all, if the shapes happen to differ only in a later release.
+			if prior, seen := e.nestedSchemas[name]; seen {
+				if !sameSchema(prior, node) {
+					return "", fmt.Errorf("inline object %q collides with a different inline object of the same generated name %q", fieldName, name)
+				}
+			} else {
+				e.nestedSchemas[name] = node
 				e.nested = append(e.nested, nestedType{name: name, schema: node})
+			}
+			// A nested name must also not shadow a $def or file-level type
+			// already registered for this package.
+			if ref, exists := e.idx.Lookup(e.rel, ""); exists && ref.Name == name {
+				return "", fmt.Errorf("inline object %q generates name %q, which is already the file's own type", fieldName, name)
 			}
 			return name, nil
 		}
@@ -219,6 +238,31 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 	default:
 		return "", fmt.Errorf("field %q has unsupported type %q", fieldName, t)
 	}
+}
+
+// noteUnenforced records the validation-only keywords present on a node,
+// keyed by the path that reaches it, so every occurrence is reported —
+// inside items and additionalProperties as well as on a property itself.
+func (e *fileEmitter) noteUnenforced(fieldPath string, node map[string]any) {
+	if kws := unenforcedKeywords(node); len(kws) > 0 {
+		key := e.prefix + "." + fieldPath
+		if _, seen := e.unenforced[key]; !seen {
+			e.unenforced[key] = kws
+		}
+	}
+}
+
+// Unenforced returns the validation-only keywords this file's types declare
+// but do not check, keyed by "Type.field-path". The manifest carries it so
+// the coverage gap is machine-readable, not only a comment in the source.
+func (e *fileEmitter) Unenforced() map[string][]string { return e.unenforced }
+
+// sameSchema reports whether two schema nodes are structurally identical,
+// which makes reusing one generated name for both harmless.
+func sameSchema(a, b map[string]any) bool {
+	ja, errA := json.Marshal(a)
+	jb, errB := json.Marshal(b)
+	return errA == nil && errB == nil && bytes.Equal(ja, jb)
 }
 
 // hasUnion reports whether a node declares oneOf or anyOf members.

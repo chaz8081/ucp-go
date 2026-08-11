@@ -35,6 +35,11 @@ type ManifestEntry struct {
 	// stay visible in the manifest instead of looking identical to a
 	// normal type.
 	Fields int `json:"fields"`
+	// Unenforced records validation-only JSON Schema keywords this schema
+	// declares that the generated code does not check, keyed by "Type" or
+	// "Type.field-path". It makes the phase 4 gap machine readable rather
+	// than only a comment in the generated source.
+	Unenforced map[string][]string `json:"unenforced,omitempty"`
 }
 
 const modulePath = "github.com/chaz8081/ucp-go"
@@ -72,7 +77,7 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 
 	// Go forbids import cycles; decide up front which reference edges must
 	// be carried as raw JSON so the emitted packages form a DAG.
-	breaks := emit.CycleBreaks(emit.BuildPackageGraph(set.Files, idx), set.Files)
+	breaks := emit.CycleBreaks(emit.BuildPackageGraph(set.Files, idx, modulePath), set.Files, modulePath)
 
 	m := &Manifest{SpecRef: specRef, Schemas: map[string]ManifestEntry{}}
 	for _, rel := range rels {
@@ -82,8 +87,8 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 		// PreprocessDocument's whole-document walk and would silently
 		// diverge from it for nested nodes.
 		schema := set.Files[rel]
-		pkg, _ := emit.PackageForSchema(rel, modulePath)
-		src, err := emit.EmitFileWithBreaks(idx, modulePath, rel, schema, specRef, breaks[pkg], set.Files)
+		pkg, importPath := emit.PackageForSchema(rel, modulePath)
+		src, err := emit.EmitFileWithBreaks(idx, modulePath, rel, schema, specRef, breaks[importPath], set.Files)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", rel, err)
 		}
@@ -112,8 +117,9 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 			// form: regenerating into a scratch dir and diffing the
 			// resulting MANIFEST.json against a committed one must not
 			// spuriously fail just because outDir's location differs.
-			File:   filepath.ToSlash(strings.TrimSuffix(rel, ".json") + ".go"),
-			Fields: len(props),
+			File:       filepath.ToSlash(strings.TrimSuffix(rel, ".json") + ".go"),
+			Fields:     len(props),
+			Unenforced: emit.LastUnenforced(),
 		}
 	}
 	// Fail closed: every loaded schema must have produced an entry. With

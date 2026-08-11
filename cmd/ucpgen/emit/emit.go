@@ -52,6 +52,11 @@ var validationOnlyKeywords = map[string]bool{
 	"not": true, "if": true, "then": true, "else": true,
 	"dependentRequired": true, "dependentSchemas": true,
 	"propertyNames": true,
+	// format is annotation-only in draft 2020-12 and the conformance oracle
+	// runs with assertFormat off, so not enforcing it is correct — but 104
+	// occurrences (94 uri, 10 date-time) disappearing without a trace is
+	// not. Reported like any other unenforced keyword.
+	"format": true,
 }
 
 // Keywords deliberately in neither set, and why:
@@ -193,8 +198,23 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 		}
 	}
 
-	return assembleFile(e, relPath, pkg, specRef, body.String())
+	src, err := assembleFile(e, relPath, pkg, specRef, body.String())
+	if err != nil {
+		return "", err
+	}
+	lastUnenforced = e.Unenforced()
+	return src, nil
 }
+
+// lastUnenforced carries the unenforced-keyword map from the most recent
+// EmitFileWithBreaks call, so the caller can record it in the manifest
+// without threading a second return value through every call site.
+var lastUnenforced map[string][]string
+
+// LastUnenforced returns the validation-only keywords the most recently
+// emitted file declares but does not check, keyed by "Type" or
+// "Type.field-path".
+func LastUnenforced() map[string][]string { return lastUnenforced }
 
 // mergeAllOf flattens allOf at the document root and inside each $def.
 //
@@ -399,8 +419,57 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if keyword, members := unionMembers(schema); len(members) > 0 {
 		fmt.Fprintf(body, "//\n// This schema is a %s of %d alternatives with no shared\n// properties, so it is carried as raw JSON. Typed alternatives are\n// phase 4.\n", keyword, len(members))
 	}
+	// A named primitive often exists precisely for its constraint —
+	// ReverseDomainName is a string whose whole purpose is its pattern — so
+	// an unenforced constraint here is the most misleading place to omit
+	// the note.
+	if kws := unenforcedKeywords(schema); len(kws) > 0 {
+		e.unenforced[typeName] = kws
+		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
+	}
 	fmt.Fprintf(body, "type %s %s\n\n", typeName, underlying)
-	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n\treturn nil\n}\n\n", typeName)
+	return renderAliasValidate(e, body, typeName, schema, underlying)
+}
+
+// renderAliasValidate emits Validate for a named non-struct type. A named
+// primitive usually exists for its constraint — ReverseDomainName is a
+// string whose entire purpose is its pattern — so emitting an empty
+// Validate here would leave the constraint unenforced precisely where it
+// carries the most meaning.
+func renderAliasValidate(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any, underlying string) error {
+	var patternVars, checks strings.Builder
+	if underlying == "string" {
+		if raw, ok := schema["maxLength"]; ok {
+			ml, isNum := raw.(float64)
+			if !isNum {
+				return fmt.Errorf("%s: maxLength is %T, want a number", typeName, raw)
+			}
+			if ml < 0 || ml != math.Trunc(ml) {
+				return fmt.Errorf("%s: maxLength %v is not a non-negative integer", typeName, ml)
+			}
+			e.usesErrors, e.usesUtf8 = true, true
+			fmt.Fprintf(&checks, "\tif utf8.RuneCountInString(string(*v)) > %d {\n\t\treturn errors.New(%q)\n\t}\n",
+				int(ml), fmt.Sprintf("%s: exceeds maxLength %d", typeName, int(ml)))
+		}
+		if raw, ok := schema["pattern"]; ok {
+			pat, isStr := raw.(string)
+			if !isStr {
+				return fmt.Errorf("%s: pattern is %T, want a string", typeName, raw)
+			}
+			if _, err := regexp.Compile(pat); err != nil {
+				return fmt.Errorf("%s: pattern %q is not RE2-compatible: %v", typeName, pat, err)
+			}
+			e.usesErrors, e.usesRegexp, e.usesSync = true, true, true
+			varName := "pattern_" + typeName
+			fmt.Fprintf(&patternVars, "var %s = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(%q) })\n\n", varName, pat)
+			fmt.Fprintf(&checks, "\tif !%s().MatchString(string(*v)) {\n\t\treturn errors.New(%q)\n\t}\n",
+				varName, typeName+": does not match pattern")
+		}
+	}
+	if patternVars.Len() > 0 {
+		body.WriteString(patternVars.String())
+	}
+	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s\treturn nil\n}\n\n", typeName, checks.String())
 	return nil
 }
 
@@ -510,7 +579,11 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 
 	writeDoc(body, typeName, schema)
 	if keyword, members := unionMembers(schema); len(members) > 0 {
-		fmt.Fprintf(body, "//\n// The schema also declares %d %s narrowings over these same\n// fields; they are not modeled as distinct types yet (phase 4).\n", len(members), keyword)
+		fmt.Fprintf(body, "//\n// The schema also declares %d %s variants that narrow or replace\n// these fields; they are not modeled as distinct types yet (phase 4),\n// so this type reflects only the shared base.\n", len(members), keyword)
+	}
+	if kws := unenforcedKeywords(schema); len(kws) > 0 {
+		e.unenforced[typeName] = kws
+		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4) on the object itself: %s.\n", strings.Join(kws, ", "))
 	}
 	fmt.Fprintf(body, "type %s struct {\n", typeName)
 
@@ -556,9 +629,60 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		}
 		fmt.Fprintf(body, "\t%s %s `json:%q`\n", fieldName, typ, tag)
 	}
+	// UCP is an extension-first protocol: an open object exists so that
+	// extensions can contribute keys the base schema never lists. Without a
+	// catch-all, decoding drops every such key and re-encoding cannot
+	// restore it — signals.json's own description says the type exists so
+	// "multiple extensions contribute to the shared namespace".
+	open := isOpenObject(schema)
+	if open {
+		e.imports["encoding/json"] = "json"
+		body.WriteString("\n\t// Extra holds properties the schema does not name. The schema is\n\t// open (additionalProperties is not false), so extension keys are\n\t// preserved here and re-emitted on marshal rather than dropped.\n")
+		body.WriteString("\tExtra map[string]json.RawMessage `json:\"-\"`\n")
+	}
 	fmt.Fprintf(body, "}\n")
 
+	if open {
+		renderExtraCodec(body, typeName, names, fieldNames, required)
+	}
+
 	return renderValidate(e, body, typeName, schema, props, names, fieldNames, required)
+}
+
+// isOpenObject reports whether a schema admits properties it does not
+// name. JSON Schema objects are open by default: only an explicit
+// additionalProperties:false closes them. A schema-valued
+// additionalProperties is a map type and is handled elsewhere.
+func isOpenObject(schema map[string]any) bool {
+	switch ap := schema["additionalProperties"].(type) {
+	case bool:
+		return ap
+	case map[string]any:
+		return false
+	default:
+		return true
+	}
+}
+
+// renderExtraCodec emits UnmarshalJSON/MarshalJSON that route unknown keys
+// through Extra. The struct's own fields are decoded via an alias type,
+// which drops the custom methods and so avoids infinite recursion.
+func renderExtraCodec(body *strings.Builder, typeName string, names []string, fieldNames map[string]string, required map[string]bool) {
+	alias := typeName + "Alias"
+	fmt.Fprintf(body, "\n// UnmarshalJSON decodes the named properties and keeps everything else\n// in Extra.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	fmt.Fprintf(body, "\ttype %s %s\n\tvar named %s\n\tif err := json.Unmarshal(data, &named); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(named)\n\n", alias, typeName, alias, typeName)
+	body.WriteString("\tvar all map[string]json.RawMessage\n\tif err := json.Unmarshal(data, &all); err != nil {\n\t\treturn err\n\t}\n")
+	for _, name := range names {
+		fmt.Fprintf(body, "\tdelete(all, %q)\n", name)
+	}
+	body.WriteString("\tif len(all) > 0 {\n\t\tv.Extra = all\n\t}\n\treturn nil\n}\n")
+
+	fmt.Fprintf(body, "\n// MarshalJSON emits the named properties alongside anything held in\n// Extra.\nfunc (v %s) MarshalJSON() ([]byte, error) {\n", typeName)
+	fmt.Fprintf(body, "\ttype %s %s\n\tnamed, err := json.Marshal(%s(v))\n\tif err != nil {\n\t\treturn nil, err\n\t}\n", alias, typeName, alias)
+	body.WriteString("\tif len(v.Extra) == 0 {\n\t\treturn named, nil\n\t}\n")
+	body.WriteString("\tvar merged map[string]json.RawMessage\n\tif err := json.Unmarshal(named, &merged); err != nil {\n\t\treturn nil, err\n\t}\n")
+	body.WriteString("\tif merged == nil {\n\t\tmerged = map[string]json.RawMessage{}\n\t}\n")
+	body.WriteString("\tfor k, val := range v.Extra {\n\t\tif _, named := merged[k]; !named {\n\t\t\tmerged[k] = val\n\t\t}\n\t}\n\treturn json.Marshal(merged)\n}\n")
 }
 
 // renderValidate emits the pattern vars and Validate method for a struct.

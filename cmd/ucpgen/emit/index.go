@@ -118,7 +118,11 @@ func BuildTypeIndex(files map[string]map[string]any, modulePath string) (*TypeIn
 
 	register := func(rel, def, name string) error {
 		pkg, imp := PackageForSchema(rel, modulePath)
-		key := pkg + "." + name
+		// Keyed on the import path, not the package name: two directories
+		// may legally share a basename (common/types and shopping/types are
+		// different packages that may both declare Item), and keying on the
+		// name alone would report a collision that does not exist.
+		key := imp + "." + name
 		origin := rel
 		if def != "" {
 			origin += "#/$defs/" + def
