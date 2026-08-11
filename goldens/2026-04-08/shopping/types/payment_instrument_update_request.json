@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "selected_payment_instrument": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "description": "A payment instrument with selection state.",
+      "properties": {
+        "selected": {
+          "description": "Whether this instrument is selected by the user.",
+          "type": "boolean"
+        }
+      },
+      "title": "Selected Payment Instrument",
+      "type": "object"
+    }
+  },
+  "$id": "https://ucp.dev/schemas/shopping/types/payment_instrument_update_request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "The base definition for any payment instrument. It links the instrument to a specific payment handler.",
+  "properties": {
+    "billing_address": {
+      "$ref": "postal_address_update_request.json",
+      "description": "The billing address associated with this payment method."
+    },
+    "credential": {
+      "$ref": "payment_credential_update_request.json"
+    },
+    "display": {
+      "description": "Display information for this payment instrument. Each payment instrument schema defines its specific display properties, as outlined by the payment handler.",
+      "type": "object"
+    },
+    "handler_id": {
+      "description": "The unique identifier for the handler instance that produced this instrument. This corresponds to the 'id' field in the Payment Handler definition.",
+      "type": "string"
+    },
+    "id": {
+      "description": "A unique identifier for this instrument instance, assigned by the platform.",
+      "type": "string"
+    },
+    "type": {
+      "description": "The broad category of the instrument (e.g., 'card', 'tokenized_card'). Specific schemas will constrain this to a constant value.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "handler_id",
+    "id",
+    "type"
+  ],
+  "title": "Payment Instrument Update Request",
+  "type": "object"
+}

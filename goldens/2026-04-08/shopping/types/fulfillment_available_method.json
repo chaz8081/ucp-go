@@ -1,0 +1,45 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/fulfillment_available_method.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Inventory availability hint for a fulfillment method type.",
+  "properties": {
+    "description": {
+      "description": "Human-readable availability info (e.g., 'Available for pickup at Downtown Store today').",
+      "type": "string",
+      "ucp_request": "omit"
+    },
+    "fulfillable_on": {
+      "description": "'now' for immediate availability, or ISO 8601 date for future (preorders, transfers).",
+      "type": [
+        "string",
+        "null"
+      ],
+      "ucp_request": "omit"
+    },
+    "line_item_ids": {
+      "description": "Line items available for this fulfillment method.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    },
+    "type": {
+      "description": "Fulfillment method type this availability applies to.",
+      "enum": [
+        "shipping",
+        "pickup"
+      ],
+      "type": "string",
+      "ucp_request": "omit"
+    }
+  },
+  "required": [
+    "line_item_ids",
+    "type"
+  ],
+  "title": "Fulfillment Available Method",
+  "type": "object",
+  "ucp_shared_request": true
+}

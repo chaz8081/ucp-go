@@ -1,0 +1,13 @@
+{ "title":"A",
+  "properties": { "ucp": {"$ref":"ucp.json#/$defs/response_cart_schema"} },
+  "$defs": {
+    "dev.ucp.ext.thing": {"type":"object","required":["t"],"properties":{"t":{"type":"string"}}},
+    "dev.ucp.ext.other": {"type":"object","properties":{"o":{"type":"string"}}},
+    "other": {"type":"string"},
+    "consumer": { "allOf": [
+        {"$ref":"#/$defs/dev.ucp.ext.thing"},
+        {"$ref":"ucp.json#/$defs/entity"},
+        {"$ref":"#/$defs/dev.ucp.ext.other"}
+    ]},
+    "deep": {"properties":{"x":{"$ref":"#/$defs/dev.ucp.ext.thing/properties/t"}}}
+  }}

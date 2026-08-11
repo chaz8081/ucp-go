@@ -1,0 +1,45 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/postal_address_create_request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "address_country": {
+      "description": "The country. Recommended to be in 2-letter ISO 3166-1 alpha-2 format, for example \"US\". For backward compatibility, a 3-letter ISO 3166-1 alpha-3 country code such as \"SGP\" or a full country name such as \"Singapore\" can also be used.",
+      "type": "string"
+    },
+    "address_locality": {
+      "description": "The locality in which the street address is, and which is in the region. For example, Mountain View.",
+      "type": "string"
+    },
+    "address_region": {
+      "description": "The region in which the locality is, and which is in the country. Required for applicable countries (i.e. state in US, province in CA). For example, California or another appropriate first-level Administrative division.",
+      "type": "string"
+    },
+    "extended_address": {
+      "description": "An address extension such as an apartment number, C/O or alternative name.",
+      "type": "string"
+    },
+    "first_name": {
+      "description": "Optional. First name of the contact associated with the address.",
+      "type": "string"
+    },
+    "last_name": {
+      "description": "Optional. Last name of the contact associated with the address.",
+      "type": "string"
+    },
+    "phone_number": {
+      "description": "Optional. Phone number of the contact associated with the address.",
+      "type": "string"
+    },
+    "postal_code": {
+      "description": "The postal code. For example, 94043.",
+      "type": "string"
+    },
+    "street_address": {
+      "description": "The street address.",
+      "type": "string"
+    }
+  },
+  "required": [],
+  "title": "Postal Address Create Request",
+  "type": "object"
+}

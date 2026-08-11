@@ -1,0 +1,53 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/message_warning.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "code": {
+      "$ref": "warning_code.json"
+    },
+    "content": {
+      "description": "Human-readable warning message that MUST be displayed.",
+      "type": "string"
+    },
+    "content_type": {
+      "default": "plain",
+      "description": "Content format, default = plain.",
+      "enum": [
+        "plain",
+        "markdown"
+      ],
+      "type": "string"
+    },
+    "image_url": {
+      "description": "URL to a required visual element (e.g., warning symbol, energy class label).",
+      "format": "uri",
+      "type": "string"
+    },
+    "path": {
+      "description": "JSONPath (RFC 9535) to related field (e.g., $.line_items[0]).",
+      "type": "string"
+    },
+    "presentation": {
+      "default": "notice",
+      "description": "Rendering contract for this warning. 'notice' (default): platform MUST display, MAY dismiss. 'disclosure': platform MUST display in proximity to the path-referenced component, MUST NOT hide or auto-dismiss. See specification for full contract.",
+      "type": "string"
+    },
+    "type": {
+      "const": "warning",
+      "description": "Message type discriminator.",
+      "type": "string"
+    },
+    "url": {
+      "description": "Reference URL for more information (e.g., regulatory site, registry entry, policy page).",
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "content",
+    "type"
+  ],
+  "title": "Message Warning",
+  "type": "object"
+}

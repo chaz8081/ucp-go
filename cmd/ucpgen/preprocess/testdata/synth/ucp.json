@@ -1,0 +1,7 @@
+{ "$defs": {
+  "entity": {"type":"object","title":"Entity","description":"base","required":["id"],
+             "properties":{"id":{"type":"string"},"version":{"type":"string"}}},
+  "platform_schema": {"type":"object"},
+  "business_schema": {"type":"object"},
+  "response_cart_schema": {"type":"object"}
+}}

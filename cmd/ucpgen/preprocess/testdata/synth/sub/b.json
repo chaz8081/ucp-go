@@ -1,0 +1,6 @@
+{ "title":"B",
+  "properties": { "ucp": {"$ref":"../ucp.json#/$defs/response_cart_schema"},
+                  "y": {"$ref":"../a.json#/$defs/dev.ucp.ext.thing"},
+                  "z": {"$ref":"../a.json#/$defs/dev.ucp.ext.other/properties/o"} },
+  "$defs": { "wrapper": {"allOf":[{"$ref":"../a.json#/$defs/dev.ucp.ext.thing"},
+                                  {"$ref":"ucp.json#/$defs/entity"}]}}}

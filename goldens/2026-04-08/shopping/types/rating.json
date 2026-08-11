@@ -1,0 +1,34 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/rating.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Product rating aggregate.",
+  "properties": {
+    "count": {
+      "description": "Number of reviews contributing to the rating.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "scale_max": {
+      "description": "Maximum value on the rating scale (e.g., 5 for 5-star).",
+      "minimum": 1,
+      "type": "number"
+    },
+    "scale_min": {
+      "default": 1,
+      "description": "Minimum value on the rating scale (e.g., 1 for 1-5 stars).",
+      "minimum": 0,
+      "type": "number"
+    },
+    "value": {
+      "description": "Average rating value.",
+      "minimum": 0,
+      "type": "number"
+    }
+  },
+  "required": [
+    "scale_max",
+    "value"
+  ],
+  "title": "Rating",
+  "type": "object"
+}

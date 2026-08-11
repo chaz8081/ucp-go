@@ -1,0 +1,26 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/order_confirmation.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Order details available at the time of checkout completion.",
+  "properties": {
+    "id": {
+      "description": "Unique order identifier.",
+      "type": "string"
+    },
+    "label": {
+      "description": "Human-readable label for identifying the order. MUST only be provided by the business.",
+      "type": "string"
+    },
+    "permalink_url": {
+      "description": "Permalink to access the order on merchant site.",
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "permalink_url"
+  ],
+  "title": "Order Confirmation",
+  "type": "object"
+}

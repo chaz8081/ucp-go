@@ -1,0 +1,24 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/input_correlation.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Maps a request identifier to the variant it resolved to, with match semantics.",
+  "properties": {
+    "id": {
+      "description": "The identifier from the lookup request that resolved to this variant.",
+      "type": "string"
+    },
+    "match": {
+      "description": "How the request identifier resolved to this variant. Well-known values: `exact` (input directly identifies this variant, e.g., variant ID, SKU), `featured` (server selected this variant as representative, e.g., product ID resolved to best match). Businesses MAY implement and provide additional resolution strategies.",
+      "examples": [
+        "exact",
+        "featured"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "title": "Input Correlation",
+  "type": "object"
+}

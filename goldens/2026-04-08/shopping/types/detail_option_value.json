@@ -1,0 +1,22 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/detail_option_value.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "option_value.json"
+    }
+  ],
+  "description": "An option value with availability signals relative to the current selections. Used in get_product responses where selected context exists.",
+  "properties": {
+    "available": {
+      "description": "Whether a variant matching this value and the current option selections is purchasable.",
+      "type": "boolean"
+    },
+    "exists": {
+      "description": "Whether a variant matching this value and the current option selections exists in the catalog.",
+      "type": "boolean"
+    }
+  },
+  "title": "Detail Option Value",
+  "type": "object"
+}

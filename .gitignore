@@ -3,3 +3,4 @@
 *.test
 cover.out
 .DS_Store
+.gen-schemas/

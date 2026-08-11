@@ -1,0 +1,18 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/fulfillment_destination_update_request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A destination for fulfillment.",
+  "oneOf": [
+    {
+      "$ref": "retail_location.json"
+    },
+    {
+      "$ref": "shipping_destination.json"
+    }
+  ],
+  "properties": {},
+  "required": [],
+  "title": "Fulfillment Destination Update Request",
+  "type": "object",
+  "ucp_shared_request": true
+}
