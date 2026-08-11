@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/chaz8081/ucp-go/cmd/ucpgen/preprocess"
 )
 
 var initialisms = map[string]string{
@@ -25,51 +27,71 @@ var initialisms = map[string]string{
 // actually requires. additionalProperties is handled separately (see
 // checkAssertionKeywords) since only its schema form is unimplemented;
 // the boolean form (true/false) is fine to leave unenforced for now.
-var unimplementedAssertionKeywords = map[string]bool{
+// typeAffectingKeywords change the SHAPE a schema describes, so the
+// emitter cannot produce a correct Go type without implementing them.
+// Their presence fails generation.
+var typeAffectingKeywords = map[string]bool{
+	// patternProperties gives an object per-key-pattern value schemas, which
+	// a single map[string]T cannot express.
+	"patternProperties": true,
+}
+
+// validationOnlyKeywords constrain values without changing their Go type.
+// Phase 3 emits types; enforcing these is phase 4. They are neither
+// implemented nor silently dropped: every occurrence is recorded in a doc
+// comment on the generated field or type, and in MANIFEST.json, so the
+// coverage gap is visible in the output rather than only in a plan.
+var validationOnlyKeywords = map[string]bool{
 	"enum": true, "const": true,
 	"minimum": true, "maximum": true, "exclusiveMinimum": true, "exclusiveMaximum": true, "multipleOf": true,
 	"minLength": true,
 	"minItems":  true, "maxItems": true, "uniqueItems": true,
 	"minProperties": true, "maxProperties": true,
 	"contains": true, "minContains": true, "maxContains": true,
-	"anyOf": true, "oneOf": true, "allOf": true, "not": true,
-	"if": true, "then": true, "else": true,
+	"not": true, "if": true, "then": true, "else": true,
 	"dependentRequired": true, "dependentSchemas": true,
-	"propertyNames": true, "patternProperties": true,
+	"propertyNames": true,
 }
 
-// checkAssertionKeywords reports the first (in sorted key order, for
-// determinism) unimplemented JSON Schema assertion keyword present in
-// node, or "" if none. Keys not in unimplementedAssertionKeywords are left
-// alone — including annotation-only keywords (format, examples, default,
-// title, description, deprecated, readOnly, writeOnly), the $-metaschema
-// keywords ($schema, $id, $defs, $ref), ucp_* extension keys, and the
-// keywords this emitter does handle itself (type, properties, required,
-// maxLength, pattern, and additionalProperties' boolean form).
+// Keywords deliberately in neither set, and why:
 //
-// format in particular is deliberately not flagged: JSON Schema
-// draft-2020-12 treats format as annotation-only by default (assertion
-// behavior is opt-in, via a vocabulary the spec doesn't enable here), and
-// the project's conformance oracle runs with assertFormat off — so
-// silently not enforcing format matches the oracle instead of diverging
-// from it.
-func checkAssertionKeywords(node map[string]any) string {
+//   - oneOf / anyOf: modeled by renderNamedType as an interface when every
+//     member is a $ref, as a struct when the node also carries its own
+//     properties, and as json.RawMessage otherwise.
+//   - allOf: merged locally by EmitFile via preprocess.MergeAllOf. ucp.json
+//     and its two request variants arrive unmerged because the preprocessing
+//     pipeline skips them, mirroring python.
+//   - additionalProperties: the schema form becomes a map value type; the
+//     boolean form constrains nothing we model.
+
+// checkTypeAffectingKeywords reports the first (in sorted key order, for
+// determinism) keyword present in node that the emitter cannot model as a
+// Go type, or "" if none.
+func checkTypeAffectingKeywords(node map[string]any) string {
 	keys := make([]string, 0, len(node))
 	for k := range node {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		if unimplementedAssertionKeywords[k] {
+		if typeAffectingKeywords[k] {
 			return k
-		}
-		if k == "additionalProperties" {
-			if _, isBool := node[k].(bool); !isBool {
-				return k
-			}
 		}
 	}
 	return ""
+}
+
+// unenforcedKeywords returns, sorted, the validation-only keywords present
+// in node. They are reported in the generated output rather than enforced.
+func unenforcedKeywords(node map[string]any) []string {
+	var out []string
+	for k := range node {
+		if validationOnlyKeywords[k] {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // GoName converts a schema identifier (snake_case, dotted, kebab-case, or
@@ -98,131 +120,296 @@ func GoName(s string) string {
 	return out
 }
 
-func goType(prop map[string]any) string {
-	switch prop["type"] {
-	case "string":
-		return "string"
-	case "integer":
-		return "int64"
-	case "number":
-		return "float64"
-	case "boolean":
-		return "bool"
-	case "array":
-		items, _ := prop["items"].(map[string]any)
-		if items == nil {
-			return "[]any"
+// EmitFile renders every Go type a schema file produces and returns
+// gofmt-formatted source.
+//
+// A file yields: its file-level type (when the document root carries one),
+// one type per $def, and one type per inline object promoted out of a
+// property. idx must already contain every type in the corpus so that
+// cross-file references resolve.
+func EmitFile(idx *TypeIndex, modulePath, relPath string, schema map[string]any, specRef string) (string, error) {
+	return EmitFileWithBreaks(idx, modulePath, relPath, schema, specRef, nil)
+}
+
+// EmitFileWithBreaks is EmitFile with the cycle-breaking edge set for the
+// package this schema belongs to (see CycleBreaks).
+func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[string]any, specRef string, breaks map[string]bool) (string, error) {
+	pkg, _ := PackageForSchema(relPath, modulePath)
+	e := newFileEmitterWithBreaks(idx, relPath, pkg, breaks)
+
+	// ucp.json and its two request variants are skipped by the preprocessing
+	// pipeline (mirroring python), so they arrive with allOf still unmerged
+	// inside their $defs. Merge locally so every renderer below sees a flat
+	// node.
+	if err := mergeLocalAllOf(schema); err != nil {
+		return "", fmt.Errorf("%s: %w", relPath, err)
+	}
+
+	var body strings.Builder
+
+	if hasFileLevelType(schema) {
+		ref, ok := idx.Lookup(relPath, "")
+		if !ok {
+			return "", fmt.Errorf("%s: file-level type is not in the index", relPath)
 		}
-		return "[]" + goType(items)
-	default:
-		return "any" // objects, refs, unions: extended in later phases
+		if err := renderNamedType(e, &body, ref.Name, schema); err != nil {
+			return "", err
+		}
+	}
+
+	defs, _ := schema["$defs"].(map[string]any)
+	defNames := make([]string, 0, len(defs))
+	for name := range defs {
+		defNames = append(defNames, name)
+	}
+	sort.Strings(defNames)
+	for _, name := range defNames {
+		def, ok := defs[name].(map[string]any)
+		if !ok {
+			return "", fmt.Errorf("%s: $defs/%s is %T, want an object", relPath, name, defs[name])
+		}
+		if isNamespaceDef(def) {
+			// A grouping object, not a schema — see isNamespaceDef. Recorded
+			// in the output so the omission is visible rather than silent.
+			fmt.Fprintf(&body, "// $defs/%s is an extension mount point (a namespace of schemas,\n// not a schema); no type is emitted for it.\n\n", name)
+			continue
+		}
+		ref, ok := idx.Lookup(relPath, name)
+		if !ok {
+			return "", fmt.Errorf("%s: $defs/%s is not in the index", relPath, name)
+		}
+		if err := renderNamedType(e, &body, ref.Name, def); err != nil {
+			return "", err
+		}
+	}
+
+	// Inline object types are discovered while rendering, and rendering one
+	// can discover more, so drain until the queue is empty.
+	for i := 0; i < len(e.nested); i++ {
+		n := e.nested[i]
+		if err := renderNamedType(e, &body, n.name, n.schema); err != nil {
+			return "", err
+		}
+	}
+
+	return assembleFile(e, relPath, pkg, specRef, body.String())
+}
+
+// mergeLocalAllOf flattens any allOf at the document root and inside each
+// $def, in place.
+func mergeLocalAllOf(schema map[string]any) error {
+	if err := preprocess.MergeAllOf(schema, schema); err != nil {
+		return err
+	}
+	defs, _ := schema["$defs"].(map[string]any)
+	names := make([]string, 0, len(defs))
+	for name := range defs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		def, ok := defs[name].(map[string]any)
+		if !ok {
+			continue
+		}
+		if err := preprocess.MergeAllOf(def, schema); err != nil {
+			return fmt.Errorf("$defs/%s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// renderNamedType writes one named Go type — struct, union interface, or
+// scalar alias — plus its Validate method.
+func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
+	if kw := checkTypeAffectingKeywords(schema); kw != "" {
+		return fmt.Errorf("%s: %s: keyword %q changes the schema's shape and is not modeled yet (phase 4)", e.rel, typeName, kw)
+	}
+
+	if raw, hasKey := schema["properties"]; hasKey {
+		if _, ok := raw.(map[string]any); !ok {
+			// A "properties" key that is not a JSON object would otherwise
+			// type-assert to nil and quietly emit an empty, unconstrained
+			// struct.
+			return fmt.Errorf("%s: %s: properties is %T, want an object of property definitions", e.rel, typeName, raw)
+		}
+	}
+	_, hasProps := schema["properties"].(map[string]any)
+
+	// A union whose members are all $refs becomes a Go interface, with each
+	// member type given a marker method. Members must be in this package:
+	// Go cannot add a method to a type declared elsewhere.
+	if hasUnion(schema) && !hasProps {
+		keyword, members := unionMembers(schema)
+		if allRefMembers(members) {
+			return renderUnionInterface(e, body, typeName, keyword, members, schema)
+		}
+		// Mixed or inline members: modeled as raw JSON by goTypeExpr.
+	}
+
+	if hasProps {
+		return renderStruct(e, body, typeName, schema)
+	}
+
+	// A schema that declares no type, no properties, no $defs, no $ref and
+	// no union constrains nothing at all. Emitting `type X any` for it would
+	// accept any JSON whatsoever, so treat it as a defect in the input.
+	if _, hasType := schema["type"]; !hasType {
+		if _, hasRef := schema["$ref"]; !hasRef {
+			if _, hasDefs := schema["$defs"]; !hasDefs && !hasUnion(schema) {
+				return fmt.Errorf("%s: %s: schema declares neither type, properties, $defs, $ref nor a union; nothing to emit", e.rel, typeName)
+			}
+		}
+	}
+
+	// Everything else is an alias over whatever goTypeExpr yields: scalar
+	// types, arrays, maps, and inline-member unions.
+	underlying, err := e.goTypeExpr(schema, typeName)
+	if err != nil {
+		return err
+	}
+	writeDoc(body, typeName, schema)
+	if keyword, members := unionMembers(schema); len(members) > 0 {
+		fmt.Fprintf(body, "//\n// This schema is a %s of %d alternatives with no shared\n// properties, so it is carried as raw JSON. Typed alternatives are\n// phase 4.\n", keyword, len(members))
+	}
+	fmt.Fprintf(body, "type %s %s\n\n", typeName, underlying)
+	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n\treturn nil\n}\n\n", typeName)
+	return nil
+}
+
+func allRefMembers(members []any) bool {
+	for _, m := range members {
+		mm, ok := m.(map[string]any)
+		if !ok {
+			return false
+		}
+		if _, ok := mm["$ref"].(string); !ok {
+			return false
+		}
+	}
+	return len(members) > 0
+}
+
+// renderUnionInterface emits a closed union as an interface with an
+// unexported marker method, implemented by each member type.
+func renderUnionInterface(e *fileEmitter, body *strings.Builder, typeName, keyword string, members []any, schema map[string]any) error {
+	marker := "is" + typeName
+	var implNames []string
+	for _, m := range members {
+		ref := m.(map[string]any)["$ref"].(string)
+		target, err := ResolveRef(e.idx, e.rel, ref)
+		if err != nil {
+			return err
+		}
+		if target.Package != e.pkg {
+			return fmt.Errorf("%s: union %s has member %s in package %s; Go cannot implement an interface for a type declared in another package (phase 4)", e.rel, typeName, target.Name, target.Package)
+		}
+		implNames = append(implNames, target.Name)
+	}
+	writeDoc(body, typeName, schema)
+	fmt.Fprintf(body, "//\n// %s is a closed %s union; exactly the types below implement it.\n", typeName, keyword)
+	fmt.Fprintf(body, "type %s interface {\n\t%s()\n}\n\n", typeName, marker)
+	for _, name := range implNames {
+		fmt.Fprintf(body, "func (%s) %s() {}\n", name, marker)
+	}
+	body.WriteString("\n")
+	return nil
+}
+
+func writeDoc(body *strings.Builder, typeName string, schema map[string]any) {
+	if desc, _ := schema["description"].(string); desc != "" {
+		fmt.Fprintf(body, "// %s %s\n", typeName, strings.ReplaceAll(desc, "\n", "\n// "))
 	}
 }
 
-// EmitFile renders one schema file as one Go source file and returns
-// gofmt-formatted source. pkg is the target package name; relPath is the
-// schema's path relative to the schemas root; specRef stamps provenance.
-//
-// Only top-level object schemas are supported in this phase: a schema
-// whose top-level "type" is anything other than "object" (or which omits
-// both "type" and "properties" entirely) fails generation loudly rather
-// than silently emitting an empty, unconstrained struct.
-func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (string, error) {
-	title, _ := schema["title"].(string)
-	if title == "" {
-		return "", fmt.Errorf("schema has no title")
-	}
-	typeName := GoName(title)
-
-	rawType, hasType := schema["type"]
-	_, hasPropsKey := schema["properties"]
-	if hasType {
-		if ts, ok := rawType.(string); !ok || ts != "object" {
-			return "", fmt.Errorf("top-level type %q not supported yet (phase 2)", fmt.Sprintf("%v", rawType))
-		}
-	} else if !hasPropsKey {
-		return "", fmt.Errorf("top-level type %q not supported yet (phase 2)", "<missing>")
-	}
-
+// renderStruct emits an object schema as a Go struct plus its Validate.
+func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
 	required := map[string]bool{}
 	if reqRaw, hasReq := schema["required"]; hasReq {
 		reqs, isArray := reqRaw.([]any)
 		if !isArray {
 			if _, isBool := reqRaw.(bool); isBool {
-				return "", fmt.Errorf("top-level required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings")
+				return fmt.Errorf("%s: %s: required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", e.rel, typeName)
 			}
-			return "", fmt.Errorf("top-level required is %T, want an array of property-name strings", reqRaw)
+			return fmt.Errorf("%s: %s: required is %T, want an array of property-name strings", e.rel, typeName, reqRaw)
 		}
 		for _, r := range reqs {
 			s, ok := r.(string)
 			if !ok {
-				return "", fmt.Errorf("required entry is not a string")
+				return fmt.Errorf("%s: %s: required entry is not a string", e.rel, typeName)
 			}
 			required[s] = true
 		}
 	}
-	props, propsOK := schema["properties"].(map[string]any)
-	if hasPropsKey && !propsOK {
-		// Fail loud: a "properties" key that isn't a JSON object (e.g. a
-		// number or array) would otherwise silently type-assert to nil and
-		// emit an empty, unconstrained struct.
-		return "", fmt.Errorf("properties is %T, want an object of property definitions", schema["properties"])
-	}
-	if kw := checkAssertionKeywords(schema); kw != "" {
-		return "", fmt.Errorf("unsupported constraint keyword %q (phase 2)", kw)
-	}
+	props, _ := schema["properties"].(map[string]any)
 	names := make([]string, 0, len(props))
 	for name := range props {
 		names = append(names, name)
 	}
 	sort.Strings(names) // determinism
 
-	// body holds everything after the package clause: the struct definition
-	// followed by the Validate() machinery. It is built before the header so
-	// the import block (built next) can be conditional on what body actually
-	// references.
-	var body strings.Builder
-	if desc, _ := schema["description"].(string); desc != "" {
-		fmt.Fprintf(&body, "// %s %s\n", typeName, strings.ReplaceAll(desc, "\n", "\n// "))
-	}
-	fmt.Fprintf(&body, "type %s struct {\n", typeName)
+	// Nested types discovered under this struct are namespaced by it.
+	savedPrefix := e.prefix
+	e.prefix = typeName
+	defer func() { e.prefix = savedPrefix }()
 
-	seenFields := map[string]string{} // Go field name -> originating property name
+	writeDoc(body, typeName, schema)
+	if keyword, members := unionMembers(schema); len(members) > 0 {
+		fmt.Fprintf(body, "//\n// The schema also declares %d %s narrowings over these same\n// fields; they are not modeled as distinct types yet (phase 4).\n", len(members), keyword)
+	}
+	fmt.Fprintf(body, "type %s struct {\n", typeName)
+
+	seenFields := map[string]string{}
 	fieldNames := make(map[string]string, len(names))
 	for _, name := range names {
 		prop, ok := props[name].(map[string]any)
 		if !ok {
-			return "", fmt.Errorf("property %q is not an object", name)
+			return fmt.Errorf("%s: %s: property %q is not an object", e.rel, typeName, name)
 		}
-		if kw := checkAssertionKeywords(prop); kw != "" {
-			return "", fmt.Errorf("unsupported constraint keyword %q (phase 2)", kw)
+		if kw := checkTypeAffectingKeywords(prop); kw != "" {
+			return fmt.Errorf("%s: %s: property %q has keyword %q, which changes its shape and is not modeled yet (phase 4)", e.rel, typeName, name, kw)
 		}
 		fieldName := GoName(name)
 		if fieldName == "Validate" {
-			return "", fmt.Errorf("property %q sanitizes to Go field name %q, which collides with the generated Validate() method", name, fieldName)
+			return fmt.Errorf("%s: %s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", e.rel, typeName, name, fieldName)
 		}
 		if orig, dup := seenFields[fieldName]; dup {
-			return "", fmt.Errorf("properties %q and %q both sanitize to Go field name %q", orig, name, fieldName)
+			return fmt.Errorf("%s: %s: properties %q and %q both sanitize to Go field name %q", e.rel, typeName, orig, name, fieldName)
 		}
 		seenFields[fieldName] = name
 		fieldNames[name] = fieldName
 
 		if desc, _ := prop["description"].(string); desc != "" {
-			fmt.Fprintf(&body, "\t// %s\n", strings.ReplaceAll(desc, "\n", "\n\t// "))
+			fmt.Fprintf(body, "\t// %s\n", strings.ReplaceAll(desc, "\n", "\n\t// "))
 		}
-		typ, tag := goType(prop), name
+		if kws := unenforcedKeywords(prop); len(kws) > 0 {
+			e.unenforced[name] = kws
+			fmt.Fprintf(body, "\t//\n\t// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
+		}
+		typ, err := e.goTypeExpr(prop, name)
+		if err != nil {
+			return err
+		}
+		if ref, hasRef := prop["$ref"].(string); hasRef {
+			if was, degraded := e.degradedRefs[ref]; degraded {
+				fmt.Fprintf(body, "\t//\n\t// Carried as raw JSON rather than %s: typing it would make\n\t// this package import the root package, which already imports\n\t// this one (Go forbids import cycles).\n", was)
+			}
+		}
+		tag := name
 		if !required[name] {
-			// Pointer + omitempty approximates JSON Schema optionality.
-			// Go 1.24's `omitzero` is closer to the design's intended
-			// pointer-optionality semantics; omitempty is equivalent for
-			// pointers here. Revisit in Phase 2.
 			typ, tag = "*"+typ, name+",omitempty"
 		}
-		fmt.Fprintf(&body, "\t%s %s `json:%q`\n", fieldName, typ, tag)
+		fmt.Fprintf(body, "\t%s %s `json:%q`\n", fieldName, typ, tag)
 	}
-	fmt.Fprintf(&body, "}\n")
+	fmt.Fprintf(body, "}\n")
 
-	var usesErrors, usesRegexp, usesSync, usesUtf8 bool
+	return renderValidate(e, body, typeName, schema, props, names, fieldNames, required)
+}
+
+// renderValidate emits the pattern vars and Validate method for a struct.
+// Validate is always emitted, even with zero checks, so callers can rely on
+// a uniform interface{ Validate() error } across every generated type.
+func renderValidate(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any, props map[string]any, names []string, fieldNames map[string]string, required map[string]bool) error {
 	var patternVars, checks strings.Builder
 	for _, name := range names {
 		prop := props[name].(map[string]any)
@@ -235,11 +422,10 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 
 		if !isString {
 			if hasML || hasPattern {
-				// Keeps the MVP honest: unsupported constraint targets
-				// fail loudly instead of silently emitting an
-				// unconstrained field. Arrays/objects/unions deferred to
-				// phase 2.
-				return "", fmt.Errorf("property %q has string constraints but unsupported type %v (phase 2)", name, prop["type"])
+				// Keeps the emitter honest: a constraint on a shape whose
+				// check we cannot express fails loudly instead of silently
+				// emitting an unconstrained field.
+				return fmt.Errorf("%s: %s: property %q has string constraints but unsupported type %v (phase 4)", e.rel, typeName, name, prop["type"])
 			}
 			continue
 		}
@@ -248,20 +434,15 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 			mlRaw := prop["maxLength"]
 			ml, ok := mlRaw.(float64)
 			if !ok {
-				return "", fmt.Errorf("property %q maxLength is %T, want a number", name, mlRaw)
+				return fmt.Errorf("%s: %s: property %q maxLength is %T, want a number", e.rel, typeName, name, mlRaw)
 			}
 			if ml < 0 || ml != math.Trunc(ml) {
-				// JSON Schema's maxLength is a non-negative integer.
-				// Silently truncating a negative or fractional value (via
-				// int(ml)) would emit a Validate() that enforces a
-				// different bound than the schema actually specifies.
-				return "", fmt.Errorf("property %q maxLength %v is not a non-negative integer", name, ml)
+				return fmt.Errorf("%s: %s: property %q maxLength %v is not a non-negative integer", e.rel, typeName, name, ml)
 			}
 			n := int(ml)
 			msg := fmt.Sprintf("%s: exceeds maxLength %d", name, n)
-			usesErrors, usesUtf8 = true, true
-			// maxLength counts Unicode code points per JSON Schema, not
-			// bytes, hence RuneCountInString rather than len().
+			e.usesErrors, e.usesUtf8 = true, true
+			// maxLength counts Unicode code points per JSON Schema, not bytes.
 			if isRequired {
 				fmt.Fprintf(&checks, "\tif utf8.RuneCountInString(v.%s) > %d {\n\t\treturn errors.New(%q)\n\t}\n", fieldName, n, msg)
 			} else {
@@ -273,19 +454,19 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 			patRaw := prop["pattern"]
 			pat, ok := patRaw.(string)
 			if !ok {
-				return "", fmt.Errorf("property %q pattern is %T, want a string", name, patRaw)
+				return fmt.Errorf("%s: %s: property %q pattern is %T, want a string", e.rel, typeName, name, patRaw)
 			}
-			// RE2 gate: fail generation loudly rather than emit a
-			// MustCompile that would panic at runtime.
+			// RE2 gate: fail generation loudly rather than emit a MustCompile
+			// that would panic at runtime.
 			if _, err := regexp.Compile(pat); err != nil {
-				return "", fmt.Errorf("pattern %q for %q is not RE2-compatible: %v", pat, name, err)
+				return fmt.Errorf("%s: %s: pattern %q for %q is not RE2-compatible: %v", e.rel, typeName, pat, name, err)
 			}
-			usesErrors, usesRegexp, usesSync = true, true, true
+			e.usesErrors, e.usesRegexp, e.usesSync = true, true, true
 			varName := fmt.Sprintf("pattern_%s_%s", typeName, fieldName)
 			fmt.Fprintf(&patternVars, "var %s = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(%q) })\n\n", varName, pat)
 			msg := fmt.Sprintf("%s: does not match pattern", name)
 			// JSON Schema pattern is an unanchored search, so MatchString
-			// (not a full-string match) is intentional here.
+			// (not a full-string match) is intentional.
 			if isRequired {
 				fmt.Fprintf(&checks, "\tif !%s().MatchString(v.%s) {\n\t\treturn errors.New(%q)\n\t}\n", varName, fieldName, msg)
 			} else {
@@ -294,37 +475,41 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 		}
 	}
 
-	// Validate() is always emitted, even with zero checks, so downstream
-	// code (Task 9's conformance oracle, generated SDK callers) can rely on
-	// a uniform interface{ Validate() error } across every generated type.
 	body.WriteString("\n")
 	if patternVars.Len() > 0 {
 		body.WriteString(patternVars.String())
 	}
 	body.WriteString("// Validate reports the first constraint violation, or nil.\n")
-	fmt.Fprintf(&body, "func (v *%s) Validate() error {\n", typeName)
+	fmt.Fprintf(body, "func (v *%s) Validate() error {\n", typeName)
 	body.WriteString(checks.String())
-	body.WriteString("\treturn nil\n}\n")
+	body.WriteString("\treturn nil\n}\n\n")
+	return nil
+}
 
+// assembleFile prepends the generated header, package clause, and the
+// import block the body actually needs, then gofmts the result.
+func assembleFile(e *fileEmitter, relPath, pkg, specRef, body string) (string, error) {
 	var out strings.Builder
 	fmt.Fprintf(&out, "// Code generated by ucpgen. DO NOT EDIT.\n")
 	fmt.Fprintf(&out, "// Source: %s (spec %s)\n\n", relPath, specRef)
 	fmt.Fprintf(&out, "package %s\n\n", pkg)
 
 	var imports []string
-	if usesErrors {
+	if e.usesErrors {
 		imports = append(imports, "errors")
 	}
-	if usesRegexp {
+	if e.usesRegexp {
 		imports = append(imports, "regexp")
 	}
-	if usesSync {
+	if e.usesSync {
 		imports = append(imports, "sync")
 	}
-	if usesUtf8 {
+	if e.usesUtf8 {
 		imports = append(imports, "unicode/utf8")
 	}
+	imports = append(imports, e.sortedImports()...)
 	sort.Strings(imports)
+
 	if len(imports) == 1 {
 		fmt.Fprintf(&out, "import %q\n\n", imports[0])
 	} else if len(imports) > 1 {
@@ -335,11 +520,11 @@ func EmitFile(pkg, relPath string, schema map[string]any, specRef string) (strin
 		out.WriteString(")\n\n")
 	}
 
-	out.WriteString(body.String())
+	out.WriteString(body)
 
 	result, err := format.Source([]byte(out.String()))
 	if err != nil {
-		return "", fmt.Errorf("generated source does not parse: %w\n%s", err, out.String())
+		return "", fmt.Errorf("%s: generated source does not parse: %w\n%s", relPath, err, out.String())
 	}
 	return string(result), nil
 }

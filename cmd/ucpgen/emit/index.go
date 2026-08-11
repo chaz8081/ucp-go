@@ -45,13 +45,56 @@ func indexKey(rel, def string) string { return rel + "#" + def }
 // root. A schema whose content lives entirely in $defs does not: its types
 // are the $defs themselves (14 such files in the real spec).
 func hasFileLevelType(schema map[string]any) bool {
-	if _, ok := schema["properties"]; ok {
-		return true
+	// Anything the document root itself declares — properties, a type, or a
+	// union — makes the root a schema in its own right. ucp.json is the
+	// motivating case: its $defs hold the profile schemas while its root is
+	// the metadata union over them, so it yields both a file-level type and
+	// per-$def types.
+	for _, k := range []string{"properties", "type", "oneOf", "anyOf", "$ref"} {
+		if _, ok := schema[k]; ok {
+			return true
+		}
 	}
+	// A document that only groups definitions has no type of its own.
 	if _, ok := schema["$defs"]; ok {
 		return false
 	}
-	// Scalar, array, and bare-object aliases still get a named type.
+	return true
+}
+
+// schemaKeywords are the keywords whose presence marks a node as an actual
+// schema. A $def carrying none of them is a namespace: a grouping object
+// whose values are themselves schemas, used by the spec as an extension
+// mount point (identity_linking and dev_ucp_shopping_fulfillment are the
+// only two in the corpus, each holding business_schema/platform_schema).
+// Nothing references a namespace — a ref would have to point inside a
+// $def, which addresses no emitted type — so, like the python generator,
+// we emit nothing for them.
+var schemaKeywords = map[string]bool{
+	"type": true, "properties": true, "$ref": true,
+	"allOf": true, "anyOf": true, "oneOf": true, "not": true, "if": true,
+	"items": true, "enum": true, "const": true,
+	"additionalProperties": true, "required": true,
+	"pattern": true, "format": true,
+}
+
+// isNamespaceDef reports whether a $def is a grouping object rather than a
+// schema.
+func isNamespaceDef(def map[string]any) bool {
+	if len(def) == 0 {
+		return false
+	}
+	for k := range def {
+		if schemaKeywords[k] {
+			return false
+		}
+	}
+	// Every value must itself look like a schema object.
+	for _, v := range def {
+		if _, ok := v.(map[string]any); !ok {
+			return false
+		}
+	}
 	return true
 }
 
@@ -107,6 +150,9 @@ func BuildTypeIndex(files map[string]map[string]any, modulePath string) (*TypeIn
 		sort.Strings(names)
 		stem := GoName(SchemaStem(rel))
 		for _, def := range names {
+			if d, ok := defs[def].(map[string]any); ok && isNamespaceDef(d) {
+				continue
+			}
 			if err := register(rel, def, stem+GoName(def)); err != nil {
 				return nil, err
 			}

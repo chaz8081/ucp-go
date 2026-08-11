@@ -58,3 +58,33 @@ func TestResolveRefUnknownTarget(t *testing.T) {
 		t.Error("pointer inside a $def has no emitted type and must error")
 	}
 }
+
+func TestResolveRefEntityInliningFallback(t *testing.T) {
+	// Inlining ucp.json#/$defs/entity copies refs the entity wrote relative
+	// to ucp.json, so they dangle in the destination document. Corpus-wide
+	// this is exactly "#/$defs/version" in three files.
+	idx, err := BuildTypeIndex(map[string]map[string]any{
+		"ucp.json": {
+			"title": "UCP Metadata",
+			"$defs": map[string]any{"version": map[string]any{"type": "string"}},
+		},
+		"capability.json": {
+			"title": "Capability",
+			"$defs": map[string]any{"base": map[string]any{"type": "object"}},
+		},
+	}, "m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ResolveRef(idx, "capability.json", "#/$defs/version")
+	if err != nil {
+		t.Fatalf("dangling local ref should fall back to ucp.json: %v", err)
+	}
+	if got.Name != "UCPVersion" {
+		t.Errorf("resolved to %q, want UCPVersion", got.Name)
+	}
+	// The fallback must not mask a genuinely unknown name.
+	if _, err := ResolveRef(idx, "capability.json", "#/$defs/nonexistent"); err == nil {
+		t.Error("a name absent from both documents must still error")
+	}
+}

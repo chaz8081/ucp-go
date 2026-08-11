@@ -37,6 +37,8 @@ type ManifestEntry struct {
 	Fields int `json:"fields"`
 }
 
+const modulePath = "github.com/chaz8081/ucp-go"
+
 func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 	set, err := preprocess.LoadSchemas(schemaDir)
 	if err != nil {
@@ -55,6 +57,17 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 	}
 	sort.Strings(rels)
 
+	// The index must cover the whole corpus before any file renders, so a
+	// cross-file $ref can resolve to a type that has not been emitted yet.
+	idx, err := emit.BuildTypeIndex(set.Files, modulePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Go forbids import cycles; decide up front which reference edges must
+	// be carried as raw JSON so the emitted packages form a DAG.
+	breaks := emit.CycleBreaks(emit.BuildPackageGraph(set.Files, idx), set.Files)
+
 	m := &Manifest{SpecRef: specRef, Schemas: map[string]ManifestEntry{}}
 	for _, rel := range rels {
 		// Input contract: schemas are already normalized. The `preprocess`
@@ -63,11 +76,8 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 		// PreprocessDocument's whole-document walk and would silently
 		// diverge from it for nested nodes.
 		schema := set.Files[rel]
-		pkg := "ucp"
-		if dir := filepath.Dir(rel); dir != "." {
-			pkg = strings.ReplaceAll(dir, "/", "") // shopping/types -> shoppingtypes; refined in phase 2
-		}
-		src, err := emit.EmitFile(pkg, rel, schema, specRef)
+		pkg, _ := emit.PackageForSchema(rel, modulePath)
+		src, err := emit.EmitFileWithBreaks(idx, modulePath, rel, schema, specRef, breaks[pkg])
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", rel, err)
 		}

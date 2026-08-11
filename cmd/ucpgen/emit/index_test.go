@@ -71,3 +71,15 @@ func TestBuildTypeIndexRejectsCollision(t *testing.T) {
 		t.Error("two file types with the same name in one package must error")
 	}
 }
+
+// emitOne renders a single schema in isolation: it builds a one-file index
+// and emits from it. Tests that only care about one file's output use this
+// instead of assembling an index by hand.
+func emitOne(t *testing.T, rel string, schema map[string]any) (string, error) {
+	t.Helper()
+	idx, err := BuildTypeIndex(map[string]map[string]any{rel: schema}, "m")
+	if err != nil {
+		return "", err
+	}
+	return EmitFile(idx, "m", rel, schema, "release/test@deadbeef")
+}

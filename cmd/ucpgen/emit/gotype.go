@@ -21,13 +21,36 @@ type fileEmitter struct {
 	imports  map[string]string // import path -> package name
 	nested   []nestedType
 	nestedAt map[string]bool // dedupe by generated name
+
+	// stdlib imports the generated Validate machinery needs.
+	usesErrors, usesRegexp, usesSync, usesUtf8 bool
+
+	// unenforced records validation-only keywords seen per property, so the
+	// manifest can carry a machine-readable coverage gap alongside the doc
+	// comments in the generated source.
+	unenforced map[string][]string
+
+	// degradedRefs records $refs typed as raw JSON to keep the package
+	// graph acyclic (see goTypeExpr), so the affected fields can say so.
+	degradedRefs map[string]string
+
+	// breaks[dstPackage] marks an edge out of this package that must not be
+	// a real import; see CycleBreaks.
+	breaks map[string]bool
 }
 
 func newFileEmitter(idx *TypeIndex, rel, pkg string) *fileEmitter {
+	return newFileEmitterWithBreaks(idx, rel, pkg, nil)
+}
+
+func newFileEmitterWithBreaks(idx *TypeIndex, rel, pkg string, breaks map[string]bool) *fileEmitter {
 	e := &fileEmitter{
 		idx: idx, rel: rel, pkg: pkg,
-		imports:  map[string]string{},
-		nestedAt: map[string]bool{},
+		imports:      map[string]string{},
+		nestedAt:     map[string]bool{},
+		unenforced:   map[string][]string{},
+		degradedRefs: map[string]string{},
+		breaks:       breaks,
 	}
 	// Nested type names hang off the enclosing type, so a file's inline
 	// objects are namespaced by whatever type encloses them. Callers
@@ -66,6 +89,15 @@ func (e *fileEmitter) goTypeExpr(node map[string]any, fieldName string) (string,
 		target, err := ResolveRef(e.idx, e.rel, ref)
 		if err != nil {
 			return "", err
+		}
+		// Typing this reference would create an import Go forbids, because
+		// the two packages reference each other. CycleBreaks decides which
+		// edge to cut; the bytes still round-trip losslessly, and the
+		// affected field says so in a comment.
+		if e.breaks[target.Package] {
+			e.degradedRefs[ref] = target.Package + "." + target.Name
+			e.imports["encoding/json"] = "json"
+			return "json.RawMessage", nil
 		}
 		return e.qualify(target), nil
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func TestEmitValidate(t *testing.T) {
-	src, err := EmitFile("shopping", "test/link.json", linkSchema, "release/test@deadbeef")
+	src, err := emitOne(t, "test/link.json", linkSchema)
 	if err != nil {
 		t.Fatalf("EmitFile: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestEmitValidateRejectsNonRE2(t *testing.T) {
 			"name": map[string]any{"type": "string", "pattern": "(?=lookahead)x"},
 		},
 	}
-	_, err := EmitFile("shopping", "test/badpattern.json", schema, "release/test@deadbeef")
+	_, err := emitOne(t, "test/badpattern.json", schema)
 	if err == nil {
 		t.Fatalf("EmitFile: expected error for non-RE2 pattern, got nil")
 	}
