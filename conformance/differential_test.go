@@ -184,15 +184,6 @@ func firstLine(s string) string {
 	return s
 }
 
-func sortedKeys[V any](m map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
 // generateTree emits the whole corpus into a temporary module.
 func generateTree(t *testing.T, repoRoot, goldens string) string {
 	t.Helper()

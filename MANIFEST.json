@@ -1,0 +1,1458 @@
+{
+  "spec_ref": "release/2026-04-08@a2d8bf0",
+  "schemas": {
+    "capability.json": {
+      "type": "UCPCapability",
+      "package": "ucp",
+      "file": "capability.go",
+      "fields": 0,
+      "unenforced": {
+        "CapabilityBase.schema": [
+          "format"
+        ],
+        "CapabilityBase.spec": [
+          "format"
+        ],
+        "CapabilityBusinessSchema.schema": [
+          "format"
+        ],
+        "CapabilityBusinessSchema.spec": [
+          "format"
+        ],
+        "CapabilityPlatformSchema.schema": [
+          "format"
+        ],
+        "CapabilityPlatformSchema.spec": [
+          "format"
+        ],
+        "CapabilityResponseSchema.schema": [
+          "format"
+        ],
+        "CapabilityResponseSchema.spec": [
+          "format"
+        ],
+        "schema": [
+          "format"
+        ],
+        "spec": [
+          "format"
+        ]
+      }
+    },
+    "common/identity_linking.json": {
+      "type": "IdentityLinking",
+      "package": "common",
+      "file": "common/identity_linking.go",
+      "fields": 0
+    },
+    "payment_handler.json": {
+      "type": "PaymentHandler",
+      "package": "ucp",
+      "file": "payment_handler.go",
+      "fields": 0,
+      "unenforced": {
+        "PaymentHandlerBase.schema": [
+          "format"
+        ],
+        "PaymentHandlerBase.spec": [
+          "format"
+        ],
+        "PaymentHandlerBusinessSchema.schema": [
+          "format"
+        ],
+        "PaymentHandlerBusinessSchema.spec": [
+          "format"
+        ],
+        "PaymentHandlerPlatformSchema.schema": [
+          "format"
+        ],
+        "PaymentHandlerPlatformSchema.spec": [
+          "format"
+        ],
+        "PaymentHandlerResponseSchema.schema": [
+          "format"
+        ],
+        "PaymentHandlerResponseSchema.spec": [
+          "format"
+        ],
+        "schema": [
+          "format"
+        ],
+        "spec": [
+          "format"
+        ]
+      }
+    },
+    "service.json": {
+      "type": "UCPService",
+      "package": "ucp",
+      "file": "service.go",
+      "fields": 0,
+      "unenforced": {
+        "ServiceBase.endpoint": [
+          "format"
+        ],
+        "ServiceBase.schema": [
+          "format"
+        ],
+        "ServiceBase.spec": [
+          "format"
+        ],
+        "ServiceBusinessSchema.endpoint": [
+          "format"
+        ],
+        "ServiceBusinessSchema.schema": [
+          "format"
+        ],
+        "ServiceBusinessSchema.spec": [
+          "format"
+        ],
+        "ServicePlatformSchema.endpoint": [
+          "format"
+        ],
+        "ServicePlatformSchema.schema": [
+          "format"
+        ],
+        "ServicePlatformSchema.spec": [
+          "format"
+        ],
+        "ServiceResponseSchema.endpoint": [
+          "format"
+        ],
+        "ServiceResponseSchema.schema": [
+          "format"
+        ],
+        "ServiceResponseSchema.spec": [
+          "format"
+        ],
+        "endpoint": [
+          "format"
+        ],
+        "schema": [
+          "format"
+        ],
+        "spec": [
+          "format"
+        ]
+      }
+    },
+    "shopping/ap2_mandate.json": {
+      "type": "AP2MandateExtension",
+      "package": "shopping",
+      "file": "shopping/ap2_mandate.go",
+      "fields": 0,
+      "unenforced": {
+        "AP2MandateCheckout.continue_url": [
+          "format"
+        ],
+        "AP2MandateCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/buyer_consent.json": {
+      "type": "BuyerConsentExtension",
+      "package": "shopping",
+      "file": "shopping/buyer_consent.go",
+      "fields": 0,
+      "unenforced": {
+        "BuyerConsentCheckout.continue_url": [
+          "format"
+        ],
+        "BuyerConsentCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/cart.json": {
+      "type": "Cart",
+      "package": "shopping",
+      "file": "shopping/cart.go",
+      "fields": 13,
+      "unenforced": {
+        "Cart.continue_url": [
+          "format"
+        ],
+        "Cart.expires_at": [
+          "format"
+        ],
+        "CartCheckout.continue_url": [
+          "format"
+        ],
+        "CartCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/cart_create_request.json": {
+      "type": "CartCreateRequest",
+      "package": "shopping",
+      "file": "shopping/cart_create_request.go",
+      "fields": 5,
+      "unenforced": {
+        "CartCreateRequestCheckout.continue_url": [
+          "format"
+        ],
+        "CartCreateRequestCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/cart_update_request.json": {
+      "type": "CartUpdateRequest",
+      "package": "shopping",
+      "file": "shopping/cart_update_request.go",
+      "fields": 6,
+      "unenforced": {
+        "CartUpdateRequestCheckout.continue_url": [
+          "format"
+        ],
+        "CartUpdateRequestCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/catalog_lookup.json": {
+      "type": "CatalogLookup",
+      "package": "shopping",
+      "file": "shopping/catalog_lookup.go",
+      "fields": 0,
+      "unenforced": {
+        "CatalogLookupDetailProduct.url": [
+          "format"
+        ],
+        "CatalogLookupLookupVariant.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/catalog_search.json": {
+      "type": "CatalogSearch",
+      "package": "shopping",
+      "file": "shopping/catalog_search.go",
+      "fields": 0
+    },
+    "shopping/checkout.json": {
+      "type": "Checkout",
+      "package": "shopping",
+      "file": "shopping/checkout.go",
+      "fields": 16,
+      "unenforced": {
+        "Checkout.continue_url": [
+          "format"
+        ],
+        "Checkout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/checkout_complete_request.json": {
+      "type": "CheckoutCompleteRequest",
+      "package": "shopping",
+      "file": "shopping/checkout_complete_request.go",
+      "fields": 3
+    },
+    "shopping/checkout_create_request.json": {
+      "type": "CheckoutCreateRequest",
+      "package": "shopping",
+      "file": "shopping/checkout_create_request.go",
+      "fields": 6
+    },
+    "shopping/checkout_update_request.json": {
+      "type": "CheckoutUpdateRequest",
+      "package": "shopping",
+      "file": "shopping/checkout_update_request.go",
+      "fields": 6
+    },
+    "shopping/discount.json": {
+      "type": "DiscountExtension",
+      "package": "shopping",
+      "file": "shopping/discount.go",
+      "fields": 0,
+      "unenforced": {
+        "DiscountCart.continue_url": [
+          "format"
+        ],
+        "DiscountCart.expires_at": [
+          "format"
+        ],
+        "DiscountCheckout.continue_url": [
+          "format"
+        ],
+        "DiscountCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/fulfillment.json": {
+      "type": "FulfillmentExtension",
+      "package": "shopping",
+      "file": "shopping/fulfillment.go",
+      "fields": 0,
+      "unenforced": {
+        "FulfillmentCheckout.continue_url": [
+          "format"
+        ],
+        "FulfillmentCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/order.json": {
+      "type": "Order",
+      "package": "shopping",
+      "file": "shopping/order.go",
+      "fields": 12,
+      "unenforced": {
+        "Order.permalink_url": [
+          "format"
+        ],
+        "OrderPlatformSchema.webhook_url": [
+          "format"
+        ],
+        "permalink_url": [
+          "format"
+        ],
+        "webhook_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/order_create_request.json": {
+      "type": "OrderCreateRequest",
+      "package": "shopping",
+      "file": "shopping/order_create_request.go",
+      "fields": 10,
+      "unenforced": {
+        "OrderCreateRequest.permalink_url": [
+          "format"
+        ],
+        "OrderCreateRequestPlatformSchema.webhook_url": [
+          "format"
+        ],
+        "permalink_url": [
+          "format"
+        ],
+        "webhook_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/order_update_request.json": {
+      "type": "OrderUpdateRequest",
+      "package": "shopping",
+      "file": "shopping/order_update_request.go",
+      "fields": 10,
+      "unenforced": {
+        "OrderUpdateRequest.permalink_url": [
+          "format"
+        ],
+        "OrderUpdateRequestPlatformSchema.webhook_url": [
+          "format"
+        ],
+        "permalink_url": [
+          "format"
+        ],
+        "webhook_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/payment.json": {
+      "type": "Payment",
+      "package": "shopping",
+      "file": "shopping/payment.go",
+      "fields": 1
+    },
+    "shopping/payment_complete_request.json": {
+      "type": "PaymentCompleteRequest",
+      "package": "shopping",
+      "file": "shopping/payment_complete_request.go",
+      "fields": 1
+    },
+    "shopping/payment_create_request.json": {
+      "type": "PaymentCreateRequest",
+      "package": "shopping",
+      "file": "shopping/payment_create_request.go",
+      "fields": 1
+    },
+    "shopping/payment_update_request.json": {
+      "type": "PaymentUpdateRequest",
+      "package": "shopping",
+      "file": "shopping/payment_update_request.go",
+      "fields": 1
+    },
+    "shopping/types/account_info.json": {
+      "type": "PaymentAccountInfo",
+      "package": "types",
+      "file": "shopping/types/account_info.go",
+      "fields": 1
+    },
+    "shopping/types/adjustment.json": {
+      "type": "Adjustment",
+      "package": "types",
+      "file": "shopping/types/adjustment.go",
+      "fields": 7,
+      "unenforced": {
+        "Adjustment.occurred_at": [
+          "format"
+        ],
+        "occurred_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/adjustment_create_request.json": {
+      "type": "AdjustmentCreateRequest",
+      "package": "types",
+      "file": "shopping/types/adjustment_create_request.go",
+      "fields": 7,
+      "unenforced": {
+        "AdjustmentCreateRequest.occurred_at": [
+          "format"
+        ],
+        "occurred_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/adjustment_update_request.json": {
+      "type": "AdjustmentUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/adjustment_update_request.go",
+      "fields": 7,
+      "unenforced": {
+        "AdjustmentUpdateRequest.occurred_at": [
+          "format"
+        ],
+        "occurred_at": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/amount.json": {
+      "type": "Amount",
+      "package": "types",
+      "file": "shopping/types/amount.go",
+      "fields": 0
+    },
+    "shopping/types/attribution.json": {
+      "type": "Attribution",
+      "package": "types",
+      "file": "shopping/types/attribution.go",
+      "fields": 0
+    },
+    "shopping/types/attribution_complete_request.json": {
+      "type": "AttributionCompleteRequest",
+      "package": "types",
+      "file": "shopping/types/attribution_complete_request.go",
+      "fields": 0
+    },
+    "shopping/types/attribution_create_request.json": {
+      "type": "AttributionCreateRequest",
+      "package": "types",
+      "file": "shopping/types/attribution_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/attribution_update_request.json": {
+      "type": "AttributionUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/attribution_update_request.go",
+      "fields": 0
+    },
+    "shopping/types/available_payment_instrument.json": {
+      "type": "AvailablePaymentInstrument",
+      "package": "types",
+      "file": "shopping/types/available_payment_instrument.go",
+      "fields": 2
+    },
+    "shopping/types/binding.json": {
+      "type": "Binding",
+      "package": "types",
+      "file": "shopping/types/binding.go",
+      "fields": 2
+    },
+    "shopping/types/business_fulfillment_config.json": {
+      "type": "BusinessFulfillmentConfig",
+      "package": "types",
+      "file": "shopping/types/business_fulfillment_config.go",
+      "fields": 2,
+      "unenforced": {
+        "BusinessFulfillmentConfig.allows_method_combinations_item_item": [
+          "enum"
+        ]
+      }
+    },
+    "shopping/types/buyer.json": {
+      "type": "Buyer",
+      "package": "types",
+      "file": "shopping/types/buyer.go",
+      "fields": 4
+    },
+    "shopping/types/buyer_create_request.json": {
+      "type": "BuyerCreateRequest",
+      "package": "types",
+      "file": "shopping/types/buyer_create_request.go",
+      "fields": 4
+    },
+    "shopping/types/buyer_update_request.json": {
+      "type": "BuyerUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/buyer_update_request.go",
+      "fields": 4
+    },
+    "shopping/types/card_credential.json": {
+      "type": "CardCredential",
+      "package": "types",
+      "file": "shopping/types/card_credential.go",
+      "fields": 9
+    },
+    "shopping/types/card_payment_instrument.json": {
+      "type": "CardPaymentInstrument",
+      "package": "types",
+      "file": "shopping/types/card_payment_instrument.go",
+      "fields": 6
+    },
+    "shopping/types/category.json": {
+      "type": "Category",
+      "package": "types",
+      "file": "shopping/types/category.go",
+      "fields": 2
+    },
+    "shopping/types/context.json": {
+      "type": "Context",
+      "package": "types",
+      "file": "shopping/types/context.go",
+      "fields": 7
+    },
+    "shopping/types/context_create_request.json": {
+      "type": "ContextCreateRequest",
+      "package": "types",
+      "file": "shopping/types/context_create_request.go",
+      "fields": 7
+    },
+    "shopping/types/context_update_request.json": {
+      "type": "ContextUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/context_update_request.go",
+      "fields": 7
+    },
+    "shopping/types/description.json": {
+      "type": "Description",
+      "package": "types",
+      "file": "shopping/types/description.go",
+      "fields": 3
+    },
+    "shopping/types/detail_option_value.json": {
+      "type": "DetailOptionValue",
+      "package": "types",
+      "file": "shopping/types/detail_option_value.go",
+      "fields": 4
+    },
+    "shopping/types/error_code.json": {
+      "type": "ErrorCode",
+      "package": "types",
+      "file": "shopping/types/error_code.go",
+      "fields": 0
+    },
+    "shopping/types/error_response.json": {
+      "type": "ErrorResponse",
+      "package": "types",
+      "file": "shopping/types/error_response.go",
+      "fields": 3,
+      "unenforced": {
+        "ErrorResponse.continue_url": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/expectation.json": {
+      "type": "Expectation",
+      "package": "types",
+      "file": "shopping/types/expectation.go",
+      "fields": 6
+    },
+    "shopping/types/expectation_create_request.json": {
+      "type": "ExpectationCreateRequest",
+      "package": "types",
+      "file": "shopping/types/expectation_create_request.go",
+      "fields": 6
+    },
+    "shopping/types/expectation_update_request.json": {
+      "type": "ExpectationUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/expectation_update_request.go",
+      "fields": 6
+    },
+    "shopping/types/fulfillment.json": {
+      "type": "Fulfillment",
+      "package": "types",
+      "file": "shopping/types/fulfillment.go",
+      "fields": 2
+    },
+    "shopping/types/fulfillment_available_method.json": {
+      "type": "FulfillmentAvailableMethod",
+      "package": "types",
+      "file": "shopping/types/fulfillment_available_method.go",
+      "fields": 4
+    },
+    "shopping/types/fulfillment_available_method_create_request.json": {
+      "type": "FulfillmentAvailableMethodCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_available_method_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_available_method_update_request.json": {
+      "type": "FulfillmentAvailableMethodUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_available_method_update_request.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_create_request.json": {
+      "type": "FulfillmentCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_create_request.go",
+      "fields": 1
+    },
+    "shopping/types/fulfillment_destination.json": {
+      "type": "FulfillmentDestination",
+      "package": "types",
+      "file": "shopping/types/fulfillment_destination.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_destination_create_request.json": {
+      "type": "FulfillmentDestinationCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_destination_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_destination_update_request.json": {
+      "type": "FulfillmentDestinationUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_destination_update_request.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_event.json": {
+      "type": "FulfillmentEvent",
+      "package": "types",
+      "file": "shopping/types/fulfillment_event.go",
+      "fields": 8,
+      "unenforced": {
+        "FulfillmentEvent.occurred_at": [
+          "format"
+        ],
+        "FulfillmentEvent.tracking_url": [
+          "format"
+        ],
+        "occurred_at": [
+          "format"
+        ],
+        "tracking_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/fulfillment_event_create_request.json": {
+      "type": "FulfillmentEventCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_event_create_request.go",
+      "fields": 8,
+      "unenforced": {
+        "FulfillmentEventCreateRequest.occurred_at": [
+          "format"
+        ],
+        "FulfillmentEventCreateRequest.tracking_url": [
+          "format"
+        ],
+        "occurred_at": [
+          "format"
+        ],
+        "tracking_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/fulfillment_event_update_request.json": {
+      "type": "FulfillmentEventUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_event_update_request.go",
+      "fields": 8,
+      "unenforced": {
+        "FulfillmentEventUpdateRequest.occurred_at": [
+          "format"
+        ],
+        "FulfillmentEventUpdateRequest.tracking_url": [
+          "format"
+        ],
+        "occurred_at": [
+          "format"
+        ],
+        "tracking_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/fulfillment_group.json": {
+      "type": "FulfillmentGroup",
+      "package": "types",
+      "file": "shopping/types/fulfillment_group.go",
+      "fields": 4
+    },
+    "shopping/types/fulfillment_group_create_request.json": {
+      "type": "FulfillmentGroupCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_group_create_request.go",
+      "fields": 1
+    },
+    "shopping/types/fulfillment_group_update_request.json": {
+      "type": "FulfillmentGroupUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_group_update_request.go",
+      "fields": 2
+    },
+    "shopping/types/fulfillment_method.json": {
+      "type": "FulfillmentMethod",
+      "package": "types",
+      "file": "shopping/types/fulfillment_method.go",
+      "fields": 6
+    },
+    "shopping/types/fulfillment_method_create_request.json": {
+      "type": "FulfillmentMethodCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_method_create_request.go",
+      "fields": 5
+    },
+    "shopping/types/fulfillment_method_update_request.json": {
+      "type": "FulfillmentMethodUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_method_update_request.go",
+      "fields": 6
+    },
+    "shopping/types/fulfillment_option.json": {
+      "type": "FulfillmentOption",
+      "package": "types",
+      "file": "shopping/types/fulfillment_option.go",
+      "fields": 7,
+      "unenforced": {
+        "FulfillmentOption.earliest_fulfillment_time": [
+          "format"
+        ],
+        "FulfillmentOption.latest_fulfillment_time": [
+          "format"
+        ],
+        "earliest_fulfillment_time": [
+          "format"
+        ],
+        "latest_fulfillment_time": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/fulfillment_option_create_request.json": {
+      "type": "FulfillmentOptionCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_option_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_option_update_request.json": {
+      "type": "FulfillmentOptionUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_option_update_request.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_update_request.json": {
+      "type": "FulfillmentUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_update_request.go",
+      "fields": 1
+    },
+    "shopping/types/info_code.json": {
+      "type": "InfoCode",
+      "package": "types",
+      "file": "shopping/types/info_code.go",
+      "fields": 0
+    },
+    "shopping/types/input_correlation.json": {
+      "type": "InputCorrelation",
+      "package": "types",
+      "file": "shopping/types/input_correlation.go",
+      "fields": 2
+    },
+    "shopping/types/item.json": {
+      "type": "Item",
+      "package": "types",
+      "file": "shopping/types/item.go",
+      "fields": 4,
+      "unenforced": {
+        "Item.image_url": [
+          "format"
+        ],
+        "image_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/item_create_request.json": {
+      "type": "ItemCreateRequest",
+      "package": "types",
+      "file": "shopping/types/item_create_request.go",
+      "fields": 1
+    },
+    "shopping/types/item_update_request.json": {
+      "type": "ItemUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/item_update_request.go",
+      "fields": 1
+    },
+    "shopping/types/line_item.json": {
+      "type": "LineItem",
+      "package": "types",
+      "file": "shopping/types/line_item.go",
+      "fields": 5
+    },
+    "shopping/types/line_item_create_request.json": {
+      "type": "LineItemCreateRequest",
+      "package": "types",
+      "file": "shopping/types/line_item_create_request.go",
+      "fields": 2
+    },
+    "shopping/types/line_item_update_request.json": {
+      "type": "LineItemUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/line_item_update_request.go",
+      "fields": 4
+    },
+    "shopping/types/link.json": {
+      "type": "Link",
+      "package": "types",
+      "file": "shopping/types/link.go",
+      "fields": 3,
+      "unenforced": {
+        "Link.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/media.json": {
+      "type": "Media",
+      "package": "types",
+      "file": "shopping/types/media.go",
+      "fields": 5,
+      "unenforced": {
+        "Media.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/merchant_fulfillment_config.json": {
+      "type": "MerchantFulfillmentConfig",
+      "package": "types",
+      "file": "shopping/types/merchant_fulfillment_config.go",
+      "fields": 2,
+      "unenforced": {
+        "MerchantFulfillmentConfig.allows_method_combinations_item_item": [
+          "enum"
+        ]
+      }
+    },
+    "shopping/types/message.json": {
+      "type": "Message",
+      "package": "types",
+      "file": "shopping/types/message.go",
+      "fields": 0
+    },
+    "shopping/types/message_create_request.json": {
+      "type": "MessageCreateRequest",
+      "package": "types",
+      "file": "shopping/types/message_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/message_error.json": {
+      "type": "MessageError",
+      "package": "types",
+      "file": "shopping/types/message_error.go",
+      "fields": 6
+    },
+    "shopping/types/message_info.json": {
+      "type": "MessageInfo",
+      "package": "types",
+      "file": "shopping/types/message_info.go",
+      "fields": 5
+    },
+    "shopping/types/message_update_request.json": {
+      "type": "MessageUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/message_update_request.go",
+      "fields": 0
+    },
+    "shopping/types/message_warning.json": {
+      "type": "MessageWarning",
+      "package": "types",
+      "file": "shopping/types/message_warning.go",
+      "fields": 8,
+      "unenforced": {
+        "MessageWarning.image_url": [
+          "format"
+        ],
+        "MessageWarning.url": [
+          "format"
+        ],
+        "image_url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/option_value.json": {
+      "type": "OptionValue",
+      "package": "types",
+      "file": "shopping/types/option_value.go",
+      "fields": 2
+    },
+    "shopping/types/order_confirmation.json": {
+      "type": "OrderConfirmation",
+      "package": "types",
+      "file": "shopping/types/order_confirmation.go",
+      "fields": 3,
+      "unenforced": {
+        "OrderConfirmation.permalink_url": [
+          "format"
+        ],
+        "permalink_url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/order_line_item.json": {
+      "type": "OrderLineItem",
+      "package": "types",
+      "file": "shopping/types/order_line_item.go",
+      "fields": 6
+    },
+    "shopping/types/order_line_item_create_request.json": {
+      "type": "OrderLineItemCreateRequest",
+      "package": "types",
+      "file": "shopping/types/order_line_item_create_request.go",
+      "fields": 6
+    },
+    "shopping/types/order_line_item_update_request.json": {
+      "type": "OrderLineItemUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/order_line_item_update_request.go",
+      "fields": 6
+    },
+    "shopping/types/pagination.json": {
+      "type": "Pagination",
+      "package": "types",
+      "file": "shopping/types/pagination.go",
+      "fields": 0,
+      "unenforced": {
+        "PaginationResponse": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/payment_credential.json": {
+      "type": "PaymentCredential",
+      "package": "types",
+      "file": "shopping/types/payment_credential.go",
+      "fields": 1
+    },
+    "shopping/types/payment_credential_complete_request.json": {
+      "type": "PaymentCredentialCompleteRequest",
+      "package": "types",
+      "file": "shopping/types/payment_credential_complete_request.go",
+      "fields": 1
+    },
+    "shopping/types/payment_credential_create_request.json": {
+      "type": "PaymentCredentialCreateRequest",
+      "package": "types",
+      "file": "shopping/types/payment_credential_create_request.go",
+      "fields": 1
+    },
+    "shopping/types/payment_credential_update_request.json": {
+      "type": "PaymentCredentialUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/payment_credential_update_request.go",
+      "fields": 1
+    },
+    "shopping/types/payment_identity.json": {
+      "type": "PaymentIdentity",
+      "package": "types",
+      "file": "shopping/types/payment_identity.go",
+      "fields": 1
+    },
+    "shopping/types/payment_instrument.json": {
+      "type": "PaymentInstrument",
+      "package": "types",
+      "file": "shopping/types/payment_instrument.go",
+      "fields": 6
+    },
+    "shopping/types/payment_instrument_complete_request.json": {
+      "type": "PaymentInstrumentCompleteRequest",
+      "package": "types",
+      "file": "shopping/types/payment_instrument_complete_request.go",
+      "fields": 6
+    },
+    "shopping/types/payment_instrument_create_request.json": {
+      "type": "PaymentInstrumentCreateRequest",
+      "package": "types",
+      "file": "shopping/types/payment_instrument_create_request.go",
+      "fields": 6
+    },
+    "shopping/types/payment_instrument_update_request.json": {
+      "type": "PaymentInstrumentUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/payment_instrument_update_request.go",
+      "fields": 6
+    },
+    "shopping/types/platform_fulfillment_config.json": {
+      "type": "PlatformFulfillmentConfig",
+      "package": "types",
+      "file": "shopping/types/platform_fulfillment_config.go",
+      "fields": 1
+    },
+    "shopping/types/postal_address.json": {
+      "type": "PostalAddress",
+      "package": "types",
+      "file": "shopping/types/postal_address.go",
+      "fields": 9
+    },
+    "shopping/types/postal_address_complete_request.json": {
+      "type": "PostalAddressCompleteRequest",
+      "package": "types",
+      "file": "shopping/types/postal_address_complete_request.go",
+      "fields": 9
+    },
+    "shopping/types/postal_address_create_request.json": {
+      "type": "PostalAddressCreateRequest",
+      "package": "types",
+      "file": "shopping/types/postal_address_create_request.go",
+      "fields": 9
+    },
+    "shopping/types/postal_address_update_request.json": {
+      "type": "PostalAddressUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/postal_address_update_request.go",
+      "fields": 9
+    },
+    "shopping/types/price.json": {
+      "type": "Price",
+      "package": "types",
+      "file": "shopping/types/price.go",
+      "fields": 2
+    },
+    "shopping/types/price_filter.json": {
+      "type": "PriceFilter",
+      "package": "types",
+      "file": "shopping/types/price_filter.go",
+      "fields": 2
+    },
+    "shopping/types/price_range.json": {
+      "type": "PriceRange",
+      "package": "types",
+      "file": "shopping/types/price_range.go",
+      "fields": 2
+    },
+    "shopping/types/product.json": {
+      "type": "Product",
+      "package": "types",
+      "file": "shopping/types/product.go",
+      "fields": 14,
+      "unenforced": {
+        "Product.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/product_option.json": {
+      "type": "ProductOption",
+      "package": "types",
+      "file": "shopping/types/product_option.go",
+      "fields": 2
+    },
+    "shopping/types/rating.json": {
+      "type": "Rating",
+      "package": "types",
+      "file": "shopping/types/rating.go",
+      "fields": 4
+    },
+    "shopping/types/retail_location.json": {
+      "type": "RetailLocation",
+      "package": "types",
+      "file": "shopping/types/retail_location.go",
+      "fields": 3
+    },
+    "shopping/types/retail_location_create_request.json": {
+      "type": "RetailLocationCreateRequest",
+      "package": "types",
+      "file": "shopping/types/retail_location_create_request.go",
+      "fields": 2
+    },
+    "shopping/types/retail_location_update_request.json": {
+      "type": "RetailLocationUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/retail_location_update_request.go",
+      "fields": 2
+    },
+    "shopping/types/reverse_domain_name.json": {
+      "type": "ReverseDomainName",
+      "package": "types",
+      "file": "shopping/types/reverse_domain_name.go",
+      "fields": 0
+    },
+    "shopping/types/reverse_domain_name_create_request.json": {
+      "type": "ReverseDomainNameCreateRequest",
+      "package": "types",
+      "file": "shopping/types/reverse_domain_name_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/reverse_domain_name_update_request.json": {
+      "type": "ReverseDomainNameUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/reverse_domain_name_update_request.go",
+      "fields": 0
+    },
+    "shopping/types/search_filters.json": {
+      "type": "SearchFilters",
+      "package": "types",
+      "file": "shopping/types/search_filters.go",
+      "fields": 2
+    },
+    "shopping/types/selected_option.json": {
+      "type": "SelectedOption",
+      "package": "types",
+      "file": "shopping/types/selected_option.go",
+      "fields": 3
+    },
+    "shopping/types/shipping_destination.json": {
+      "type": "ShippingDestination",
+      "package": "types",
+      "file": "shopping/types/shipping_destination.go",
+      "fields": 10
+    },
+    "shopping/types/shipping_destination_create_request.json": {
+      "type": "ShippingDestinationCreateRequest",
+      "package": "types",
+      "file": "shopping/types/shipping_destination_create_request.go",
+      "fields": 10
+    },
+    "shopping/types/shipping_destination_update_request.json": {
+      "type": "ShippingDestinationUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/shipping_destination_update_request.go",
+      "fields": 10
+    },
+    "shopping/types/signals.json": {
+      "type": "Signals",
+      "package": "types",
+      "file": "shopping/types/signals.go",
+      "fields": 2
+    },
+    "shopping/types/signals_complete_request.json": {
+      "type": "SignalsCompleteRequest",
+      "package": "types",
+      "file": "shopping/types/signals_complete_request.go",
+      "fields": 2
+    },
+    "shopping/types/signals_create_request.json": {
+      "type": "SignalsCreateRequest",
+      "package": "types",
+      "file": "shopping/types/signals_create_request.go",
+      "fields": 2
+    },
+    "shopping/types/signals_update_request.json": {
+      "type": "SignalsUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/signals_update_request.go",
+      "fields": 2
+    },
+    "shopping/types/signed_amount.json": {
+      "type": "SignedAmount",
+      "package": "types",
+      "file": "shopping/types/signed_amount.go",
+      "fields": 0
+    },
+    "shopping/types/token_credential.json": {
+      "type": "TokenCredential",
+      "package": "types",
+      "file": "shopping/types/token_credential.go",
+      "fields": 2
+    },
+    "shopping/types/total.json": {
+      "type": "Total",
+      "package": "types",
+      "file": "shopping/types/total.go",
+      "fields": 3,
+      "unenforced": {
+        "Total": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/total_create_request.json": {
+      "type": "TotalCreateRequest",
+      "package": "types",
+      "file": "shopping/types/total_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalCreateRequest": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/total_update_request.json": {
+      "type": "TotalUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/total_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalUpdateRequest": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/totals.json": {
+      "type": "Totals",
+      "package": "types",
+      "file": "shopping/types/totals.go",
+      "fields": 0,
+      "unenforced": {
+        "Totals": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "Totals.Totals": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "Totals.Totals_item": [
+          "if",
+          "then"
+        ],
+        "TotalsTotalsItem": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/totals_create_request.json": {
+      "type": "TotalsCreateRequest",
+      "package": "types",
+      "file": "shopping/types/totals_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalsCreateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsCreateRequest.TotalsCreateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsCreateRequest.TotalsCreateRequest_item": [
+          "if",
+          "then"
+        ],
+        "TotalsCreateRequestTotalscreaterequestItem": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/totals_update_request.json": {
+      "type": "TotalsUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/totals_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalsUpdateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsUpdateRequest.TotalsUpdateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsUpdateRequest.TotalsUpdateRequest_item": [
+          "if",
+          "then"
+        ],
+        "TotalsUpdateRequestTotalsupdaterequestItem": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/variant.json": {
+      "type": "Variant",
+      "package": "types",
+      "file": "shopping/types/variant.go",
+      "fields": 18,
+      "unenforced": {
+        "Variant.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/warning_code.json": {
+      "type": "WarningCode",
+      "package": "types",
+      "file": "shopping/types/warning_code.go",
+      "fields": 0
+    },
+    "transports/embedded_config.json": {
+      "type": "EmbeddedTransportConfig",
+      "package": "transports",
+      "file": "transports/embedded_config.go",
+      "fields": 2
+    },
+    "ucp.json": {
+      "type": "UCPMetadata",
+      "package": "ucp",
+      "file": "ucp.go",
+      "fields": 0,
+      "unenforced": {
+        "UCPBusinessSchema.supported_versions_value": [
+          "format"
+        ],
+        "UCPEntity.schema": [
+          "format"
+        ],
+        "UCPEntity.spec": [
+          "format"
+        ],
+        "schema": [
+          "format"
+        ],
+        "spec": [
+          "format"
+        ]
+      }
+    },
+    "ucp_create_request.json": {
+      "type": "UCPMetadataCreateRequest",
+      "package": "ucp",
+      "file": "ucp_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "UCPCreateRequestBusinessSchema.supported_versions_value": [
+          "format"
+        ],
+        "UCPCreateRequestEntity.schema": [
+          "format"
+        ],
+        "UCPCreateRequestEntity.spec": [
+          "format"
+        ],
+        "schema": [
+          "format"
+        ],
+        "spec": [
+          "format"
+        ]
+      }
+    },
+    "ucp_update_request.json": {
+      "type": "UCPMetadataUpdateRequest",
+      "package": "ucp",
+      "file": "ucp_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "UCPUpdateRequestBusinessSchema.supported_versions_value": [
+          "format"
+        ],
+        "UCPUpdateRequestEntity.schema": [
+          "format"
+        ],
+        "UCPUpdateRequestEntity.spec": [
+          "format"
+        ],
+        "schema": [
+          "format"
+        ],
+        "spec": [
+          "format"
+        ]
+      }
+    }
+  }
+}
