@@ -52,24 +52,24 @@ func main() {
 	fmt.Printf("%s: %s (%s)\n", c.ID, c.Status, c.Currency)
 
 	// Validate reports the first constraint violation, or nil.
-	var req shopping.CheckoutCreateRequest
-	if err := json.Unmarshal([]byte(`{"line_items":[]}`), &req); err != nil {
+	if err := c.Validate(); err != nil {
 		log.Fatal(err)
 	}
-	if err := req.Validate(); err != nil {
+	fmt.Println("valid")
+
+	// A required property that was absent is distinguishable from one
+	// decoded to its zero value, so an incomplete payload is rejected.
+	var partial shopping.Checkout
+	if err := json.Unmarshal([]byte(`{"id":"chk_2"}`), &partial); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("create request is valid")
+	fmt.Println("incomplete:", partial.Validate())
 }
 ```
 
     chk_1: ready_for_complete (USD)
-    create request is valid
-
-`Validate` is deliberately not called on the decoded `Checkout` above.
-On this spec release it always fails, for a reason that is not this SDK's
-doing — see [The `ucp` metadata union is
-unsatisfiable](#the-ucp-metadata-union-is-unsatisfiable).
+    valid
+    incomplete: currency: required property is missing
 
 The five generated packages are `github.com/chaz8081/ucp-go` (package `ucp`,
 the protocol root), `/common`, `/shopping`, `/shopping/types` and
@@ -202,8 +202,9 @@ deep-copies `ucp.json#/$defs/entity` into `capability.json`,
 document-relative `$ref`s. The entity body contains
 `"version": {"$ref": "#/$defs/version"}`; once copied, that pointer resolves
 against its new host, which defines no such `$def`. The result is 24
-dangling references, and 4 of 145 schemas that no conforming JSON Schema
-validator can compile.
+dangling references, and 9 of 145 schemas that no conforming JSON Schema
+validator can compile — the three hosts themselves plus everything
+transitively referencing them, including `ucp.json`.
 
 The spec's source schemas are correct — the defect is introduced by
 preprocessing.
@@ -216,8 +217,9 @@ goldens trustworthy. The emitted models are unaffected: `ResolveRef` carries
 a narrow, documented fallback that resolves these references against
 `ucp.json`, which is where they were written.
 
-The conformance harness skips the four affected schemas by name and counts
-them, rather than passing over them silently.
+The conformance harness skips the affected schemas by name and counts them,
+rather than passing over them silently. Its tally reports four, because the
+other five are already skipped a step earlier for out-of-scope keywords.
 
 ### The `ucp` metadata union is unsatisfiable
 
@@ -238,28 +240,31 @@ Any instance that satisfies one of those three satisfies all three, so a
 branches are strictly more constrained and imply the identical ones, so they
 do not escape it either. The union has no satisfiable instance.
 
-The practical consequence: `ucp` is a required property on `Cart`, `Checkout`
-and `Order`. The generated `Validate` enforces `oneOf` strictly, so calling
-it on any decoded value of those three types returns
+`ucp` is a required property on `Cart`, `Checkout` and `Order`, so enforcing
+`oneOf` strictly here would mean those three types — the protocol's primary
+responses — could never validate at all.
 
-    UCPMetadata: input satisfies more than one alternative, and oneOf permits exactly one
+**How `ucp-go` handles it.** The emitter compares a union's members and,
+when two or more are structurally identical (ignoring `title` and
+`description`), stops enforcing exclusivity for that union: it behaves as
+`anyOf` instead. The generated type says so in its own doc comment, naming
+the members involved, so the deviation is visible at the point of use rather
+than buried here. Exclusivity is still enforced for every other union, where
+it is both meaningful and satisfiable — it catches real violations.
 
-Decoding, field access, `Extra` preservation and re-encoding are all
-unaffected — this is a validation verdict, not a decode failure, and the
-request variants (`CheckoutCreateRequest` and friends) carry no `ucp`
-property and validate normally.
+This affects exactly three schemas: `ucp.json` and its two request variants.
 
-The differential harness did not catch this: `ucp.json` and the schemas that
-embed it are among those the oracle cannot compile at all, for the
-dangling-reference reason above, so they are skipped before any verdict is
-compared. Pydantic's `Union` resolves to the first matching member rather
-than enforcing `oneOf`, which is likely why the python-sdk does not surface
-it either.
+The differential harness did not catch this, and could not: `ucp.json` and
+the schemas that embed it are among those the oracle cannot compile at all,
+for the dangling-reference reason above, so they are skipped before any
+verdict is compared. It was found by running the SDK against its own README
+example. Pydantic's `Union` resolves to the first matching member rather than
+enforcing `oneOf`, which is likely why the python-sdk does not surface it
+either.
 
-Resolving this needs a spec decision — whether the three response profiles
-are meant to be distinguishable, or whether the synthesized `oneOf` should be
-an `anyOf` — so `ucp-go` reports the violation rather than quietly picking a
-branch.
+Properly resolving this needs a spec decision — whether the three response
+profiles are meant to be distinguishable, or whether the synthesized `oneOf`
+should be an `anyOf`.
 
 ## Regenerating
 
