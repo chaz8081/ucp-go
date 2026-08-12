@@ -138,11 +138,23 @@ func TestDifferentialAgreement(t *testing.T) {
 			// oracle, never from a Go value — re-marshaling would rewrite
 			// invalid UTF-8 to U+FFFD and shift the rune counts maxLength is
 			// measured in.
-			sdkOK := json.Unmarshal(c.json, v) == nil && v.Validate() == nil
+			//
+			// The reason is kept, not just the verdict: a disagreement has to
+			// be triaged into a missing check, a wrong check, or an
+			// out-of-scope keyword, and "sdk=false" alone does not say which.
+			sdkErr := json.Unmarshal(c.json, v)
+			if sdkErr == nil {
+				sdkErr = v.Validate()
+			}
+			sdkOK := sdkErr == nil
 			if oracleOK != sdkOK {
+				why := "accepted it"
+				if sdkErr != nil {
+					why = sdkErr.Error()
+				}
 				mismatches = append(mismatches, fmt.Sprintf(
 					"%s [%s]\n    payload: %s\n    oracle=%v sdk=%v (%s)",
-					tg.rel, c.name, c.json, oracleOK, sdkOK, ""))
+					tg.rel, c.name, c.json, oracleOK, sdkOK, why))
 			}
 		}
 	}
