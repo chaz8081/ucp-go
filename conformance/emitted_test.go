@@ -62,6 +62,28 @@ func TestModelsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestPrimaryTypesCanValidate is a regression test for a defect that made
+// the SDK unusable: `ucp` is required on Cart, Checkout and Order, and its
+// metadata union is a synthesized oneOf whose cart, catalog and order
+// response members are structurally identical. Enforcing "exactly one"
+// against alternatives nothing can tell apart meant those types — the
+// protocol's primary responses — could never validate at all.
+//
+// The emitter now detects an unsatisfiable oneOf and does not enforce
+// exclusivity for it, saying so in the generated doc comment. If that
+// detection regresses, this fails rather than shipping types no caller can
+// use.
+func TestPrimaryTypesCanValidate(t *testing.T) {
+	var c shopping.Checkout
+	in := `{"id":"chk_1","currency":"USD","status":"ready_for_complete","line_items":[],"links":[],"totals":[],"ucp":{"version":"2026-04-08"}}`
+	if err := json.Unmarshal([]byte(in), &c); err != nil {
+		t.Fatalf("checkout decode: %v", err)
+	}
+	if err := c.Validate(); err != nil {
+		t.Errorf("a complete checkout must validate, got: %v", err)
+	}
+}
+
 // TestRequiredPresence pins the rule that keeps the SDK usable for building
 // requests while still rejecting incomplete payloads.
 func TestRequiredPresence(t *testing.T) {

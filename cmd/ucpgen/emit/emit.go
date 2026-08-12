@@ -2,6 +2,7 @@
 package emit
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/format"
 	"path"
@@ -148,6 +149,9 @@ func EmitFile(idx *TypeIndex, modulePath, relPath string, schema map[string]any,
 func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[string]any, specRef string, breaks map[string]bool, corpus map[string]map[string]any) (string, error) {
 	pkg, _ := PackageForSchema(relPath, modulePath)
 	e := newFileEmitterWithBreaks(idx, relPath, pkg, breaks)
+	// Kept so a union can compare its members' bodies, which means resolving
+	// local $refs against the document rather than against the node.
+	e.doc = schema
 
 	// ucp.json and its two request variants are skipped by the preprocessing
 	// pipeline (mirroring python), so they arrive with allOf still unmerged
@@ -464,6 +468,58 @@ func aliasExpr(underlying string) string {
 	return underlying + "(*v)"
 }
 
+// indistinguishableMembers returns the names of union members whose
+// schemas are structurally identical, sorted, or nil when every member can
+// be told from every other.
+//
+// Only local `#/$defs/...` members are compared, which is where the corpus
+// puts them; a cross-file member is left alone rather than guessed at, so
+// the check can miss a duplicate but never invent one. Titles and
+// descriptions are ignored: they are what make these three members look
+// different while validating identically.
+func indistinguishableMembers(e *fileEmitter, members []any) []string {
+	defs, _ := e.doc["$defs"].(map[string]any)
+	if defs == nil {
+		return nil
+	}
+	byShape := map[string][]string{}
+	for _, m := range members {
+		mm, ok := m.(map[string]any)
+		if !ok {
+			continue
+		}
+		ref, _ := mm["$ref"].(string)
+		name, ok := strings.CutPrefix(ref, "#"+defsFragmentPrefix)
+		if !ok || strings.Contains(name, "/") {
+			continue
+		}
+		def, ok := defs[name].(map[string]any)
+		if !ok {
+			continue
+		}
+		body := map[string]any{}
+		for k, v := range def {
+			if k == "title" || k == "description" {
+				continue
+			}
+			body[k] = v
+		}
+		raw, err := json.Marshal(body)
+		if err != nil {
+			continue
+		}
+		byShape[string(raw)] = append(byShape[string(raw)], name)
+	}
+	var dupes []string
+	for _, names := range byShape {
+		if len(names) > 1 {
+			dupes = append(dupes, names...)
+		}
+	}
+	sort.Strings(dupes)
+	return dupes
+}
+
 func allRefMembers(members []any) bool {
 	for _, m := range members {
 		mm, ok := m.(map[string]any)
@@ -507,7 +563,27 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 
 	writeDoc(e, body, typeName, schema)
 	fmt.Fprintf(body, "//\n// %s is a closed %s union: exactly one field is set.\n", typeName, keyword)
+
+	// oneOf means "exactly one", which is only decidable when the
+	// alternatives can be told apart. ucp.json's synthesized metadata union
+	// has three members — the cart, catalog and order response profiles —
+	// whose bodies are identical apart from their titles, so any instance
+	// matching one matches all three and the union can never be satisfied.
+	// Enforcing exclusivity there would make Cart, Checkout and Order
+	// permanently invalid, since `ucp` is required on all three.
+	//
+	// Where the schema is unsatisfiable as written, the exclusivity check is
+	// dropped and the union behaves as anyOf. The deviation is emitted into
+	// the generated source rather than left implicit.
 	exclusive := keyword == "oneOf"
+	if dupes := indistinguishableMembers(e, members); exclusive && len(dupes) > 0 {
+		exclusive = false
+		fmt.Fprintf(body, "//\n// NOTE: this schema declares oneOf, but these alternatives are\n// structurally identical:\n//\n")
+		for _, name := range dupes {
+			fmt.Fprintf(body, "//   - %s\n", name)
+		}
+		body.WriteString("//\n// No input can satisfy exactly one of them, so the schema is\n// unsatisfiable as written. Exclusivity is therefore not enforced for\n// this union, which behaves as anyOf.\n")
+	}
 
 	fmt.Fprintf(body, "type %s struct {\n", typeName)
 	for _, f := range fields {

@@ -13,6 +13,17 @@ import (
 // UCPMetadataUpdateRequest Protocol metadata for discovery profiles and responses. Uses slim schema pattern with context-specific required fields.
 //
 // UCPMetadataUpdateRequest is a closed oneOf union: exactly one field is set.
+//
+// NOTE: this schema declares oneOf, but these alternatives are
+// structurally identical:
+//
+//   - response_cart_schema
+//   - response_catalog_schema
+//   - response_order_schema
+//
+// No input can satisfy exactly one of them, so the schema is
+// unsatisfiable as written. Exclusivity is therefore not enforced for
+// this union, which behaves as anyOf.
 type UCPMetadataUpdateRequest struct {
 	UCPUpdateRequestBusinessSchema         *UCPUpdateRequestBusinessSchema         `json:"-"`
 	UCPUpdateRequestPlatformSchema         *UCPUpdateRequestPlatformSchema         `json:"-"`
@@ -20,12 +31,6 @@ type UCPMetadataUpdateRequest struct {
 	UCPUpdateRequestResponseCatalogSchema  *UCPUpdateRequestResponseCatalogSchema  `json:"-"`
 	UCPUpdateRequestResponseCheckoutSchema *UCPUpdateRequestResponseCheckoutSchema `json:"-"`
 	UCPUpdateRequestResponseOrderSchema    *UCPUpdateRequestResponseOrderSchema    `json:"-"`
-
-	// matched counts the alternatives the decoded input satisfied.
-	// oneOf permits exactly one, so more than one is a violation that
-	// only decoding can observe. Zero means this value was never
-	// decoded from JSON.
-	matched int
 }
 
 // UnmarshalJSON decodes the union member that accepts the input,
@@ -108,12 +113,10 @@ func (v *UCPMetadataUpdateRequest) UnmarshalJSON(data []byte) error {
 	}
 	if matches > 0 {
 		*v = matched
-		v.matched = matches
 		return nil
 	}
 	if parsed {
 		*v = fallback
-		v.matched = 1
 		return nil
 	}
 	return errors.New("UCPMetadataUpdateRequest: no union member accepted the input")
@@ -144,9 +147,6 @@ func (v UCPMetadataUpdateRequest) MarshalJSON() ([]byte, error) {
 
 // Validate reports the first constraint violation, or nil.
 func (v *UCPMetadataUpdateRequest) Validate() error {
-	if v.matched > 1 {
-		return errors.New("UCPMetadataUpdateRequest: input satisfies more than one alternative, and oneOf permits exactly one")
-	}
 	if v.UCPUpdateRequestBusinessSchema != nil {
 		return v.UCPUpdateRequestBusinessSchema.Validate()
 	}
