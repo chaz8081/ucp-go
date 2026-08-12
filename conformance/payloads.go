@@ -1,11 +1,15 @@
 package conformance
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 	"sort"
 	"strings"
 )
+
+// jsonMarshal is the encoder the cases below are built with.
+func jsonMarshal(v any) ([]byte, error) { return json.Marshal(v) }
 
 // Payload construction for the differential harness.
 //

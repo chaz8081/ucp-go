@@ -18,6 +18,7 @@ type nestedType struct {
 type fileEmitter struct {
 	idx     *TypeIndex
 	rel     string            // schema being rendered
+	doc     map[string]any    // the whole document, for resolving local $refs
 	pkg     string            // package it belongs to
 	prefix  string            // type-name prefix for nested types
 	imports map[string]string // import path -> package name
