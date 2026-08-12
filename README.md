@@ -7,100 +7,303 @@ mirroring the architecture of the official
 [python-sdk](https://github.com/Universal-Commerce-Protocol/python-sdk) and
 [js-sdk](https://github.com/Universal-Commerce-Protocol/js-sdk).
 
-**Zero runtime dependencies.** The published module's `go.mod` has no `require` lines.
+Targets spec version `2026-04-08`: 145 preprocessed schemas emit 145 Go files
+across five packages, with no runtime dependencies.
 
-Status: pre-release. See `docs/specs/` for the design.
+## Status
 
-## Regenerating models
+Pre-release, `v0.x`. **There is no API-stability guarantee.** Type names,
+field types and the shape of the generated surface may change between
+releases — the generator is still being refined, and a change to the emitter
+changes every model it produces.
 
-`ucpgen` has two stages, which `./generate.sh <version>` runs in order.
+This repository is built as a candidate for adoption as an official UCP Go
+SDK. It is not a product launch, and nothing here should be read as a
+commitment to a stable interface. What is stable is the process: the models
+are derived from the spec's own schemas by a generator whose output is
+reproducible and checked against the reference implementation.
 
-**Stage 1 — `preprocess`** normalizes the raw spec schemas: whole-document
-`allOf` flattening, `ucp.json#/$defs/entity` inlining, union-branch
-distribution, dotted-`$defs` renaming, metadata-union normalization, and
-generation of the `*_create_request.json` / `_update_request.json` /
-`_complete_request.json` variants from `ucp_request` markers.
+## Install and use
 
-    go run ./cmd/ucpgen preprocess -schemas <spec>/source/schemas -out-schemas .gen-schemas
+    go get github.com/chaz8081/ucp-go
 
-This stage handles the **full real spec**: the 78 source schemas in
-`release/2026-04-08` normalize into 145 files (78 sources plus 67 generated
-request variants), byte-identical to the output of the official python-sdk
-preprocessor — see [Goldens](#goldens) below.
+Models are committed, so consumers never run the generator.
 
-**Stage 2 — `emit`** renders Go models from the normalized schemas.
+```go
+package main
 
-    go run ./cmd/ucpgen emit -schemas .gen-schemas -out . -spec-ref <branch@sha>
+import (
+	"encoding/json"
+	"fmt"
+	"log"
 
-This stage also handles the full spec: all 145 normalized schemas emit into
-five packages that build and vet cleanly. Directory basenames are the package
-names (`shopping/types` → package `types`), file-level types are named from
-`title`, and `$def` types are qualified by file stem (`CapabilityBase`) —
-unqualified `$def` names collide 18 times across the corpus.
+	"github.com/chaz8081/ucp-go/shopping"
+)
 
-Generated models:
+// A checkout as a UCP server returns it.
+const response = `{"id":"chk_1","currency":"USD","status":"ready_for_complete",
+	"line_items":[],"links":[],"totals":[],"ucp":{"version":"2026-04-08"}}`
 
-- preserve unknown keys. Objects the schema leaves open carry an
-  `Extra map[string]json.RawMessage` and re-emit it on marshal, so extension
-  keys survive a round trip.
-- decode unions. A `$ref`-only union becomes a struct with one optional
-  typed field per member plus `UnmarshalJSON`/`MarshalJSON`; `ucp` is a
-  required union field on Cart, Checkout and Order, so a marker interface
-  (which `encoding/json` cannot unmarshal into) would make those types
-  undecodable.
-- enforce `maxLength` and `pattern`, including on named primitives such as
-  `ReverseDomainName`, whose entire purpose is its pattern.
+func main() {
+	var c shopping.Checkout
+	if err := json.Unmarshal([]byte(response), &c); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%s: %s (%s)\n", c.ID, c.Status, c.Currency)
 
-What is **not** enforced yet is visible rather than silent: every remaining
-validation keyword (`enum`, `const`, numeric bounds, `minItems`,
-`uniqueItems`, `format`, …) is reported in a doc comment on the affected
-type or field, and recorded per schema under `unenforced` in
-`MANIFEST.json`. Keywords that would change a schema's *shape* rather than
-merely constrain it (currently `patternProperties`) still fail generation
-outright, because no correct Go type can be produced for them.
+	// Validate reports the first constraint violation, or nil.
+	var req shopping.CheckoutCreateRequest
+	if err := json.Unmarshal([]byte(`{"line_items":[]}`), &req); err != nil {
+		log.Fatal(err)
+	}
+	if err := req.Validate(); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("create request is valid")
+}
+```
 
-Go forbids import cycles and JSON Schema does not, so the generator computes
-the package graph, finds cycles, and carries the offending reference as raw
-JSON with a comment explaining why. The corpus contains exactly one such
-cycle.
+    chk_1: ready_for_complete (USD)
+    create request is valid
 
-### Goldens
+`Validate` is deliberately not called on the decoded `Checkout` above.
+On this spec release it always fails, for a reason that is not this SDK's
+doing — see [The `ucp` metadata union is
+unsatisfiable](#the-ucp-metadata-union-is-unsatisfiable).
 
-`goldens/2026-04-08/` holds the preprocessed schema set produced by the
-**official python-sdk preprocessor**, re-encoded through this repo's
-canonical JSON encoder so that any difference is a difference in content
-rather than formatting. `conformance/` requires the Go preprocessor to
-reproduce it byte-for-byte, and `generate.sh` fails the run on any
-divergence.
+The five generated packages are `github.com/chaz8081/ucp-go` (package `ucp`,
+the protocol root), `/common`, `/shopping`, `/shopping/types` and
+`/transports`.
 
-Maintainers regenerate goldens once per spec release with
-`scripts/make-goldens.sh <version>` (the only step that needs Python —
-contributors never do, since the goldens are committed JSON).
+## How correctness is established
 
-### MANIFEST.json
+Three layers. Each exists because the others cannot see the class of defect
+it catches.
 
-Every run writes a `MANIFEST.json` alongside the generated `.go` files,
-mapping each consumed schema file to its emitted Go type, package, output
-path, and field count. Generation is **fail-closed**: a schema file that
-doesn't produce a manifest entry is treated as an error, not a silent gap —
-so the manifest doubles as a coverage record of exactly what got generated
-from what.
+**1. Preprocessor parity.** `ucpgen preprocess` reproduces the output of the
+official python-sdk preprocessor **byte-for-byte** on all 145 files (78
+source schemas, plus 67 request variants generated from `ucp_request`
+markers). The committed goldens in `goldens/2026-04-08/` *are* the Python
+preprocessor's output, re-encoded through this repo's canonical JSON encoder
+so that any difference is a difference in content rather than formatting.
 
-### conformance/
+This layer catches divergence in *what gets modeled*. Preprocessing is where
+`allOf` flattening, entity inlining, union-branch distribution and variant
+generation happen; a bug there silently changes the schema the emitter sees,
+and every downstream check would agree with the wrong answer. Parity against
+an independent implementation is the only thing that catches it.
 
-`conformance/` is a separate Go module holding the checks that need more
-than the SDK itself: the goldens comparison above, agreement between
-generated models and a real draft-2020-12 JSON Schema validator (the
-"oracle"), and a guard that the hand-copied mirror in the oracle test still
-matches what the emitter produces. It's the one place in the repo that
-carries an external dependency (`github.com/santhosh-tekuri/jsonschema/v6`);
-see `docs/specs/` §7 for why it's approved and quarantined there instead of
-in the published SDK module.
+**2. Differential agreement.** The same JSON bytes are driven through the
+generated models' `Validate` and through a real draft-2020-12 validator
+(`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
+**326 payloads across 100 schemas, zero disagreements.**
 
-Being a separate module means **`go test ./...` at the repo root does not
-run it** — run it explicitly:
+This layer catches wrong *enforcement*. Golden tests prove the emitter is
+reproducible; round-trip tests prove the types decode. Neither says whether
+`Validate` agrees with the schema. Only comparison against an independent
+implementation does.
 
+The oracle compiles `pattern` with **ECMA-262** semantics, via
+`dlclark/regexp2`, rather than the RE2 that Go's `regexp` and therefore the
+generated code use. This matters more than it looks: if the oracle used RE2,
+every `pattern` comparison would run the identical engine on both sides and
+agreement would be true by construction — the check would pass without
+testing anything, and no amount of fuzzing could ever fail on a pattern. The
+two engines genuinely differ (`\s` covers the vertical tab in ECMA-262 but
+not in RE2; lookarounds are valid ECMA-262 and rejected by RE2), and
+`TestECMAEngineDiffersFromRE2` pins that difference so the oracle cannot
+quietly degrade into a mirror of the thing it is checking.
+
+**3. Fuzzing.** Two targets, both differential against the same oracle.
+Recent runs: 10.1M executions against `ReverseDomainName` — a shipped type
+whose entire purpose is its pattern — and 5.1M against a fixture carrying
+`maxLength` and `pattern`, with no drift found.
+
+This layer catches what a hand-written corpus does not reach: inputs nobody
+thought to write down. Both sides are driven from the same raw bytes rather
+than from a Go value, because re-marshaling a Go string rewrites invalid
+UTF-8 to U+FFFD, which shifts the rune counts `maxLength` is measured in and
+would manufacture disagreements that exist nowhere in the protocol.
+
+Run the suites:
+
+    go test ./...
     (cd conformance && go test ./...)
 
+`conformance/` is a separate module, so the root's `./...` does not reach it.
 Anything that changes the `ucpgen` command-line surface or the emitter's
-output needs both suites.
+output needs both.
+
+## Zero dependencies
+
+The root `go.mod` has **zero** `require` lines. The JSON Schema oracle and
+its ECMA-262 regexp engine are quarantined in the separate `conformance/`
+module, which depends on the root rather than the other way round, so nothing
+a consumer builds ever pulls them in.
+
+This is enforced, not asserted: a CI step fails the build on any `^require`
+line in the root `go.mod`, so a stray `go get` cannot land unnoticed.
+
+## What is and isn't modeled
+
+Generated models decode, re-encode and validate. Where they fall short of a
+full JSON Schema implementation, the gap is specific:
+
+- **Unions with no shared properties are carried as `json.RawMessage`.**
+  A `$ref`-only union becomes a struct with one optional typed field per
+  member plus `UnmarshalJSON`/`MarshalJSON`; a union that also carries its
+  own properties becomes a struct. Everything else is raw JSON. Typed
+  alternatives for those are future work.
+- **Open objects preserve unknown keys.** Objects the schema leaves open
+  carry an `Extra map[string]json.RawMessage` and re-emit it on marshal, so
+  extension keys survive a round trip rather than being dropped.
+- **Required-property presence is tracked by the decoder.** Each decoded
+  value records which properties it actually saw, so an absent required
+  property is distinguishable from one decoded to its zero value. A value
+  built in Go rather than decoded from JSON skips the presence check —
+  otherwise every hand-constructed request would fail before it could be
+  sent — but still gets every value check.
+- **`format` is not asserted** (82 occurrences). In draft 2020-12 `format`
+  is an annotation, not an assertion, unless a validator opts in. The oracle
+  runs with format assertions off as well, so this is agreement with the
+  spec's own default rather than a gap between the two implementations.
+- **`if`/`then`/`else`, `not`, and the `contains` family are not
+  evaluated** (23 occurrences: 7 `if`, 7 `then`, 3 each of `contains`,
+  `minContains`, `maxContains`; `not` and `else` do not occur in this
+  corpus). The differential harness skips these schemas by name rather than
+  letting them pass by accident.
+- **One import cycle is broken by carrying a single edge as raw JSON.** Go
+  forbids import cycles and JSON Schema does not. The corpus contains
+  exactly one: `shopping/types/error_response.json`'s `ucp` property points
+  at the root metadata union, while the root points back down into
+  `shopping/types`. The deeper-to-shallower edge is broken and carried as
+  raw JSON, with a comment on the field saying why.
+
+None of this is folklore. Every gap is recorded per schema under
+`unenforced` in `MANIFEST.json`, and carried as a doc comment on the affected
+type or field wherever there is a declaration to attach one to — so the
+coverage boundary is machine-readable and reviewable rather than something
+you have to reconstruct by reading the emitter. (Two `enum` gaps, both on
+nested array elements, are manifest-only: the element has no Go field to
+carry a comment.)
+
+Keywords that would change a schema's *shape* rather than merely constrain
+it — currently `patternProperties` — fail generation outright, because no
+correct Go type can be produced for them.
+
+### Known upstream limitation
+
+The official preprocessor produces schemas with dangling references, and
+this SDK reproduces that behaviour deliberately.
+
+`preprocess_schemas.py:245` (`flatten_entity_reference` in python-sdk)
+deep-copies `ucp.json#/$defs/entity` into `capability.json`,
+`payment_handler.json` and `service.json` without rebasing the entity's
+document-relative `$ref`s. The entity body contains
+`"version": {"$ref": "#/$defs/version"}`; once copied, that pointer resolves
+against its new host, which defines no such `$def`. The result is 24
+dangling references, and 4 of 145 schemas that no conforming JSON Schema
+validator can compile.
+
+The spec's source schemas are correct — the defect is introduced by
+preprocessing.
+
+`ucp-go` mirrors it on purpose: `cmd/ucpgen/preprocess/document.go`'s
+`flattenEntityRef` is a faithful port, and byte-for-byte parity with the
+Python preprocessor is an enforced invariant (`TestPreprocessMatchesGoldens`).
+Diverging unilaterally would break the parity that makes the committed
+goldens trustworthy. The emitted models are unaffected: `ResolveRef` carries
+a narrow, documented fallback that resolves these references against
+`ucp.json`, which is where they were written.
+
+The conformance harness skips the four affected schemas by name and counts
+them, rather than passing over them silently.
+
+### The `ucp` metadata union is unsatisfiable
+
+A second defect of the same kind, found while writing this README, and not
+yet reported upstream.
+
+Source `ucp.json` has no top-level `oneOf` — its root carries only `$id`,
+`$schema`, `title` and `description`. Preprocessing synthesizes a root
+`oneOf` over the six profile `$defs` (`business_schema`, `platform_schema`,
+and the cart, catalog, checkout and order response schemas). Three of those
+six — `response_cart_schema`, `response_catalog_schema` and
+`response_order_schema` — are identical apart from `title` and
+`description`: the same `allOf` of `#/$defs/base` plus the same optional
+`capabilities` constraint, with no additional required properties.
+
+Any instance that satisfies one of those three satisfies all three, so a
+`oneOf` requiring **exactly one** match can never hold. The remaining
+branches are strictly more constrained and imply the identical ones, so they
+do not escape it either. The union has no satisfiable instance.
+
+The practical consequence: `ucp` is a required property on `Cart`, `Checkout`
+and `Order`. The generated `Validate` enforces `oneOf` strictly, so calling
+it on any decoded value of those three types returns
+
+    UCPMetadata: input satisfies more than one alternative, and oneOf permits exactly one
+
+Decoding, field access, `Extra` preservation and re-encoding are all
+unaffected — this is a validation verdict, not a decode failure, and the
+request variants (`CheckoutCreateRequest` and friends) carry no `ucp`
+property and validate normally.
+
+The differential harness did not catch this: `ucp.json` and the schemas that
+embed it are among those the oracle cannot compile at all, for the
+dangling-reference reason above, so they are skipped before any verdict is
+compared. Pydantic's `Union` resolves to the first matching member rather
+than enforcing `oneOf`, which is likely why the python-sdk does not surface
+it either.
+
+Resolving this needs a spec decision — whether the three response profiles
+are meant to be distinguishable, or whether the synthesized `oneOf` should be
+an `anyOf` — so `ucp-go` reports the violation rather than quietly picking a
+branch.
+
+## Regenerating
+
+    ./generate.sh 2026-04-08
+
+Three stages, each with a job:
+
+1. **Preprocess.** Clone the spec at `release/<version>` and normalize its
+   source schemas: whole-document `allOf` flattening, `ucp.json#/$defs/entity`
+   inlining, union-branch distribution, dotted-`$defs` renaming, metadata-union
+   normalization, and generation of the `*_create_request.json` /
+   `*_update_request.json` / `*_complete_request.json` variants.
+2. **Diff against the committed goldens, and fail on any divergence.** This
+   is the gate that matters: a parity regression must never reach the
+   emitter. If preprocessing has drifted from the reference implementation,
+   the run stops here rather than producing models that look fine and encode
+   a different protocol.
+3. **Emit.** Render Go models from the normalized schemas, then `gofmt`,
+   `go build` and `go vet` the result.
+
+Committed models must be regenerated and committed whenever the emitter
+changes. `TestCommittedModelsMatchGenerator` in `conformance/` fails if what
+is checked in no longer matches what the generator produces, so stale models
+cannot be merged.
+
+Maintainers regenerate the goldens themselves once per spec release with
+`scripts/make-goldens.sh <version>` — the only step that needs Python.
+Contributors never do, since the goldens are committed JSON.
+
+## Repository layout
+
+| Path | What it is |
+| --- | --- |
+| `./` (package `ucp`) | Protocol root: `ucp.json`, `capability.json`, `payment_handler.json`, `service.json` and the root request variants |
+| `common/` | Shared cross-domain schemas |
+| `shopping/` | Cart, Checkout, Order, Payment, Fulfillment and their request variants |
+| `shopping/types/` | The shopping domain's component types |
+| `transports/` | Transport-level configuration |
+| `cmd/ucpgen/` | The generator: `preprocess` and `emit` subcommands |
+| `goldens/<version>/` | Committed preprocessed schemas, produced by the official python-sdk preprocessor |
+| `conformance/` | Separate module holding every dependency: the oracle, the differential harness, the fuzz targets, the goldens and drift guards |
+| `MANIFEST.json` | Per-schema coverage record: emitted type, package, output path, field count, and every unenforced keyword |
+| `docs/specs/` | Design documents |
+
+Generation is fail-closed: a schema file that produces no manifest entry is
+an error, not a silent gap, so `MANIFEST.json` is a complete record of what
+was generated from what.
