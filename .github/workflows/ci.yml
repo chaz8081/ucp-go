@@ -25,6 +25,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
+          # The root module has no go.sum — that is the zero-dependency
+          # invariant, not an oversight — so point the cache at the module
+          # that does have dependencies.
+          cache-dependency-path: conformance/go.sum
 
       # The SDK's whole dependency story is that the root module has none.
       # Asserting it here means a stray `go get` cannot land unnoticed.
