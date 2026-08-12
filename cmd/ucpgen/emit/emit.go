@@ -428,7 +428,7 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 		return err
 	}
 
-	writeDoc(body, typeName, schema)
+	writeDoc(e, body, typeName, schema)
 	if keyword, members := unionMembers(schema); len(members) > 0 {
 		fmt.Fprintf(body, "//\n// This schema is a %s of %d alternatives with no shared\n// properties, so it is carried as raw JSON. Typed alternatives are\n// phase 4.\n", keyword, len(members))
 	}
@@ -505,7 +505,7 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 	e.imports["encoding/json"] = "json"
 	e.usesErrors = true
 
-	writeDoc(body, typeName, schema)
+	writeDoc(e, body, typeName, schema)
 	fmt.Fprintf(body, "//\n// %s is a closed %s union: exactly one field is set.\n", typeName, keyword)
 	exclusive := keyword == "oneOf"
 
@@ -575,10 +575,18 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 	return nil
 }
 
-func writeDoc(body *strings.Builder, typeName string, schema map[string]any) {
+// writeDoc writes the doc comment for a named type.
+//
+// Most schemas describe themselves and those words are used verbatim. 44
+// types in the corpus carry no description at all; rather than leave them
+// bare in godoc, the fallback names the schema they came from, which is
+// where a reader has to go for the meaning anyway.
+func writeDoc(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) {
 	if desc, _ := schema["description"].(string); desc != "" {
 		fmt.Fprintf(body, "// %s %s\n", typeName, strings.ReplaceAll(desc, "\n", "\n// "))
+		return
 	}
+	fmt.Fprintf(body, "// %s is generated from %s.\n", typeName, e.rel)
 }
 
 // renderStruct emits an object schema as a Go struct plus its Validate.
@@ -683,7 +691,7 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		return err
 	}
 
-	writeDoc(body, typeName, schema)
+	writeDoc(e, body, typeName, schema)
 	if keyword, members := unionMembers(schema); len(members) > 0 {
 		fmt.Fprintf(body, "//\n// The schema also declares %d %s variants that narrow or replace\n// these fields; they are not modeled as distinct types yet (phase 4),\n// so this type reflects only the shared base.\n", len(members), keyword)
 	}
