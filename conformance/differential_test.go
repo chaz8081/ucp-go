@@ -10,6 +10,7 @@ import (
 
 	"github.com/chaz8081/ucp-go/cmd/ucpgen/emit"
 	"github.com/chaz8081/ucp-go/cmd/ucpgen/preprocess"
+	"github.com/chaz8081/ucp-go/shopping/types"
 )
 
 // loadGoldens reads the committed corpus.
@@ -184,11 +185,14 @@ func firstLine(s string) string {
 
 // FuzzValidateAgreement keeps searching after the table-driven cases pass.
 //
-// It fixes one schema rather than sweeping the corpus: the probe is a
-// separate process, so a per-input round trip would dominate the run and
-// the fuzzer would explore almost nothing. link.json is the schema the
-// mirrored Link in oracle_test.go tracks, which is what lets the SDK side
-// run in-process here.
+// It fixes one schema rather than sweeping the corpus: it targets the
+// hand-written fixture at cmd/ucpgen/preprocess/testdata/schemas/test/link.json
+// because that is where the maxLength and pattern constraints live — the
+// shipped shopping/types/link.json carries neither (it uses format: uri
+// instead), so exercising it here is the only way this harness reaches that
+// constraint-emission code at all. link.json is the schema the mirrored
+// Link in oracle_test.go tracks, which is what lets the SDK side run
+// in-process here.
 func FuzzValidateAgreement(f *testing.F) {
 	for _, seed := range []string{
 		`{}`,
@@ -221,6 +225,46 @@ func FuzzValidateAgreement(f *testing.F) {
 		// rune counts maxLength is measured in.
 		var l Link
 		sdkOK := json.Unmarshal(payload, &l) == nil && l.Validate() == nil
+
+		if oracleOK != sdkOK {
+			t.Errorf("verdict drift on %s: oracle=%v sdk=%v", payload, oracleOK, sdkOK)
+		}
+	})
+}
+
+// FuzzReverseDomainNameAgreement fuzzes a type that actually ships.
+// FuzzValidateAgreement targets a test fixture, because that is where the
+// maxLength and pattern constraints live; reverse_domain_name.json is the
+// corpus's own pattern-carrying type, so this covers generated code a
+// consumer would really call.
+func FuzzReverseDomainNameAgreement(f *testing.F) {
+	for _, seed := range []string{
+		`"dev.ucp.buyer_ip"`, `"com.example.device_id"`, `"nodots"`,
+		`"UPPER.case"`, `""`, `"a.b"`, `"1.2"`, `null`, `[]`, `{}`,
+	} {
+		f.Add([]byte(seed))
+	}
+
+	corpus := loadGoldens(f)
+	oracle, ids, err := newCorpusCompiler(corpus)
+	if err != nil {
+		f.Fatalf("register corpus: %v", err)
+	}
+	const rel = "shopping/types/reverse_domain_name.json"
+	compiled, err := oracle.Compile(ids[rel])
+	if err != nil {
+		f.Fatalf("compile %s: %v", rel, err)
+	}
+
+	f.Fuzz(func(t *testing.T, payload []byte) {
+		var inst any
+		if err := json.Unmarshal(payload, &inst); err != nil {
+			return // not JSON: neither side is being asked anything
+		}
+		oracleOK := compiled.Validate(inst) == nil
+
+		var v types.ReverseDomainName
+		sdkOK := json.Unmarshal(payload, &v) == nil && v.Validate() == nil
 
 		if oracleOK != sdkOK {
 			t.Errorf("verdict drift on %s: oracle=%v sdk=%v", payload, oracleOK, sdkOK)
