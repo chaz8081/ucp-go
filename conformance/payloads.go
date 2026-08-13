@@ -65,10 +65,19 @@ func hasUnmodeledUnion(node map[string]any) bool {
 	return unionOK
 }
 
+// scanOutOfScope walks a schema and everything it references.
+//
+// There is deliberately no depth cap. A JSON document is a finite tree, so
+// plain recursion terminates on its own; the only unbounded path is a $ref
+// cycle, which `seen` already breaks. An earlier cap of 12 silently stopped
+// the walk mid-corpus: fulfillment_method reaches total.json's conditionals
+// through fulfillment_group and fulfillment_option, and the keyword sat at
+// exactly depth 12. When those conditionals moved one level deeper — into
+// an allOf residual, where the preprocessor now preserves them — the cap
+// hid them, and the harness began exercising a schema whose verdict it
+// cannot legitimately predict. A cap that turns a skip into a false pass is
+// worse than no cap.
 func scanOutOfScope(node any, corpus map[string]map[string]any, rel string, seen map[string]bool, depth int) string {
-	if depth > 12 {
-		return ""
-	}
 	switch t := node.(type) {
 	case map[string]any:
 		keys := make([]string, 0, len(t))

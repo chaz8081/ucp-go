@@ -16,35 +16,37 @@
     "allOf": [
       {
         "$ref": "total.json"
+      },
+      {
+        "if": {
+          "properties": {
+            "type": {
+              "not": {
+                "enum": [
+                  "subtotal",
+                  "items_discount",
+                  "discount",
+                  "fulfillment",
+                  "tax",
+                  "fee",
+                  "total"
+                ]
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        "then": {
+          "required": [
+            "display_text"
+          ]
+        }
       }
     ],
-    "if": {
-      "properties": {
-        "type": {
-          "not": {
-            "enum": [
-              "subtotal",
-              "items_discount",
-              "discount",
-              "fulfillment",
-              "tax",
-              "fee",
-              "total"
-            ]
-          }
-        }
-      },
-      "required": [
-        "type"
-      ]
-    },
     "properties": {},
     "required": [],
-    "then": {
-      "required": [
-        "display_text"
-      ]
-    },
     "type": "object"
   },
   "maxContains": 1,

@@ -1,20 +1,55 @@
 {
   "$id": "https://ucp.dev/schemas/shopping/types/total.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "A cost breakdown entry with a category, amount, and optional display text.",
-  "if": {
-    "properties": {
-      "type": {
-        "enum": [
-          "discount",
-          "items_discount"
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "discount",
+              "items_discount"
+            ]
+          }
+        },
+        "required": [
+          "type"
         ]
+      },
+      "then": {
+        "properties": {
+          "amount": {
+            "exclusiveMaximum": 0
+          }
+        }
       }
     },
-    "required": [
-      "type"
-    ]
-  },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "subtotal",
+              "fulfillment",
+              "tax",
+              "fee"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "amount": {
+            "minimum": 0
+          }
+        }
+      }
+    }
+  ],
+  "description": "A cost breakdown entry with a category, amount, and optional display text.",
   "properties": {
     "amount": {
       "$ref": "signed_amount.json",
@@ -35,13 +70,6 @@
     "amount",
     "type"
   ],
-  "then": {
-    "properties": {
-      "amount": {
-        "exclusiveMaximum": 0
-      }
-    }
-  },
   "title": "Total",
   "type": "object"
 }
