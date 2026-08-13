@@ -38,4 +38,15 @@ go run ./cmd/ucpgen canonicalize \
   -schemas "$WORK/ucp/source/schemas" \
   -out-schemas "goldens/$VERSION"
 
+# Record what produced these goldens. They depend on the preprocessor as
+# much as on the spec, but only the spec version was recoverable before —
+# so a preprocessor change looked identical to no change at all until the
+# parity test was run by hand against a fresh clone.
+cat > "goldens/$VERSION.provenance.txt" <<PROV
+spec:       release/$VERSION @ $(git -C "$WORK/ucp" rev-parse HEAD)
+python-sdk: $(git -C "$WORK/python-sdk" rev-parse HEAD)
+generated:  $(date -u +%Y-%m-%dT%H:%M:%SZ)
+PROV
+
 echo "Goldens written to goldens/$VERSION ($(find "goldens/$VERSION" -name '*.json' | wc -l | tr -d ' ') files) — review and commit."
+echo "Provenance: goldens/$VERSION.provenance.txt"

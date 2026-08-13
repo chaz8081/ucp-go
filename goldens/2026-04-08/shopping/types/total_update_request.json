@@ -1,29 +1,57 @@
 {
   "$id": "https://ucp.dev/schemas/shopping/types/total_update_request.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "A cost breakdown entry with a category, amount, and optional display text.",
-  "if": {
-    "properties": {
-      "type": {
-        "enum": [
-          "discount",
-          "items_discount"
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "discount",
+              "items_discount"
+            ]
+          }
+        },
+        "required": [
+          "type"
         ]
+      },
+      "then": {
+        "properties": {
+          "amount": {
+            "exclusiveMaximum": 0
+          }
+        }
       }
     },
-    "required": [
-      "type"
-    ]
-  },
-  "properties": {},
-  "required": [],
-  "then": {
-    "properties": {
-      "amount": {
-        "exclusiveMaximum": 0
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "subtotal",
+              "fulfillment",
+              "tax",
+              "fee"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "amount": {
+            "minimum": 0
+          }
+        }
       }
     }
-  },
+  ],
+  "description": "A cost breakdown entry with a category, amount, and optional display text.",
+  "properties": {},
+  "required": [],
   "title": "Total Update Request",
   "type": "object"
 }

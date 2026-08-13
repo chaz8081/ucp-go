@@ -45,6 +45,10 @@ import (
 // present in the node's own list or already appended from an earlier
 // branch. When no branch contributes a new entry, node["required"] is
 // left completely untouched.
+// A branch carrying if/then/else is a rule rather than a set of fields, so
+// it is left in the residual allOf instead of being folded in: merging
+// several would collapse mutually exclusive rules into one and keep only
+// the last (python-sdk 816bbab, preprocess_schemas.py:107-110).
 func MergeAllOf(node, root map[string]any) error {
 	rawAllOf, has := node["allOf"]
 	if !has {
@@ -105,6 +109,17 @@ func MergeAllOf(node, root map[string]any) error {
 		branch, ok := rb.(map[string]any)
 		if !ok {
 			return fmt.Errorf("allOf branch is not an object: %v", rb)
+		}
+		// A conditional branch is preserved whole rather than merged.
+		// Folding several of them into one node collapses mutually
+		// exclusive rules into a single if/then and keeps only the last:
+		// total.json declares that discount amounts are negative and that
+		// subtotal, fulfillment, tax and fee amounts are not, and merging
+		// silently drops one of the two
+		// (python-sdk 816bbab, preprocess_schemas.py:107-110).
+		if HasConditional(branch) {
+			remainingRefs = append(remainingRefs, branch)
+			continue
 		}
 		if ref, ok := branch["$ref"].(string); ok {
 			resolved, err := ResolveLocalRef(ref, root)
@@ -222,4 +237,15 @@ func MergeAllOf(node, root map[string]any) error {
 		node["allOf"] = remainingRefs
 	}
 	return nil
+}
+
+// HasConditional reports whether a node carries conditional keywords, which
+// make it a rule rather than a set of fields to fold in.
+func HasConditional(node map[string]any) bool {
+	for _, k := range []string{"if", "then", "else"} {
+		if _, ok := node[k]; ok {
+			return true
+		}
+	}
+	return false
 }

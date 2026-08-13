@@ -97,11 +97,33 @@ func checkTypeAffectingKeywords(node map[string]any) string {
 // rather than removing the keyword from the set outright, is what keeps
 // those positions visible instead of silently unenforced.
 func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
-	var out []string
+	seen := map[string]bool{}
 	for k := range node {
 		if validationOnlyKeywords[k] && !e.enforced.has(node, k) {
-			out = append(out, k)
+			seen[k] = true
 		}
+	}
+	// Conditional branches survive the merge as an allOf residual, because
+	// they are rules rather than fields. Their keywords are part of this
+	// node's coverage gap and nothing else would report them — total.json's
+	// two amount rules would otherwise vanish from both the doc comment and
+	// the manifest, which is precisely what this accounting exists to stop.
+	if branches, ok := node["allOf"].([]any); ok {
+		for _, b := range branches {
+			bm, isObj := b.(map[string]any)
+			if !isObj {
+				continue
+			}
+			for k := range bm {
+				if validationOnlyKeywords[k] {
+					seen[k] = true
+				}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for k := range seen {
+		out = append(out, k)
 	}
 	sort.Strings(out)
 	return out
@@ -260,7 +282,19 @@ func mergeAllOf(schema map[string]any, relPath string, corpus map[string]map[str
 		}
 	}
 	if residual, ok := schema["allOf"].([]any); ok && len(residual) > 0 {
-		return fmt.Errorf("allOf branches remain unresolved after merging: %v", residual)
+		// A conditional branch is a rule, not a set of fields, so the
+		// preprocessor deliberately leaves it in the allOf rather than
+		// folding it in. That residual is expected and carries no fields to
+		// lose; conditional evaluation is unimplemented, and the keywords
+		// are reported as such. Anything else remaining here is unresolved
+		// inheritance, which silently drops real fields — see the comment
+		// above — and must still fail.
+		for _, b := range residual {
+			bm, isObj := b.(map[string]any)
+			if !isObj || !preprocess.HasConditional(bm) {
+				return fmt.Errorf("allOf branches remain unresolved after merging: %v", residual)
+			}
+		}
 	}
 	return nil
 }

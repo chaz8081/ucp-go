@@ -16,28 +16,35 @@
     "allOf": [
       {
         "$ref": "total.json"
+      },
+      {
+        "if": {
+          "properties": {
+            "type": {
+              "not": {
+                "enum": [
+                  "subtotal",
+                  "items_discount",
+                  "discount",
+                  "fulfillment",
+                  "tax",
+                  "fee",
+                  "total"
+                ]
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        "then": {
+          "required": [
+            "display_text"
+          ]
+        }
       }
     ],
-    "if": {
-      "properties": {
-        "type": {
-          "not": {
-            "enum": [
-              "subtotal",
-              "items_discount",
-              "discount",
-              "fulfillment",
-              "tax",
-              "fee",
-              "total"
-            ]
-          }
-        }
-      },
-      "required": [
-        "type"
-      ]
-    },
     "properties": {
       "lines": {
         "description": "Optional itemized breakdown. The parent entry is always rendered; lines are supplementary. Sum of line amounts MUST equal the parent entry amount.",
@@ -61,11 +68,6 @@
         "type": "array",
         "ucp_request": "omit"
       }
-    },
-    "then": {
-      "required": [
-        "display_text"
-      ]
     },
     "type": "object"
   },

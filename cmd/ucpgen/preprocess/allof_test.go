@@ -301,3 +301,53 @@ func TestMergeAllOfErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestMergeAllOfPreservesConditionalBranches mirrors python-sdk 816bbab
+// ("preserve conditional allOf branches", #68).
+//
+// A conditional branch must survive the merge intact. Folding several of
+// them into one node collapses mutually exclusive rules into a single
+// if/then, silently keeping only the last: total.json declares that
+// discount amounts are negative and that subtotal, fulfillment, tax and fee
+// amounts are not, and the earlier behaviour dropped one of the two.
+func TestMergeAllOfPreservesConditionalBranches(t *testing.T) {
+	cond := func(kind string, rule map[string]any) map[string]any {
+		return map[string]any{
+			"if": map[string]any{
+				"properties": map[string]any{"type": map[string]any{"enum": []any{kind}}},
+				"required":   []any{"type"},
+			},
+			"then": map[string]any{"properties": map[string]any{"amount": rule}},
+		}
+	}
+	node := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"amount": map[string]any{"type": "number"}},
+		"allOf": []any{
+			cond("discount", map[string]any{"exclusiveMaximum": float64(0)}),
+			cond("tax", map[string]any{"minimum": float64(0)}),
+		},
+	}
+	if err := MergeAllOf(node, node); err != nil {
+		t.Fatalf("MergeAllOf: %v", err)
+	}
+
+	branches, ok := node["allOf"].([]any)
+	if !ok {
+		t.Fatalf("allOf was consumed; conditional branches must be preserved: %v", node)
+	}
+	if len(branches) != 2 {
+		t.Errorf("allOf has %d branches, want 2 (both conditionals kept)", len(branches))
+	}
+	// Merging one of them up to the node would misapply its rule to every
+	// type, not just the one its `if` selects.
+	for _, k := range []string{"if", "then", "else"} {
+		if _, hoisted := node[k]; hoisted {
+			t.Errorf("conditional %q was hoisted onto the node: %v", k, node[k])
+		}
+	}
+	// The node's own properties still merge normally.
+	if _, ok := node["properties"].(map[string]any)["amount"]; !ok {
+		t.Error("node lost its own properties")
+	}
+}
