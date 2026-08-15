@@ -709,21 +709,25 @@ func writeDoc(e *fileEmitter, body *strings.Builder, typeName string, schema map
 	fmt.Fprintf(body, "// %s is generated from %s.\n", typeName, e.rel)
 }
 
-// renderStruct emits an object schema as a Go struct plus its Validate.
-func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
+// fieldsFor derives the struct fields an object schema produces: JSON
+// name, Go name, Go type, and whether it is required. renderStruct and
+// any predicate compiled against the resulting struct both read this, so
+// the struct definition and the checks written against it cannot
+// disagree about a field's name or type.
+func fieldsFor(e *fileEmitter, typeName string, schema map[string]any) ([]structField, error) {
 	required := map[string]bool{}
 	if reqRaw, hasReq := schema["required"]; hasReq {
 		reqs, isArray := reqRaw.([]any)
 		if !isArray {
 			if _, isBool := reqRaw.(bool); isBool {
-				return fmt.Errorf("%s: required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", typeName)
+				return nil, fmt.Errorf("%s: required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", typeName)
 			}
-			return fmt.Errorf("%s: required is %T, want an array of property-name strings", typeName, reqRaw)
+			return nil, fmt.Errorf("%s: required is %T, want an array of property-name strings", typeName, reqRaw)
 		}
 		for _, r := range reqs {
 			s, ok := r.(string)
 			if !ok {
-				return fmt.Errorf("%s: required entry is not a string", typeName)
+				return nil, fmt.Errorf("%s: required entry is not a string", typeName)
 			}
 			required[s] = true
 		}
@@ -735,40 +739,28 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	}
 	sort.Strings(names) // determinism
 
-	// Nested types discovered under this struct are namespaced by it.
-	savedPrefix := e.prefix
-	e.prefix = typeName
-	defer func() { e.prefix = savedPrefix }()
-
-	// Types are resolved for every property first, because the constraint
-	// compiler needs to know whether a field is a pointer before it can
-	// emit a check against it — and the constraints in turn have to be
-	// compiled before any doc comment is written, so that a comment reports
-	// only the keywords no check ended up covering.
 	seenFields := map[string]string{}
-	fieldNames := make(map[string]string, len(names))
-	fieldTypes := make(map[string]string, len(names))
+	out := make([]structField, 0, len(names))
 	for _, name := range names {
 		prop, ok := props[name].(map[string]any)
 		if !ok {
-			return fmt.Errorf("%s: property %q is not an object", typeName, name)
+			return nil, fmt.Errorf("%s: property %q is not an object", typeName, name)
 		}
 		if kw := checkTypeAffectingKeywords(prop); kw != "" {
-			return fmt.Errorf("%s: property %q has keyword %q, which changes its shape and is not modeled yet (phase 4)", typeName, name, kw)
+			return nil, fmt.Errorf("%s: property %q has keyword %q, which changes its shape and is not modeled yet (phase 4)", typeName, name, kw)
 		}
 		fieldName := GoName(name)
 		if fieldName == "Validate" {
-			return fmt.Errorf("%s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", typeName, name, fieldName)
+			return nil, fmt.Errorf("%s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", typeName, name, fieldName)
 		}
 		if orig, dup := seenFields[fieldName]; dup {
-			return fmt.Errorf("%s: properties %q and %q both sanitize to Go field name %q", typeName, orig, name, fieldName)
+			return nil, fmt.Errorf("%s: properties %q and %q both sanitize to Go field name %q", typeName, orig, name, fieldName)
 		}
 		seenFields[fieldName] = name
-		fieldNames[name] = fieldName
 
 		typ, err := e.goTypeExpr(prop, name)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// omitzero, not omitempty: on a slice or map, omitempty omits both
 		// nil and empty, so an absent field and a present-but-empty one
@@ -784,7 +776,39 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		if !required[name] && !isNilableType(typ) {
 			typ = "*" + typ
 		}
-		fieldTypes[name] = typ
+		out = append(out, structField{jsonName: name, goName: fieldName, goType: typ, required: required[name]})
+	}
+	return out, nil
+}
+
+// renderStruct emits an object schema as a Go struct plus its Validate.
+func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
+	props, _ := schema["properties"].(map[string]any)
+
+	// Nested types discovered under this struct are namespaced by it, so the
+	// prefix has to be in place before fieldsFor resolves any property type.
+	savedPrefix := e.prefix
+	e.prefix = typeName
+	defer func() { e.prefix = savedPrefix }()
+
+	// Types are resolved for every property first, because the constraint
+	// compiler needs to know whether a field is a pointer before it can
+	// emit a check against it — and the constraints in turn have to be
+	// compiled before any doc comment is written, so that a comment reports
+	// only the keywords no check ended up covering.
+	fields, err := fieldsFor(e, typeName, schema)
+	if err != nil {
+		return err
+	}
+	names := make([]string, 0, len(fields))
+	fieldNames := make(map[string]string, len(fields))
+	fieldTypes := make(map[string]string, len(fields))
+	required := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		names = append(names, f.jsonName)
+		fieldNames[f.jsonName] = f.goName
+		fieldTypes[f.jsonName] = f.goType
+		required[f.jsonName] = f.required
 	}
 
 	// UCP is an extension-first protocol: an open object exists so that
@@ -802,10 +826,8 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 			return err
 		}
 	}
-	fields := make([]structField, 0, len(names))
-	for _, name := range names {
-		fields = append(fields, structField{jsonName: name, goName: fieldNames[name], required: required[name]})
-		compileNested(&c, fieldNames[name], fieldTypes[name])
+	for _, f := range fields {
+		compileNested(&c, f.goName, f.goType)
 	}
 	if err := compileObjectSelf(e, &c, typeName, schema, fields, open); err != nil {
 		return err
