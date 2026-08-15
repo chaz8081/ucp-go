@@ -596,7 +596,17 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 	e.usesErrors = true
 
 	writeDoc(e, body, typeName, schema)
-	fmt.Fprintf(body, "//\n// %s is a closed %s union: exactly one field is set.\n", typeName, keyword)
+	// "Exactly one field is set" describes the Go struct, not the schema.
+	// Under oneOf the schema demands exclusivity too, and Validate enforces
+	// it; under anyOf the input may satisfy several alternatives and the
+	// first that validates is the one held. Saying "exactly one" for both
+	// would read as an exclusivity claim anyOf does not make.
+	fmt.Fprintf(body, "//\n// %s is a closed %s union: one field is set, holding the\n", typeName, keyword)
+	if keyword == "oneOf" {
+		body.WriteString("// alternative the input matched. The schema requires that exactly one\n// alternative match.\n")
+	} else {
+		body.WriteString("// first alternative that accepted the input. The schema permits more\n// than one to match.\n")
+	}
 
 	// oneOf means "exactly one", which is only decidable when the
 	// alternatives can be told apart. ucp.json's synthesized metadata union

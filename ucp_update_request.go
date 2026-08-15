@@ -12,18 +12,9 @@ import (
 
 // UCPMetadataUpdateRequest Protocol metadata for discovery profiles and responses. Uses slim schema pattern with context-specific required fields.
 //
-// UCPMetadataUpdateRequest is a closed oneOf union: exactly one field is set.
-//
-// NOTE: this schema declares oneOf, but these alternatives are
-// structurally identical:
-//
-//   - response_cart_schema
-//   - response_catalog_schema
-//   - response_order_schema
-//
-// No input can satisfy exactly one of them, so the schema is
-// unsatisfiable as written. Exclusivity is therefore not enforced for
-// this union, which behaves as anyOf.
+// UCPMetadataUpdateRequest is a closed anyOf union: one field is set, holding the
+// first alternative that accepted the input. The schema permits more
+// than one to match.
 type UCPMetadataUpdateRequest struct {
 	UCPUpdateRequestBusinessSchema         *UCPUpdateRequestBusinessSchema         `json:"-"`
 	UCPUpdateRequestPlatformSchema         *UCPUpdateRequestPlatformSchema         `json:"-"`

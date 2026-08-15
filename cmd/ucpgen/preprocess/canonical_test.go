@@ -1,6 +1,9 @@
 package preprocess
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCanonicalJSON(t *testing.T) {
 	a := map[string]any{
@@ -93,4 +96,35 @@ func contains(haystack, needle string) bool {
 		}
 		return false
 	})()
+}
+
+// TestCanonicalJSONSortsAnyOfRefs covers the metadata union after it moved
+// from oneOf to anyOf (python-sdk 35af25c). Python builds the member list in
+// dict insertion order and Go sorts $defs names, so without normalising
+// anyOf the two would differ by ordering alone and the parity test would
+// report a mismatch that is not one.
+func TestCanonicalJSONSortsAnyOfRefs(t *testing.T) {
+	doc := map[string]any{
+		"anyOf": []any{
+			map[string]any{"$ref": "#/$defs/platform_schema"},
+			map[string]any{"$ref": "#/$defs/business_schema"},
+		},
+	}
+	got, err := CanonicalJSON(doc)
+	if err != nil {
+		t.Fatalf("CanonicalJSON: %v", err)
+	}
+	want := `{
+  "anyOf": [
+    {
+      "$ref": "#/$defs/business_schema"
+    },
+    {
+      "$ref": "#/$defs/platform_schema"
+    }
+  ]
+}`
+	if strings.TrimSpace(string(got)) != want {
+		t.Errorf("anyOf members not sorted:\ngot:\n%s\nwant:\n%s", got, want)
+	}
 }

@@ -24,20 +24,27 @@ func metadataUnionMembers(ucpSchema map[string]any) []string {
 	return out
 }
 
-// NormalizeMetadata gives ucp.json a root oneOf union over its metadata
+// NormalizeMetadata gives ucp.json a root anyOf union over its metadata
 // members and truncates every other file's `ucp` property $ref to the file
 // part only, so all models share one generic metadata type
 // (preprocess_schemas.py:554-578). Files whose path contains "ucp.json" or
 // "_request.json" are skipped in the truncation pass, matching python's
 // substring checks.
+//
+// The union is anyOf, not oneOf. It exists to give code generation one
+// metadata type, not to assert that the members are mutually exclusive —
+// and they are not: response_cart_schema, response_catalog_schema and
+// response_order_schema are identical apart from title and description, so
+// an oneOf could never be satisfied while `ucp` is required on Cart,
+// Checkout and Order (python-sdk 35af25c, reported as python-sdk#73).
 func NormalizeMetadata(set *SchemaSet) {
 	if ucp, ok := set.Files["ucp.json"]; ok {
 		members := metadataUnionMembers(ucp)
-		oneOf := make([]any, len(members))
+		anyOf := make([]any, len(members))
 		for i, name := range members {
-			oneOf[i] = map[string]any{"$ref": "#/$defs/" + name}
+			anyOf[i] = map[string]any{"$ref": "#/$defs/" + name}
 		}
-		ucp["oneOf"] = oneOf
+		ucp["anyOf"] = anyOf
 	}
 	for _, rel := range set.Paths() {
 		if strings.Contains(rel, "ucp.json") || strings.Contains(rel, "_request.json") {

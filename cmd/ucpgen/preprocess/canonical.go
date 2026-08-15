@@ -43,9 +43,17 @@ func normalizeOrder(v any) any {
 				return a < b
 			})
 		}
-		if oneOf, ok := t["oneOf"].([]any); ok && allSingleRefs(oneOf) {
-			sort.SliceStable(oneOf, func(i, j int) bool {
-				return refOf(oneOf[i]) < refOf(oneOf[j])
+		// anyOf as well as oneOf: the ucp metadata union is synthesized from
+		// $defs and now lands in anyOf, and it is the very case this
+		// normalization exists for — python emits its members in dict
+		// insertion order, Go in sorted-name order.
+		for _, key := range []string{"oneOf", "anyOf"} {
+			members, ok := t[key].([]any)
+			if !ok || !allSingleRefs(members) {
+				continue
+			}
+			sort.SliceStable(members, func(i, j int) bool {
+				return refOf(members[i]) < refOf(members[j])
 			})
 		}
 		return t

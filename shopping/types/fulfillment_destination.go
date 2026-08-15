@@ -10,7 +10,9 @@ import (
 
 // FulfillmentDestination A destination for fulfillment.
 //
-// FulfillmentDestination is a closed oneOf union: exactly one field is set.
+// FulfillmentDestination is a closed oneOf union: one field is set, holding the
+// alternative the input matched. The schema requires that exactly one
+// alternative match.
 type FulfillmentDestination struct {
 	RetailLocation      *RetailLocation      `json:"-"`
 	ShippingDestination *ShippingDestination `json:"-"`
