@@ -175,3 +175,115 @@ func TestMergeAllOfResolvesWholeDocumentSelfRef(t *testing.T) {
 		t.Error("the borrowed document's $defs must not be inlined into the borrower")
 	}
 }
+
+// crossFileConditionalCorpus mirrors the totals.json / total.json pair:
+// the element schema of an array borrows a sibling file through allOf, and
+// that sibling declares its own conditional rule. The rule lives only in
+// the borrowed file, so the element type can only get it by inlining.
+func crossFileConditionalCorpus() map[string]map[string]any {
+	return map[string]map[string]any{
+		"types/total.json": {
+			"title":    "Total",
+			"type":     "object",
+			"required": []any{"amount", "type"},
+			"properties": map[string]any{
+				"amount": map[string]any{"type": "number"},
+				"type":   map[string]any{"type": "string"},
+			},
+			"allOf": []any{
+				map[string]any{
+					"if": map[string]any{
+						"properties": map[string]any{
+							"type": map[string]any{"enum": []any{"discount"}},
+						},
+						"required": []any{"type"},
+					},
+					"then": map[string]any{
+						"properties": map[string]any{
+							"amount": map[string]any{"exclusiveMaximum": float64(0)},
+						},
+					},
+				},
+			},
+		},
+		"types/totals.json": {
+			"title": "Totals",
+			"type":  "array",
+			"items": map[string]any{
+				"type":  "object",
+				"allOf": []any{map[string]any{"$ref": "total.json"}},
+				"properties": map[string]any{
+					"lines": map[string]any{"type": "string"},
+				},
+			},
+		},
+	}
+}
+
+// The rule has to reach the borrowing node's own allOf, because that is
+// the only residual the conditional compiler reads.
+func TestResolveCrossFileAllOfCarriesConditionals(t *testing.T) {
+	corpus := crossFileConditionalCorpus()
+	items := corpus["types/totals.json"]["items"].(map[string]any)
+	if err := resolveCrossFileAllOf(items, "types/totals.json", corpus, map[string]bool{}); err != nil {
+		t.Fatalf("resolveCrossFileAllOf: %v", err)
+	}
+	branches, _ := items["allOf"].([]any)
+	conditionals := 0
+	for _, b := range branches {
+		bm, isObj := b.(map[string]any)
+		if !isObj {
+			continue
+		}
+		if _, hasIf := bm["if"]; hasIf {
+			conditionals++
+		}
+		if leftover, still := bm["allOf"]; still {
+			t.Errorf("the inlined copy still holds a conditional allOf: %v", leftover)
+		}
+	}
+	if conditionals != 1 {
+		t.Errorf("borrowing node carries %d conditional branches, want 1: %v", conditionals, branches)
+	}
+}
+
+// The user-visible symptom: the element type accepts a positive discount
+// while the type generated straight from total.json rejects it.
+func TestEmitNestedItemsInheritsConditional(t *testing.T) {
+	corpus := crossFileConditionalCorpus()
+	src, err := emitFromCorpus(t, "types/totals.json", corpus)
+	if err != nil {
+		t.Fatalf("emitFromCorpus: %v", err)
+	}
+	collapsed := collapse(src)
+	for _, want := range []string{
+		`if v.Type == "discount" {`,
+		"if v.Amount >= 0 {",
+	} {
+		if n := strings.Count(collapsed, want); n != 1 {
+			t.Errorf("emitted element type has %d occurrences of %q, want exactly 1\n---\n%s", n, want, src)
+		}
+	}
+}
+
+// Only rules carry down. A branch left in the target's allOf for any other
+// reason is scoped to that target, and lifting it would apply a constraint
+// the borrowing node never inherited.
+func TestResolveCrossFileAllOfLeavesNonConditionalResidual(t *testing.T) {
+	corpus := crossFileConditionalCorpus()
+	total := corpus["types/total.json"]
+	total["allOf"] = append(total["allOf"].([]any), map[string]any{"$ref": "#/$defs/absent"})
+	items := corpus["types/totals.json"]["items"].(map[string]any)
+	if err := resolveCrossFileAllOf(items, "types/totals.json", corpus, map[string]bool{}); err != nil {
+		t.Fatalf("resolveCrossFileAllOf: %v", err)
+	}
+	for _, b := range items["allOf"].([]any) {
+		bm, isObj := b.(map[string]any)
+		if !isObj {
+			continue
+		}
+		if ref, isRef := bm["$ref"].(string); isRef && ref == "#/$defs/absent" {
+			t.Error("a non-conditional leftover branch was lifted onto the borrowing node")
+		}
+	}
+}

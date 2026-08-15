@@ -107,6 +107,16 @@ func (v *TotalsCreateRequestTotalscreaterequestItem) Validate() error {
 			return errors.New("display_text: required property is missing when type is not one of \"subtotal\", \"items_discount\", \"discount\", \"fulfillment\", \"tax\", \"fee\", \"total\"")
 		}
 	}
+	if v.Type == "discount" || v.Type == "items_discount" {
+		if v.Amount >= 0 {
+			return errors.New("amount: not below exclusiveMaximum 0")
+		}
+	}
+	if v.Type == "subtotal" || v.Type == "fulfillment" || v.Type == "tax" || v.Type == "fee" {
+		if v.Amount < 0 {
+			return errors.New("amount: below minimum 0")
+		}
+	}
 	if err := v.Amount.Validate(); err != nil {
 		return err
 	}

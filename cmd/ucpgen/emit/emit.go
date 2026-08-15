@@ -384,6 +384,7 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 	if !ok || corpus == nil {
 		return nil
 	}
+	var lifted []any
 	for i, raw := range branches {
 		branch, ok := raw.(map[string]any)
 		if !ok {
@@ -445,9 +446,54 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 		if err := resolveCrossFileAllOf(inlined, target, corpus, seen); err != nil {
 			return err
 		}
+		lifted = append(lifted, liftConditionals(inlined)...)
 		branches[i] = inlined
 	}
+	if len(lifted) > 0 {
+		node["allOf"] = append(branches, lifted...)
+	}
 	return nil
+}
+
+// liftConditionals takes the conditional rule branches off an inlined
+// schema's own allOf and returns them, so the caller can hang them on the
+// borrowing node instead.
+//
+// preprocess.MergeAllOf reserves a resolved branch's leftover allOf to
+// that branch and never copies it onto the parent, matching python-sdk's
+// reserved-key set (preprocess_schemas.py:123-130). That is right for the
+// preprocessor, whose output has to stay byte-identical to python's. But
+// the emitter inlines cross-file refs, which python never does, and a $ref
+// means the instance must satisfy the whole target — rules included. Left
+// reserved, total.json's two amount rules reach the standalone Total type
+// and silently vanish from the element type of Totals, which borrows the
+// same file. The oracle resolves the ref and enforces them in both places,
+// so the gap shows up as a conformance disagreement rather than anything
+// visible in the generated code.
+//
+// Only rules travel. A leftover $ref branch is scoped to the target, and
+// resolving it against the borrowing file would read it from the wrong
+// directory.
+func liftConditionals(inlined map[string]any) []any {
+	branches, ok := inlined["allOf"].([]any)
+	if !ok {
+		return nil
+	}
+	var rules, kept []any
+	for _, raw := range branches {
+		branch, isObj := raw.(map[string]any)
+		if isObj && preprocess.HasConditional(branch) {
+			rules = append(rules, branch)
+			continue
+		}
+		kept = append(kept, raw)
+	}
+	if len(kept) == 0 {
+		delete(inlined, "allOf")
+	} else {
+		inlined["allOf"] = kept
+	}
+	return rules
 }
 
 // rebaseRefs rewrites every relative cross-file $ref in a subtree that was
