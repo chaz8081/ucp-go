@@ -9,8 +9,6 @@ import (
 )
 
 // Total A cost breakdown entry with a category, amount, and optional display text.
-//
-// Not enforced yet (phase 4) on the object itself: if, then.
 type Total struct {
 	Amount SignedAmount `json:"amount"`
 	// Text to display against the amount. Should reflect appropriate method (e.g., 'Shipping', 'Delivery').
@@ -92,6 +90,16 @@ func (v *Total) Validate() error {
 		}
 		if !v.present["type"] {
 			return errors.New("type: required property is missing")
+		}
+	}
+	if v.Type == "discount" || v.Type == "items_discount" {
+		if v.Amount >= 0 {
+			return errors.New("amount: not below exclusiveMaximum 0")
+		}
+	}
+	if v.Type == "subtotal" || v.Type == "fulfillment" || v.Type == "tax" || v.Type == "fee" {
+		if v.Amount < 0 {
+			return errors.New("amount: below minimum 0")
 		}
 	}
 	if err := v.Amount.Validate(); err != nil {

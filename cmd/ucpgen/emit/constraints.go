@@ -158,12 +158,21 @@ func (t target) derive(suffix, varSuffix, expr string, access accessKind) target
 // struct fields and scalar aliases — produce distinct, traceable output
 // from one implementation.
 func compileConstraints(e *fileEmitter, c *constraintSet, typeName, jsonName, expr string, access accessKind, node map[string]any) error {
+	return compileConstraintsAs(e, c, typeName, jsonName, expr, access, node, shapeOf(node))
+}
+
+// compileConstraintsAs is compileConstraints with the value's shape supplied
+// by the caller rather than read off the node. A node that only tightens a
+// value typed somewhere else — a conditional's consequent is the one such
+// caller — declares no `type` of its own, so reading the shape from it would
+// find none and reject every keyword on it as inapplicable.
+func compileConstraintsAs(e *fileEmitter, c *constraintSet, typeName, jsonName, expr string, access accessKind, node map[string]any, kind shape) error {
 	t := target{typeName: typeName, varStem: typeName, label: typeName, expr: expr, access: access}
 	if jsonName != "" {
 		t.varStem = typeName + "_" + GoName(jsonName)
 		t.label = jsonName
 	}
-	return compileInto(e, c, t, node)
+	return compileInto(e, c, t, node, kind)
 }
 
 // shape is the family of Go value a schema node describes, which decides
@@ -263,10 +272,11 @@ var allCheckable = func() map[string]bool {
 	return all
 }()
 
-// compileInto emits the checks for one node against one target.
-func compileInto(e *fileEmitter, c *constraintSet, t target, node map[string]any) error {
+// compileInto emits the checks for one node against one target. kind is the
+// shape of the value the node constrains, which is normally shapeOf(node)
+// but is supplied by the caller when the node's type was fixed elsewhere.
+func compileInto(e *fileEmitter, c *constraintSet, t target, node map[string]any, kind shape) error {
 	declared := declaredCheckable(node)
-	kind := shapeOf(node)
 
 	// An array's or map's own keywords may be absent while its elements or
 	// keys carry constraints, so those recursions run regardless.
@@ -301,9 +311,16 @@ func compileInto(e *fileEmitter, c *constraintSet, t target, node map[string]any
 		if !applicable[kw] {
 			// Keeps the emitter honest: a constraint on a shape whose check we
 			// cannot express fails loudly instead of silently emitting an
-			// unconstrained field.
+			// unconstrained field. The node's own type names the shape when it
+			// has one; a node whose shape came from the caller has none, so
+			// the shape itself is named rather than printing a bare <nil>
+			// that tells the reader nothing about the value.
+			declaredAs := node["type"]
+			if declaredAs == nil {
+				declaredAs = string(kind)
+			}
 			return fmt.Errorf("%s: %s declares %q but has unsupported type %v for it (phase 4)",
-				t.typeName, subjectOf(t.label), kw, node["type"])
+				t.typeName, subjectOf(t.label), kw, declaredAs)
 		}
 	}
 
@@ -550,7 +567,7 @@ func compileArray(e *fileEmitter, c *constraintSet, t target, node map[string]an
 		sub := t.derive("item", "_Item", elem, accessElement)
 		var body constraintSet
 		body.loops = c.loops
-		if err := compileInto(e, &body, sub, items); err != nil {
+		if err := compileInto(e, &body, sub, items, shapeOf(items)); err != nil {
 			return err
 		}
 		c.loops = body.loops

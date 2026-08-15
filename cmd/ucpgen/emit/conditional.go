@@ -3,6 +3,7 @@ package emit
 import (
 	"fmt"
 	"math"
+	"path"
 	"sort"
 	"strings"
 )
@@ -254,15 +255,52 @@ func conditionalLiteral(typeName string, f structField, v any) (string, error) {
 	return "", fmt.Errorf("%s: conditional compares %q against an unsupported literal %T (phase 6)", typeName, f.jsonName, v)
 }
 
-// compileConditional emits the guarded checks for a node carrying
-// if/then. A node with `then` but no `if` is meaningless and a node with
-// `else` is unsupported; both fail rather than being ignored.
+// compileConditional emits the guarded checks for every conditional rule
+// this schema carries, both on the node itself and in its allOf residual.
+// The preprocessor leaves conditional branches in the allOf deliberately —
+// they are rules, not fields, so there is nothing to fold into the parent —
+// which means a compiler that reads only the node misses total.json's two
+// amount rules entirely. Every branch is compiled, not just the first or
+// the last: an upstream implementation that collapsed them kept one rule
+// and silently dropped the other, so discounts stopped having to be
+// negative.
 func compileConditional(e *fileEmitter, c *constraintSet, typeName string, schema map[string]any, fields []structField) error {
-	if _, hasElse := schema["else"]; hasElse {
+	if err := compileOneConditional(e, c, typeName, schema, schema, fields); err != nil {
+		return err
+	}
+	branches, _ := schema["allOf"].([]any)
+	for i, b := range branches {
+		bm, isObj := b.(map[string]any)
+		if !isObj {
+			continue
+		}
+		if err := compileOneConditional(e, c, typeName, schema, bm, fields); err != nil {
+			return fmt.Errorf("allOf branch %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+// compileOneConditional emits the guarded checks for a single node
+// carrying if/then. A node with `then` but no `if` is meaningless and a
+// node with `else` is unsupported; both fail rather than being ignored.
+//
+// node is the node that declares the conditional, which is the branch
+// rather than the parent when the rule came out of an allOf residual. The
+// enforced-keyword ledger is keyed on the identity of the map that holds
+// the keyword, and unenforcedKeywords scans residual branches by their own
+// identity, so marking the parent instead would leave the branch's if/then
+// reported as an unfilled coverage gap it no longer is.
+//
+// owner is the object schema whose properties the rule talks about, which
+// for a residual branch is not node: a branch states the rule and the
+// parent states the property declarations the rule's consequent tightens.
+func compileOneConditional(e *fileEmitter, c *constraintSet, typeName string, owner, node map[string]any, fields []structField) error {
+	if _, hasElse := node["else"]; hasElse {
 		return fmt.Errorf("%s: schema declares else, which is not supported (phase 6)", typeName)
 	}
-	ifNode, hasIf := schema["if"].(map[string]any)
-	thenNode, hasThen := schema["then"].(map[string]any)
+	ifNode, hasIf := node["if"].(map[string]any)
+	thenNode, hasThen := node["then"].(map[string]any)
 	if !hasIf && !hasThen {
 		return nil
 	}
@@ -270,11 +308,26 @@ func compileConditional(e *fileEmitter, c *constraintSet, typeName string, schem
 		return fmt.Errorf("%s: schema declares one of if/then without the other (phase 6)", typeName)
 	}
 
+	// A request variant is a projection of its response schema: the
+	// preprocessor drops every property marked ucp_request:omit and keeps
+	// the rules, so total_create_request.json arrives carrying total.json's
+	// two amount rules over an empty property set. A rule naming properties
+	// this type does not declare has nothing in the Go struct to bind to,
+	// and no rewriting would recover it — the fields it talks about are not
+	// in this shape. So it is neither approximated nor dropped in silence:
+	// no check is emitted, if/then go unmarked, and the doc comment and
+	// MANIFEST.json go on reporting them as a coverage gap, which is the
+	// same accounting every other unenforceable keyword gets. Every failure
+	// that IS about this compiler's reach still fails generation below.
+	if !bindsToFields(ifNode, thenNode, fields) {
+		return nil
+	}
+
 	cond, err := predicate(e, typeName, "v", ifNode, fields)
 	if err != nil {
 		return err
 	}
-	body, err := thenChecks(e, c, typeName, thenNode, fields, describe(ifNode))
+	body, err := thenChecks(e, c, typeName, owner, thenNode, fields, describe(ifNode))
 	if err != nil {
 		return err
 	}
@@ -285,7 +338,7 @@ func compileConditional(e *fileEmitter, c *constraintSet, typeName string, schem
 		e.usesErrors = true
 		fmt.Fprintf(&c.checks, "if %s {\n%s}\n", cond, body)
 	}
-	e.enforced.mark(schema, "if", "then")
+	e.enforced.mark(node, "if", "then")
 	return nil
 }
 
@@ -312,7 +365,7 @@ var thenKeywords = map[string]bool{
 // writes to them — recursive Validate calls come from compileNested and
 // required-property checks from compilePresence, both driven by
 // renderStruct.
-func thenChecks(e *fileEmitter, c *constraintSet, typeName string, node map[string]any, fields []structField, when string) (string, error) {
+func thenChecks(e *fileEmitter, c *constraintSet, typeName string, owner, node map[string]any, fields []structField, when string) (string, error) {
 	for k := range node {
 		if !thenKeywords[k] {
 			return "", fmt.Errorf("%s: conditional then declares %q, which is not supported (phase 6)", typeName, k)
@@ -369,8 +422,18 @@ func thenChecks(e *fileEmitter, c *constraintSet, typeName string, node map[stri
 			if !known {
 				return "", fmt.Errorf("%s: conditional then constrains property %q, which this type does not declare (phase 6)", typeName, name)
 			}
-			if err := compileConstraints(e, &body, typeName, name, "v."+f.goName,
-				accessFor(f.goType, f.required), sub); err != nil {
+			// A consequent restates only the assertion it tightens —
+			// total.json's is a bare {"exclusiveMaximum": 0} — because the
+			// property's type was already fixed where the property was
+			// declared. Reading the shape off the consequent alone finds
+			// none and rejects every keyword on it as inapplicable, so the
+			// shape comes from the declaration when the consequent is silent.
+			kind := shapeOf(sub)
+			if kind == shapeUnknown {
+				kind = declaredShape(e, owner, name)
+			}
+			if err := compileConstraintsAs(e, &body, typeName, name, "v."+f.goName,
+				accessFor(f.goType, f.required), sub, kind); err != nil {
 				return "", err
 			}
 		}
@@ -379,6 +442,87 @@ func thenChecks(e *fileEmitter, c *constraintSet, typeName string, node map[stri
 	c.loops = body.loops
 	c.vars.WriteString(body.vars.String())
 	return body.checks.String(), nil
+}
+
+// bindsToFields reports whether every property the rule names — tested by
+// the condition or constrained by the consequent — exists as a field on the
+// Go struct. It answers a different question from the errors below: not
+// "can this compiler express the rule" but "is the rule even about this
+// type", which is what a ucp_request projection breaks.
+func bindsToFields(ifNode, thenNode map[string]any, fields []structField) bool {
+	declared := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		declared[f.jsonName] = true
+	}
+	for _, node := range []map[string]any{ifNode, thenNode} {
+		props, _ := node["properties"].(map[string]any)
+		for name := range props {
+			if !declared[name] {
+				return false
+			}
+		}
+		required, _ := node["required"].([]any)
+		for _, r := range required {
+			if name, isString := r.(string); isString && !declared[name] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// refChainLimit bounds the $ref walk below. A cycle among $refs would
+// otherwise spin; the emitter has its own cycle handling for the type
+// graph, and this lookup is not the place to duplicate it.
+const refChainLimit = 8
+
+// declaredShape reports the shape of the value owner's property `name`
+// holds, following $refs until a node states a type. It returns
+// shapeUnknown when nothing does, which leaves compileInto to reject the
+// consequent's keywords by name rather than guessing at a shape.
+func declaredShape(e *fileEmitter, owner map[string]any, name string) shape {
+	props, _ := owner["properties"].(map[string]any)
+	node, isObj := props[name].(map[string]any)
+	from := e.rel
+	for hops := 0; isObj && hops < refChainLimit; hops++ {
+		if kind := shapeOf(node); kind != shapeUnknown {
+			return kind
+		}
+		ref, isRef := node["$ref"].(string)
+		if !isRef {
+			return shapeUnknown
+		}
+		node, from, isObj = e.refTarget(from, ref)
+	}
+	return shapeUnknown
+}
+
+// refTarget resolves one $ref, written relative to the schema at `from`, to
+// the node it names and the schema that node lives in. Unlike ResolveRef,
+// which answers which Go type a reference becomes, this answers what the
+// referenced schema SAYS — the two are different questions, and only the
+// second can tell a consequent that the value it constrains is an integer.
+func (e *fileEmitter) refTarget(from, ref string) (node map[string]any, at string, ok bool) {
+	filePart, fragment, _ := strings.Cut(ref, "#")
+	doc := e.doc
+	at = from
+	if filePart != "" {
+		at = path.Join(path.Dir(from), filePart)
+		doc, ok = e.corpus[at]
+		if !ok {
+			return nil, "", false
+		}
+	}
+	if fragment == "" {
+		return doc, at, doc != nil
+	}
+	defName, hasPrefix := strings.CutPrefix(fragment, defsFragmentPrefix)
+	if !hasPrefix || strings.Contains(defName, "/") {
+		return nil, "", false
+	}
+	defs, _ := doc["$defs"].(map[string]any)
+	node, ok = defs[defName].(map[string]any)
+	return node, at, ok
 }
 
 // describe renders an if-condition in prose for an error message, so a

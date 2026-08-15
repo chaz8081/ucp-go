@@ -358,3 +358,119 @@ func TestCompileConditionalPropagatesGeneratedVarsAndLoops(t *testing.T) {
 		t.Error("loop variables consumed inside the consequent were not counted; a later loop would reuse the same name")
 	}
 }
+
+func TestCompileConditionalReadsAllOfResidual(t *testing.T) {
+	schema := map[string]any{
+		"type":     "object",
+		"required": []any{"amount", "type"},
+		"properties": map[string]any{
+			"amount": map[string]any{"type": "number"},
+			"type":   map[string]any{"type": "string"},
+		},
+		"allOf": []any{
+			map[string]any{
+				"if": map[string]any{
+					"properties": map[string]any{"type": map[string]any{"enum": []any{"discount", "items_discount"}}},
+					"required":   []any{"type"},
+				},
+				"then": map[string]any{
+					"properties": map[string]any{"amount": map[string]any{"exclusiveMaximum": float64(0)}},
+				},
+			},
+			map[string]any{
+				"if": map[string]any{
+					"properties": map[string]any{"type": map[string]any{"enum": []any{"subtotal", "tax"}}},
+					"required":   []any{"type"},
+				},
+				"then": map[string]any{
+					"properties": map[string]any{"amount": map[string]any{"minimum": float64(0)}},
+				},
+			},
+		},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	fields, err := fieldsFor(e, "Total", schema)
+	if err != nil {
+		t.Fatalf("fieldsFor: %v", err)
+	}
+	var c constraintSet
+	if err := compileConditional(e, &c, "Total", schema, fields); err != nil {
+		t.Fatalf("compileConditional: %v", err)
+	}
+	got := c.checks.String()
+	// Both rules must survive. The upstream bug this mirrors kept only the last.
+	for _, want := range []string{
+		`(v.Type == "discount" || v.Type == "items_discount")`,
+		`(v.Type == "subtotal" || v.Type == "tax")`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("emitted code missing %q:\n%s", want, got)
+		}
+	}
+	// enumTest parenthesizes a multi-member disjunction, so each guard opens
+	// with "if (". Counting them is what proves the second rule was not
+	// overwritten by the first rather than merely present somewhere.
+	if strings.Count(got, "if (v.Type ==") != 2 {
+		t.Errorf("expected two guards, got:\n%s", got)
+	}
+	// Both consequents have to reach the amount, and in opposite directions:
+	// a discount is strictly negative, a charge is not negative.
+	for _, want := range []string{"if v.Amount >= 0 {", "if v.Amount < 0 {"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("emitted code missing %q:\n%s", want, got)
+		}
+	}
+	// The branch, not the parent, carries the keywords; marking the parent
+	// would leave unenforcedKeywords still reporting them as a coverage gap.
+	for i, b := range schema["allOf"].([]any) {
+		bm := b.(map[string]any)
+		if !e.enforced.has(bm, "if") || !e.enforced.has(bm, "then") {
+			t.Errorf("allOf branch %d: if/then not marked enforced on the branch", i)
+		}
+	}
+	if kws := e.unenforcedKeywords(schema); len(kws) != 0 {
+		t.Errorf("unenforcedKeywords = %v, want none once both rules compile", kws)
+	}
+}
+
+// A ucp_request variant keeps its parent's rules while dropping the
+// properties they talk about, so total_create_request.json arrives with
+// total.json's two amount rules over an empty property set. The rule is
+// about a shape this type does not have, so no check is emitted — and,
+// critically, if/then stay unmarked so the doc comment and manifest keep
+// reporting the gap rather than claiming an enforcement that never happened.
+func TestCompileConditionalSkipsRuleOverDroppedProperties(t *testing.T) {
+	branch := map[string]any{
+		"if": map[string]any{
+			"properties": map[string]any{"type": map[string]any{"enum": []any{"discount"}}},
+			"required":   []any{"type"},
+		},
+		"then": map[string]any{
+			"properties": map[string]any{"amount": map[string]any{"exclusiveMaximum": float64(0)}},
+		},
+	}
+	schema := map[string]any{
+		"type":       "object",
+		"required":   []any{},
+		"properties": map[string]any{},
+		"allOf":      []any{branch},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	fields, err := fieldsFor(e, "TotalCreateRequest", schema)
+	if err != nil {
+		t.Fatalf("fieldsFor: %v", err)
+	}
+	var c constraintSet
+	if err := compileConditional(e, &c, "TotalCreateRequest", schema, fields); err != nil {
+		t.Fatalf("compileConditional: %v", err)
+	}
+	if got := c.checks.String(); got != "" {
+		t.Errorf("emitted checks for properties the type does not have:\n%s", got)
+	}
+	if e.enforced.has(branch, "if") || e.enforced.has(branch, "then") {
+		t.Error("if/then marked enforced though no check was emitted")
+	}
+	if kws := e.unenforcedKeywords(schema); len(kws) != 2 || kws[0] != "if" || kws[1] != "then" {
+		t.Errorf("unenforcedKeywords = %v, want [if then] still reported as a gap", kws)
+	}
+}

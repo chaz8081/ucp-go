@@ -108,6 +108,10 @@ func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
 	// node's coverage gap and nothing else would report them — total.json's
 	// two amount rules would otherwise vanish from both the doc comment and
 	// the manifest, which is precisely what this accounting exists to stop.
+	// The ledger is consulted against the branch, not the parent, because
+	// that is the map compileConditional marks; a branch whose rule now
+	// compiles must drop out of the gap, or the doc comment and manifest go
+	// on claiming a hole the generated code has already filled.
 	if branches, ok := node["allOf"].([]any); ok {
 		for _, b := range branches {
 			bm, isObj := b.(map[string]any)
@@ -115,7 +119,7 @@ func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
 				continue
 			}
 			for k := range bm {
-				if validationOnlyKeywords[k] {
+				if validationOnlyKeywords[k] && !e.enforced.has(bm, k) {
 					seen[k] = true
 				}
 			}
@@ -174,6 +178,7 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 	// Kept so a union can compare its members' bodies, which means resolving
 	// local $refs against the document rather than against the node.
 	e.doc = schema
+	e.corpus = corpus
 
 	// ucp.json and its two request variants are skipped by the preprocessing
 	// pipeline (mirroring python), so they arrive with allOf still unmerged

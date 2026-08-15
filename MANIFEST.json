@@ -1243,13 +1243,7 @@
       "type": "Total",
       "package": "types",
       "file": "shopping/types/total.go",
-      "fields": 3,
-      "unenforced": {
-        "Total": [
-          "if",
-          "then"
-        ]
-      }
+      "fields": 3
     },
     "shopping/types/total_create_request.json": {
       "type": "TotalCreateRequest",
