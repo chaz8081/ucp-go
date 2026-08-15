@@ -170,7 +170,7 @@ func TestPreprocessPipeline(t *testing.T) {
 	if _, ok := thing["$defs"].(map[string]any)["extra"]; !ok {
 		t.Error("dotted def not flattened")
 	}
-	if _, ok := set.Files["ucp.json"]["oneOf"]; !ok {
+	if _, ok := set.Files["ucp.json"]["anyOf"]; !ok {
 		t.Error("ucp.json missing metadata union")
 	}
 	if _, ok := set.Files["thing_create_request.json"]; !ok {

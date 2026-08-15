@@ -10,7 +10,9 @@ import (
 
 // Message Container for error, warning, or info messages.
 //
-// Message is a closed oneOf union: exactly one field is set.
+// Message is a closed oneOf union: one field is set, holding the
+// alternative the input matched. The schema requires that exactly one
+// alternative match.
 type Message struct {
 	MessageError   *MessageError   `json:"-"`
 	MessageInfo    *MessageInfo    `json:"-"`

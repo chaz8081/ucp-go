@@ -96,7 +96,7 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**326 payloads across 100 schemas, zero disagreements.**
+**324 payloads across 99 schemas, zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
 reproducible; round-trip tests prove the types decode. Neither says whether
@@ -221,50 +221,19 @@ The conformance harness skips the affected schemas by name and counts them,
 rather than passing over them silently. Its tally reports four, because the
 other five are already skipped a step earlier for out-of-scope keywords.
 
-### The `ucp` metadata union is unsatisfiable
+### Resolved upstream: the `ucp` metadata union
 
-A second defect of the same kind, found while writing this README, and not
-yet reported upstream.
+Reported as [python-sdk#73](https://github.com/Universal-Commerce-Protocol/python-sdk/issues/73) and **fixed** in python-sdk `35af25c`. Recorded here because the reasoning is still useful, and because it shows what this SDK's conformance work is for.
 
-Source `ucp.json` has no top-level `oneOf` — its root carries only `$id`,
-`$schema`, `title` and `description`. Preprocessing synthesizes a root
-`oneOf` over the six profile `$defs` (`business_schema`, `platform_schema`,
-and the cart, catalog, checkout and order response schemas). Three of those
-six — `response_cart_schema`, `response_catalog_schema` and
-`response_order_schema` — are identical apart from `title` and
-`description`: the same `allOf` of `#/$defs/base` plus the same optional
-`capabilities` constraint, with no additional required properties.
+Source `ucp.json` declares no `oneOf` — its root carries only `$id`, `$schema`, `title`, `description` and `$defs`. Preprocessing synthesized one over the six profile `$defs`. Three of them — `response_cart_schema`, `response_catalog_schema` and `response_order_schema` — are identical apart from `title` and `description`, which do not affect validation.
 
-Any instance that satisfies one of those three satisfies all three, so a
-`oneOf` requiring **exactly one** match can never hold. The remaining
-branches are strictly more constrained and imply the identical ones, so they
-do not escape it either. The union has no satisfiable instance.
+`oneOf` means *exactly one*. Any instance matching one of the three matched all three, so the union had no satisfiable instance. Since `ucp` is required on `Cart`, `Checkout` and `Order`, none of the protocol's primary response types could validate.
 
-`ucp` is a required property on `Cart`, `Checkout` and `Order`, so enforcing
-`oneOf` strictly here would mean those three types — the protocol's primary
-responses — could never validate at all.
+Upstream now synthesizes the union with `anyOf`, which is what it always meant: a type union for code generation, not an exclusivity constraint. This SDK tracks that.
 
-**How `ucp-go` handles it.** The emitter compares a union's members and,
-when two or more are structurally identical (ignoring `title` and
-`description`), stops enforcing exclusivity for that union: it behaves as
-`anyOf` instead. The generated type says so in its own doc comment, naming
-the members involved, so the deviation is visible at the point of use rather
-than buried here. Exclusivity is still enforced for every other union, where
-it is both meaningful and satisfiable — it catches real violations.
+**The emitter still guards the general case.** When a `oneOf`'s members are structurally identical, it stops enforcing exclusivity for that union and says so in the generated doc comment. Nothing in the current corpus trips it; `TestUnsatisfiableOneOfDegradesToAnyOf` keeps it honest.
 
-This affects exactly three schemas: `ucp.json` and its two request variants.
-
-The differential harness did not catch this, and could not: `ucp.json` and
-the schemas that embed it are among those the oracle cannot compile at all,
-for the dangling-reference reason above, so they are skipped before any
-verdict is compared. It was found by running the SDK against its own README
-example. Pydantic's `Union` resolves to the first matching member rather than
-enforcing `oneOf`, which is likely why the python-sdk does not surface it
-either.
-
-Properly resolving this needs a spec decision — whether the three response
-profiles are meant to be distinguishable, or whether the synthesized `oneOf`
-should be an `anyOf`.
+**How it was found, which is the part worth keeping.** Not by the differential harness — that could not have caught it. `ucp.json` is among the schemas the oracle cannot compile, for the dangling-reference reason above, so it is skipped before any verdict is compared. It surfaced when the example in this README was run and printed an error instead of a result. Pydantic's `Union` resolves to the first matching member rather than enforcing `oneOf`, which is why the Python SDK never saw it.
 
 ## Regenerating
 

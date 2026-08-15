@@ -359,8 +359,7 @@
   },
   "$id": "https://ucp.dev/schemas/ucp.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Protocol metadata for discovery profiles and responses. Uses slim schema pattern with context-specific required fields.",
-  "oneOf": [
+  "anyOf": [
     {
       "$ref": "#/$defs/business_schema"
     },
@@ -380,5 +379,6 @@
       "$ref": "#/$defs/response_order_schema"
     }
   ],
+  "description": "Protocol metadata for discovery profiles and responses. Uses slim schema pattern with context-specific required fields.",
   "title": "UCP Metadata"
 }
