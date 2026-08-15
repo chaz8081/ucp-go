@@ -253,3 +253,172 @@ func conditionalLiteral(typeName string, f structField, v any) (string, error) {
 	}
 	return "", fmt.Errorf("%s: conditional compares %q against an unsupported literal %T (phase 6)", typeName, f.jsonName, v)
 }
+
+// compileConditional emits the guarded checks for a node carrying
+// if/then. A node with `then` but no `if` is meaningless and a node with
+// `else` is unsupported; both fail rather than being ignored.
+func compileConditional(e *fileEmitter, c *constraintSet, typeName string, schema map[string]any, fields []structField) error {
+	if _, hasElse := schema["else"]; hasElse {
+		return fmt.Errorf("%s: schema declares else, which is not supported (phase 6)", typeName)
+	}
+	ifNode, hasIf := schema["if"].(map[string]any)
+	thenNode, hasThen := schema["then"].(map[string]any)
+	if !hasIf && !hasThen {
+		return nil
+	}
+	if !hasIf || !hasThen {
+		return fmt.Errorf("%s: schema declares one of if/then without the other (phase 6)", typeName)
+	}
+
+	cond, err := predicate(e, typeName, "v", ifNode, fields)
+	if err != nil {
+		return err
+	}
+	body, err := thenChecks(e, c, typeName, thenNode, fields, describe(ifNode))
+	if err != nil {
+		return err
+	}
+	// An empty consequent is not a dropped one: a `then` that only repeats
+	// what the schema already requires outright is discharged by the
+	// unconditional check, so the rule is enforced with nothing to emit.
+	if body != "" {
+		e.usesErrors = true
+		fmt.Fprintf(&c.checks, "if %s {\n%s}\n", cond, body)
+	}
+	e.enforced.mark(schema, "if", "then")
+	return nil
+}
+
+// thenKeywords are the keywords a consequent may carry. The list is the
+// assertions this compiler can place under a guard plus the annotations
+// that assert nothing; anything else fails rather than being ignored,
+// because a dropped consequent leaves the rule looking enforced.
+var thenKeywords = map[string]bool{
+	"required": true, "properties": true,
+	"type": true, "title": true, "description": true,
+}
+
+// thenChecks compiles the consequent. Its constraints are ordinary
+// constraints — only the guard around them is new — so property value
+// rules go through the existing compiler unchanged.
+//
+// The statements come back as a string for the caller to wrap in the
+// guard, but everything else the constraint compiler produces belongs to
+// the enclosing type and is merged into c: a compiled pattern is declared
+// at package level, and loop variables are numbered across one Validate
+// body so a nested loop never shadows its parent. Dropping either would
+// emit code referring to a variable that was never declared. The set's
+// other two builders need no merging, because compileConstraints never
+// writes to them — recursive Validate calls come from compileNested and
+// required-property checks from compilePresence, both driven by
+// renderStruct.
+func thenChecks(e *fileEmitter, c *constraintSet, typeName string, node map[string]any, fields []structField, when string) (string, error) {
+	for k := range node {
+		if !thenKeywords[k] {
+			return "", fmt.Errorf("%s: conditional then declares %q, which is not supported (phase 6)", typeName, k)
+		}
+	}
+
+	byJSON := make(map[string]structField, len(fields))
+	for _, f := range fields {
+		byJSON[f.jsonName] = f
+	}
+
+	var body constraintSet
+	body.loops = c.loops
+
+	if raw, ok := node["required"].([]any); ok {
+		names := make([]string, 0, len(raw))
+		for _, r := range raw {
+			s, isString := r.(string)
+			if !isString {
+				return "", fmt.Errorf("%s: conditional then required entry is not a string", typeName)
+			}
+			names = append(names, s)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			f, known := byJSON[name]
+			if !known {
+				return "", fmt.Errorf("%s: conditional then requires property %q, which this type does not declare (phase 6)", typeName, name)
+			}
+			switch accessFor(f.goType, f.required) {
+			case accessPointer, accessNilable:
+				e.usesErrors = true
+				fmt.Fprintf(&body.checks, "if v.%s == nil {\nreturn errors.New(%q)\n}\n",
+					f.goName, fmt.Sprintf("%s: required property is missing when %s", name, when))
+			default:
+				// Required by the schema outright: the unconditional
+				// presence check already covers it.
+			}
+		}
+	}
+
+	if props, ok := node["properties"].(map[string]any); ok {
+		names := make([]string, 0, len(props))
+		for n := range props {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			sub, isObj := props[name].(map[string]any)
+			if !isObj {
+				return "", fmt.Errorf("%s: conditional then property %q is not an object", typeName, name)
+			}
+			f, known := byJSON[name]
+			if !known {
+				return "", fmt.Errorf("%s: conditional then constrains property %q, which this type does not declare (phase 6)", typeName, name)
+			}
+			if err := compileConstraints(e, &body, typeName, name, "v."+f.goName,
+				accessFor(f.goType, f.required), sub); err != nil {
+				return "", err
+			}
+		}
+	}
+
+	c.loops = body.loops
+	c.vars.WriteString(body.vars.String())
+	return body.checks.String(), nil
+}
+
+// describe renders an if-condition in prose for an error message, so a
+// violation says which rule fired rather than only which property is bad.
+func describe(ifNode map[string]any) string {
+	props, _ := ifNode["properties"].(map[string]any)
+	names := make([]string, 0, len(props))
+	for n := range props {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		sub, _ := props[name].(map[string]any)
+		if raw, ok := sub["const"]; ok {
+			return fmt.Sprintf("%s is %s", name, prose([]any{raw}))
+		}
+		if members, ok := sub["enum"].([]any); ok {
+			return fmt.Sprintf("%s is one of %s", name, prose(members))
+		}
+		if not, ok := sub["not"].(map[string]any); ok {
+			if members, ok := not["enum"].([]any); ok {
+				return fmt.Sprintf("%s is not one of %s", name, prose(members))
+			}
+		}
+	}
+	return "the schema's condition holds"
+}
+
+// prose renders enum members as a comma-separated list for an error
+// message. Go's own %v on a []any would print `[discount items_discount]`,
+// which reads as Go syntax rather than as the values a caller sees in
+// their JSON.
+func prose(members []any) string {
+	parts := make([]string, 0, len(members))
+	for _, m := range members {
+		if s, isString := m.(string); isString {
+			parts = append(parts, fmt.Sprintf("%q", s))
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%v", m))
+	}
+	return strings.Join(parts, ", ")
+}

@@ -86,8 +86,6 @@ func (v *PaginationRequest) Validate() error {
 }
 
 // PaginationResponse Pagination information in responses.
-//
-// Not enforced yet (phase 4) on the object itself: if, then.
 type PaginationResponse struct {
 	// Cursor to fetch the next page of results. MUST be present when has_next_page is true.
 	Cursor *string `json:"cursor,omitzero"`
@@ -171,6 +169,11 @@ func (v *PaginationResponse) Validate() error {
 	}
 	if v.TotalCount != nil && *v.TotalCount < 0 {
 		return errors.New("total_count: below minimum 0")
+	}
+	if v.HasNextPage == true {
+		if v.Cursor == nil {
+			return errors.New("cursor: required property is missing when has_next_page is true")
+		}
 	}
 	return nil
 }

@@ -615,6 +615,14 @@ type structField struct {
 // the named ones are fixed by the schema and so are verified here, while
 // the code is being generated.
 func compileObjectSelf(e *fileEmitter, c *constraintSet, typeName string, schema map[string]any, fields []structField, open bool) error {
+	// First, because this function returns early when the schema declares no
+	// propertyNames. A conditional compiled at the end would run for only
+	// some objects, and the ones it skipped would report the rule as
+	// enforced while emitting nothing.
+	if err := compileConditional(e, c, typeName, schema, fields); err != nil {
+		return err
+	}
+
 	t := target{typeName: typeName, varStem: typeName, label: typeName, expr: "v", access: accessValue}
 
 	for _, kw := range []string{"minProperties", "maxProperties"} {

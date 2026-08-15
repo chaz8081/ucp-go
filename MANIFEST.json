@@ -1007,13 +1007,7 @@
       "type": "Pagination",
       "package": "types",
       "file": "shopping/types/pagination.go",
-      "fields": 0,
-      "unenforced": {
-        "PaginationResponse": [
-          "if",
-          "then"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/payment_credential.json": {
       "type": "PaymentCredential",

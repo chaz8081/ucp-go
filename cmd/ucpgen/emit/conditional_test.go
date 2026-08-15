@@ -1,6 +1,9 @@
 package emit
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestFieldsForCarriesGoType(t *testing.T) {
 	schema := map[string]any{
@@ -186,5 +189,172 @@ func TestPredicateRejectsUnsupportedForms(t *testing.T) {
 				t.Fatal("expected an error, got nil")
 			}
 		})
+	}
+}
+
+func TestCompileConditionalEmitsGuardedThen(t *testing.T) {
+	schema := map[string]any{
+		"type":     "object",
+		"required": []any{"has_next_page"},
+		"properties": map[string]any{
+			"cursor":        map[string]any{"type": "string"},
+			"has_next_page": map[string]any{"type": "boolean"},
+		},
+		"if": map[string]any{
+			"properties": map[string]any{"has_next_page": map[string]any{"const": true}},
+			"required":   []any{"has_next_page"},
+		},
+		"then": map[string]any{"required": []any{"cursor"}},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	fields, err := fieldsFor(e, "PaginationResponse", schema)
+	if err != nil {
+		t.Fatalf("fieldsFor: %v", err)
+	}
+	var c constraintSet
+	if err := compileConditional(e, &c, "PaginationResponse", schema, fields); err != nil {
+		t.Fatalf("compileConditional: %v", err)
+	}
+	got := c.checks.String()
+	for _, want := range []string{
+		"if v.HasNextPage == true {",
+		"if v.Cursor == nil {",
+		"cursor: required property is missing when has_next_page is true",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("emitted code missing %q:\n%s", want, got)
+		}
+	}
+	if !e.enforced.has(schema, "if") || !e.enforced.has(schema, "then") {
+		t.Error("if/then not marked enforced; the doc comment would still report them as gaps")
+	}
+}
+
+func TestCompileConditionalRejectsElse(t *testing.T) {
+	// else has zero occurrences in the corpus. Every other unimplemented
+	// keyword in this emitter fails loudly rather than guessing, and the
+	// first real else can justify itself.
+	schema := map[string]any{
+		"type":       "object",
+		"required":   []any{"type"},
+		"properties": map[string]any{"type": map[string]any{"type": "string"}},
+		"if": map[string]any{
+			"properties": map[string]any{"type": map[string]any{"const": "a"}},
+			"required":   []any{"type"},
+		},
+		"then": map[string]any{"required": []any{"type"}},
+		"else": map[string]any{"required": []any{"type"}},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	fields, err := fieldsFor(e, "Thing", schema)
+	if err != nil {
+		t.Fatalf("fieldsFor: %v", err)
+	}
+	var c constraintSet
+	if err := compileConditional(e, &c, "Thing", schema, fields); err == nil {
+		t.Fatal("expected an error for else, got nil")
+	}
+}
+
+func TestCompileConditionalRejectsHalfADeclaration(t *testing.T) {
+	schema := map[string]any{
+		"type":       "object",
+		"required":   []any{"type"},
+		"properties": map[string]any{"type": map[string]any{"type": "string"}},
+		"then":       map[string]any{"required": []any{"type"}},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	fields, err := fieldsFor(e, "Thing", schema)
+	if err != nil {
+		t.Fatalf("fieldsFor: %v", err)
+	}
+	var c constraintSet
+	if err := compileConditional(e, &c, "Thing", schema, fields); err == nil {
+		t.Fatal("expected an error for then without if, got nil")
+	}
+}
+
+// The description lands in an error message an SDK user reads, not a Go
+// programmer: %v over the schema's []any would render `[discount
+// items_discount]`, which is Go's syntax for a slice rather than the
+// values the user wrote in their JSON.
+func TestConditionalDescriptionReadsAsProse(t *testing.T) {
+	cases := map[string]struct {
+		props map[string]any
+		want  string
+	}{
+		"boolean const": {
+			map[string]any{"has_next_page": map[string]any{"const": true}},
+			"has_next_page is true",
+		},
+		"string const": {
+			map[string]any{"type": map[string]any{"const": "subtotal"}},
+			`type is "subtotal"`,
+		},
+		"enum": {
+			map[string]any{"type": map[string]any{"enum": []any{"discount", "items_discount"}}},
+			`type is one of "discount", "items_discount"`,
+		},
+		"negated enum": {
+			map[string]any{"type": map[string]any{"not": map[string]any{"enum": []any{"subtotal", "total"}}}},
+			`type is not one of "subtotal", "total"`,
+		},
+		"unrecognized form": {
+			map[string]any{"type": map[string]any{"minLength": float64(1)}},
+			"the schema's condition holds",
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got := describe(map[string]any{"properties": tc.props}); got != tc.want {
+				t.Errorf("describe = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// A consequent's property rules are compiled into a local set so the
+// statements can be wrapped in the guard. Anything else that compiler
+// produces belongs to the enclosing type: a compiled pattern is declared
+// at package level, and loop variables are numbered across the whole
+// Validate body. Left in the local set they would be dropped, and the
+// guarded check would call a variable the generated file never declares.
+func TestCompileConditionalPropagatesGeneratedVarsAndLoops(t *testing.T) {
+	schema := map[string]any{
+		"type":     "object",
+		"required": []any{"kind"},
+		"properties": map[string]any{
+			"kind": map[string]any{"type": "string"},
+			"code": map[string]any{"type": "string"},
+			"tags": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+		},
+		"if": map[string]any{
+			"properties": map[string]any{"kind": map[string]any{"const": "coded"}},
+			"required":   []any{"kind"},
+		},
+		"then": map[string]any{
+			"properties": map[string]any{
+				"code": map[string]any{"type": "string", "pattern": "^[a-z]+$"},
+				"tags": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "uniqueItems": true},
+			},
+		},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	fields, err := fieldsFor(e, "Thing", schema)
+	if err != nil {
+		t.Fatalf("fieldsFor: %v", err)
+	}
+	var c constraintSet
+	if err := compileConditional(e, &c, "Thing", schema, fields); err != nil {
+		t.Fatalf("compileConditional: %v", err)
+	}
+	if !strings.Contains(c.checks.String(), "pattern_Thing_Code()") {
+		t.Fatalf("guarded check does not reference the compiled pattern:\n%s", c.checks.String())
+	}
+	if !strings.Contains(c.vars.String(), `regexp.MustCompile("^[a-z]+$")`) {
+		t.Errorf("compiled pattern was dropped instead of reaching the enclosing type: %q", c.vars.String())
+	}
+	if c.loops == 0 {
+		t.Error("loop variables consumed inside the consequent were not counted; a later loop would reuse the same name")
 	}
 }
