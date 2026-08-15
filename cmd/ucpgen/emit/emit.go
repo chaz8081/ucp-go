@@ -713,8 +713,21 @@ func writeDoc(e *fileEmitter, body *strings.Builder, typeName string, schema map
 // name, Go name, Go type, and whether it is required. renderStruct and
 // any predicate compiled against the resulting struct both read this, so
 // the struct definition and the checks written against it cannot
-// disagree about a field's name or type.
+// disagree about a field's name or type. Calling it more than once on the
+// same node is safe, because everything goTypeExpr registers is keyed by
+// the prefix and idempotent under it — e.nestedSchemas dedups, e.imports
+// is a map assign, and noteUnenforced is guarded on not-yet-seen — but
+// calling it for the same node under a different prefix would register
+// one inline object twice, under two names.
 func fieldsFor(e *fileEmitter, typeName string, schema map[string]any) ([]structField, error) {
+	// Nested types discovered under this struct are namespaced by it, so
+	// the prefix has to be in place before any property type is resolved.
+	// It lives here rather than at the call site because a caller that
+	// forgets it gets silently mis-named types rather than an error.
+	savedPrefix := e.prefix
+	e.prefix = typeName
+	defer func() { e.prefix = savedPrefix }()
+
 	required := map[string]bool{}
 	if reqRaw, hasReq := schema["required"]; hasReq {
 		reqs, isArray := reqRaw.([]any)
@@ -784,12 +797,6 @@ func fieldsFor(e *fileEmitter, typeName string, schema map[string]any) ([]struct
 // renderStruct emits an object schema as a Go struct plus its Validate.
 func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
 	props, _ := schema["properties"].(map[string]any)
-
-	// Nested types discovered under this struct are namespaced by it, so the
-	// prefix has to be in place before fieldsFor resolves any property type.
-	savedPrefix := e.prefix
-	e.prefix = typeName
-	defer func() { e.prefix = savedPrefix }()
 
 	// Types are resolved for every property first, because the constraint
 	// compiler needs to know whether a field is a pointer before it can

@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 )
@@ -73,6 +74,17 @@ func predicate(e *fileEmitter, typeName, recv string, node map[string]any, field
 		f, known := byJSON[name]
 		if !known {
 			return "", fmt.Errorf("%s: conditional tests property %q, which this type does not declare (phase 6)", typeName, name)
+		}
+		// `properties` constrains a property only when it is there: a
+		// subschema with no `required` also matches a value that omits the
+		// property entirely. Compiling that to a present-and-matching test
+		// would make the guard fire on fewer values than the schema's
+		// condition covers, silently under-applying the rule it guards. The
+		// property has to be present by construction — pinned by this
+		// subschema's own `required` or by the outer schema — for the test
+		// to mean what the schema means.
+		if !required[name] && !f.required {
+			return "", fmt.Errorf("%s: conditional tests property %q without requiring it; a properties test with no required also matches a value where %q is absent, which is not modeled (phase 6)", typeName, name, name)
 		}
 		term, needsPresence, err := valueTest(typeName, recv, f, sub)
 		if err != nil {
@@ -220,7 +232,21 @@ func conditionalLiteral(typeName string, f structField, v any) (string, error) {
 		return fmt.Sprintf("%t", t), nil
 	case float64:
 		switch base {
-		case "int64", "float64":
+		case "int64":
+			// An integer field is an int64, so the literal must be one too:
+			// a fractional value has no integer form and the comparison
+			// would fail to compile rather than fail generation.
+			if t != math.Trunc(t) {
+				return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against the fractional number %v (phase 6)", typeName, f.jsonName, f.goType, t)
+			}
+			// The range is stated as a float64 bound, so it has to be a
+			// float64-exact one: 2^63-1 is not representable and would round
+			// up to 2^63, letting through the one value int64 cannot hold.
+			if t < math.MinInt64 || t >= math.MaxInt64+1 {
+				return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against %v, which does not fit in an int64 (phase 6)", typeName, f.jsonName, f.goType, t)
+			}
+			return fmt.Sprintf("%d", int64(t)), nil
+		case "float64":
 			return formatNumber(t), nil
 		}
 		return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against a number (phase 6)", typeName, f.jsonName, f.goType)

@@ -51,7 +51,7 @@ func accessFor(goType string, required bool) accessKind {
 		return accessPointer
 	default:
 		// An optional field that is not a pointer is one of the nilable
-		// types renderStruct leaves unpointered.
+		// types fieldsFor leaves unpointered.
 		return accessNilable
 	}
 }
@@ -595,10 +595,10 @@ func (c *constraintSet) uniqueCheck(e *fileEmitter, t target, guard, value, scal
 
 // structField is what an object-level check needs to know about one
 // property: what it is called on each side, whether it is always there,
-// and the Go type renderStruct settled on. The type is what tells a
+// and the Go type fieldsFor settled on. The type is what tells a
 // conditional predicate whether to dereference: `required` is only a
 // proxy for it, and a false one for optional slices and maps, which
-// renderStruct leaves unpointered.
+// fieldsFor leaves unpointered.
 type structField struct {
 	jsonName string
 	goName   string
