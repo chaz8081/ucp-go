@@ -19,16 +19,24 @@ func (v *Totals) Validate() error {
 }
 
 // TotalsTotalsItem is generated from shopping/types/totals.json.
-//
-// Not enforced yet (phase 4) on the object itself: if, then.
 type TotalsTotalsItem struct {
+	Amount SignedAmount `json:"amount"`
+	// Text to display against the amount. Should reflect appropriate method (e.g., 'Shipping', 'Delivery').
+	DisplayText *string `json:"display_text,omitzero"`
 	// Optional itemized breakdown. The parent entry is always rendered; lines are supplementary. Sum of line amounts MUST equal the parent entry amount.
 	Lines []TotalsTotalsItemLinesItem `json:"lines,omitzero"`
+	// Cost category. Well-known values: subtotal, items_discount, discount, fulfillment, tax, fee, total. Businesses MAY use additional values.
+	Type string `json:"type"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
 	// preserved here and re-emitted on marshal rather than dropped.
 	Extra map[string]json.RawMessage `json:"-"`
+
+	// present records which properties the decoder saw, so a required
+	// property that was absent can be told from one decoded to its zero
+	// value. A nil map means this value was never decoded from JSON.
+	present map[string]bool
 }
 
 // UnmarshalJSON decodes the named properties and keeps everything else
@@ -45,7 +53,16 @@ func (v *TotalsTotalsItem) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
+	v.present = make(map[string]bool, 2)
+	for _, name := range []string{"amount", "type"} {
+		if _, ok := all[name]; ok {
+			v.present[name] = true
+		}
+	}
+	delete(all, "amount")
+	delete(all, "display_text")
 	delete(all, "lines")
+	delete(all, "type")
 	if len(all) > 0 {
 		v.Extra = all
 	}
@@ -80,6 +97,22 @@ func (v TotalsTotalsItem) MarshalJSON() ([]byte, error) {
 
 // Validate reports the first constraint violation, or nil.
 func (v *TotalsTotalsItem) Validate() error {
+	if v.present != nil {
+		if !v.present["amount"] {
+			return errors.New("amount: required property is missing")
+		}
+		if !v.present["type"] {
+			return errors.New("type: required property is missing")
+		}
+	}
+	if v.present != nil && v.present["type"] && v.Type != "subtotal" && v.Type != "items_discount" && v.Type != "discount" && v.Type != "fulfillment" && v.Type != "tax" && v.Type != "fee" && v.Type != "total" {
+		if v.DisplayText == nil {
+			return errors.New("display_text: required property is missing when type is not one of \"subtotal\", \"items_discount\", \"discount\", \"fulfillment\", \"tax\", \"fee\", \"total\"")
+		}
+	}
+	if err := v.Amount.Validate(); err != nil {
+		return err
+	}
 	for i := range v.Lines {
 		if err := v.Lines[i].Validate(); err != nil {
 			return err

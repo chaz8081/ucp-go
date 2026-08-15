@@ -251,6 +251,9 @@
         "CatalogLookupDetailProduct.url": [
           "format"
         ],
+        "CatalogLookupLookupResponseProductsItem.url": [
+          "format"
+        ],
         "CatalogLookupLookupVariant.url": [
           "format"
         ],
@@ -1284,14 +1287,6 @@
           "contains",
           "maxContains",
           "minContains"
-        ],
-        "Totals.Totals_item": [
-          "if",
-          "then"
-        ],
-        "TotalsTotalsItem": [
-          "if",
-          "then"
         ]
       }
     },
@@ -1310,14 +1305,6 @@
           "contains",
           "maxContains",
           "minContains"
-        ],
-        "TotalsCreateRequest.TotalsCreateRequest_item": [
-          "if",
-          "then"
-        ],
-        "TotalsCreateRequestTotalscreaterequestItem": [
-          "if",
-          "then"
         ]
       }
     },
@@ -1336,14 +1323,6 @@
           "contains",
           "maxContains",
           "minContains"
-        ],
-        "TotalsUpdateRequest.TotalsUpdateRequest_item": [
-          "if",
-          "then"
-        ],
-        "TotalsUpdateRequestTotalsupdaterequestItem": [
-          "if",
-          "then"
         ]
       }
     },

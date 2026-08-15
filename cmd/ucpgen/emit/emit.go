@@ -182,8 +182,9 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 
 	// ucp.json and its two request variants are skipped by the preprocessing
 	// pipeline (mirroring python), so they arrive with allOf still unmerged
-	// inside their $defs. Merge locally so every renderer below sees a flat
-	// node.
+	// inside their $defs; every other file arrives with its cross-file
+	// branches deferred to here. Merge so every renderer below sees a flat
+	// node, wherever in the document that node sits.
 	if err := mergeAllOf(schema, relPath, corpus); err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
@@ -253,7 +254,15 @@ var lastUnenforced map[string][]string
 // "Type.field-path".
 func LastUnenforced() map[string][]string { return lastUnenforced }
 
-// mergeAllOf flattens allOf at the document root and inside each $def.
+// instanceValuedKeywords hold example JSON values rather than subschemas.
+// Whatever is nested under them is data the schema talks ABOUT, so an
+// "allOf" key found down there is a property of some example object, not a
+// composition to flatten. Merging it would rewrite the spec's own examples.
+var instanceValuedKeywords = map[string]bool{
+	"enum": true, "const": true, "default": true, "examples": true,
+}
+
+// mergeAllOf flattens allOf everywhere it appears in a schema document.
 //
 // preprocess.MergeAllOf resolves only same-document refs and re-emits
 // cross-file branches as a residual allOf. Those branches carry real
@@ -261,47 +270,110 @@ func LastUnenforced() map[string][]string { return lastUnenforced }
 // plus one own property, so ignoring the residual would silently drop nine
 // address fields — so they are resolved here against the rest of the
 // corpus, which the emitter (unlike the preprocessor) has in hand.
+//
+// The walk visits every node rather than a list of the positions a
+// subschema may legally occupy. An inline object promoted to a named type
+// can sit at any depth — totals.json puts one on `items`, catalog_lookup
+// puts one four levels down under a $def — and a position the walk did not
+// think to name would go unmerged in exactly the silent way this function
+// exists to prevent. Enumerating applicator keywords would also miss the
+// spec's two extension mount points, whose business_schema/platform_schema
+// children are schemas hanging off a plain grouping object under no
+// keyword at all.
 func mergeAllOf(schema map[string]any, relPath string, corpus map[string]map[string]any) error {
-	if err := resolveCrossFileAllOf(schema, relPath, corpus, map[string]bool{}); err != nil {
+	return mergeAllOfNode(schema, schema, "", relPath, corpus)
+}
+
+// mergeAllOfNode merges one node's allOf, checks what the merge left
+// behind, and then does the same for every node below it.
+//
+// Order is load-bearing in two directions. Within a node, the cross-file
+// resolution has to run before the local merge, because it is what turns a
+// borrowed file into a branch the local merge can fold in. Between nodes,
+// the parent has to be merged before its children are walked: folding a
+// branch in brings whole subtrees with it, and those subtrees may carry
+// allOf of their own that a bottom-up walk would already have passed.
+//
+// at names the node for error messages; it is empty at the document root.
+func mergeAllOfNode(node, doc map[string]any, at, relPath string, corpus map[string]map[string]any) error {
+	if err := resolveCrossFileAllOf(node, relPath, corpus, map[string]bool{}); err != nil {
+		return locate(at, err)
+	}
+	// doc, not node: a "#/$defs/…" branch anywhere in the document is
+	// written against the document root, so a nested node still resolves its
+	// local refs there.
+	if err := preprocess.MergeAllOf(node, doc); err != nil {
+		return locate(at, err)
+	}
+	if err := checkResidualAllOf(node, at); err != nil {
 		return err
 	}
-	if err := preprocess.MergeAllOf(schema, schema); err != nil {
-		return err
+
+	// Keys are collected after the merge — the merge is what decides which
+	// children exist — and sorted so that a corpus-wide failure always
+	// surfaces at the same node.
+	keys := make([]string, 0, len(node))
+	for k := range node {
+		keys = append(keys, k)
 	}
-	defs, _ := schema["$defs"].(map[string]any)
-	names := make([]string, 0, len(defs))
-	for name := range defs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		def, ok := defs[name].(map[string]any)
-		if !ok {
+	sort.Strings(keys)
+	for _, k := range keys {
+		if instanceValuedKeywords[k] {
 			continue
 		}
-		if err := resolveCrossFileAllOf(def, relPath, corpus, map[string]bool{}); err != nil {
-			return fmt.Errorf("$defs/%s: %w", name, err)
-		}
-		if err := preprocess.MergeAllOf(def, schema); err != nil {
-			return fmt.Errorf("$defs/%s: %w", name, err)
+		if err := mergeAllOfChild(node[k], doc, at+"/"+k, relPath, corpus); err != nil {
+			return err
 		}
 	}
-	if residual, ok := schema["allOf"].([]any); ok && len(residual) > 0 {
-		// A conditional branch is a rule, not a set of fields, so the
-		// preprocessor deliberately leaves it in the allOf rather than
-		// folding it in. That residual is expected and carries no fields to
-		// lose; conditional evaluation is unimplemented, and the keywords
-		// are reported as such. Anything else remaining here is unresolved
-		// inheritance, which silently drops real fields — see the comment
-		// above — and must still fail.
-		for _, b := range residual {
-			bm, isObj := b.(map[string]any)
-			if !isObj || !preprocess.HasConditional(bm) {
-				return fmt.Errorf("allOf branches remain unresolved after merging: %v", residual)
+	return nil
+}
+
+// mergeAllOfChild descends through whatever containers stand between a
+// schema node and the next one — a $defs or properties map, an allOf or
+// prefixItems array — without caring which keyword produced them.
+func mergeAllOfChild(child any, doc map[string]any, at, relPath string, corpus map[string]map[string]any) error {
+	switch t := child.(type) {
+	case map[string]any:
+		return mergeAllOfNode(t, doc, at, relPath, corpus)
+	case []any:
+		for i, el := range t {
+			if err := mergeAllOfChild(el, doc, fmt.Sprintf("%s/%d", at, i), relPath, corpus); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+// checkResidualAllOf fails on inheritance the merge could not resolve.
+//
+// A conditional branch is a rule, not a set of fields, so the preprocessor
+// deliberately leaves it in the allOf rather than folding it in; the
+// emitter compiles those into predicates. Anything else remaining is a
+// branch whose fields were dropped, which produces a type quietly narrower
+// than the schema — the failure mode that cost ShippingDestination nine
+// address fields — so it stops generation instead.
+func checkResidualAllOf(node map[string]any, at string) error {
+	residual, ok := node["allOf"].([]any)
+	if !ok || len(residual) == 0 {
+		return nil
+	}
+	for _, b := range residual {
+		bm, isObj := b.(map[string]any)
+		if !isObj || !preprocess.HasConditional(bm) {
+			return locate(at, fmt.Errorf("allOf branches remain unresolved after merging: %v", residual))
+		}
+	}
+	return nil
+}
+
+// locate prefixes an error with the node it came from. The document root
+// has no path and reads better without one.
+func locate(at string, err error) error {
+	if at == "" {
+		return err
+	}
+	return fmt.Errorf("%s: %w", strings.TrimPrefix(at, "/"), err)
 }
 
 // resolveCrossFileAllOf replaces each cross-file $ref branch of a node's
@@ -322,10 +394,19 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 			continue
 		}
 		filePart, fragment, _ := strings.Cut(ref, "#")
-		if filePart == "" {
-			continue // local ref: preprocess.MergeAllOf handles it
+		if filePart == "" && ref != "#" {
+			continue // "#/$defs/…": preprocess.MergeAllOf resolves it
 		}
-		target := path.Join(path.Dir(relPath), filePart)
+		// A bare "#" names the document itself — payment_instrument.json's
+		// selected variant is allOf["#"] plus one own property, and its three
+		// request forms repeat the shape. preprocess.MergeAllOf follows only
+		// "#/…" pointers, so this one reaches here unresolved; resolving it is
+		// the same operation as a cross-file ref whose target happens to be
+		// the borrowing file.
+		target := relPath
+		if filePart != "" {
+			target = path.Join(path.Dir(relPath), filePart)
+		}
 		targetSchema, ok := corpus[target]
 		if !ok {
 			return fmt.Errorf("allOf references %q, which is not in the corpus", ref)
