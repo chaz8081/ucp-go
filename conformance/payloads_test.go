@@ -91,3 +91,40 @@ func TestUnmodeledUnionIgnoresEmptyProperties(t *testing.T) {
 		t.Error("a union alongside real properties is still unmodeled")
 	}
 }
+
+func TestMutationsCoverUnionAlternatives(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"a.json": {
+			"$id": "https://x/a.json", "type": "object",
+			"required":   []any{"code"},
+			"properties": map[string]any{"code": map[string]any{"type": "string"}},
+		},
+		"b.json": {
+			"$id": "https://x/b.json", "type": "object",
+			"required":   []any{"text"},
+			"properties": map[string]any{"text": map[string]any{"type": "string"}},
+		},
+		"u.json": {
+			"$id": "https://x/u.json", "type": "object",
+			"properties": map[string]any{},
+			"oneOf": []any{
+				map[string]any{"$ref": "a.json"},
+				map[string]any{"$ref": "b.json"},
+			},
+		},
+	}
+	b := builder{corpus: corpus}
+	got := b.mutations(corpus["u.json"], "u.json")
+	if len(got) == 0 {
+		t.Fatal("a union-rooted schema produced no payloads")
+	}
+	names := map[string]bool{}
+	for _, p := range got {
+		names[p.name] = true
+	}
+	for _, want := range []string{"alternative:0", "alternative:1", "matches-no-alternative"} {
+		if !names[want] {
+			t.Errorf("missing payload %q; got %v", want, names)
+		}
+	}
+}

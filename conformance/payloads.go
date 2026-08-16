@@ -357,11 +357,64 @@ func requiredOf(node map[string]any) []string {
 // valid instance, then one variant per constraint that instance satisfies.
 // Each variant breaks exactly one thing, so a disagreement names the check
 // that is missing or wrong.
+//
+// The strategy depends on the shape of the root. It used to require an
+// object and return nothing otherwise, which silently excluded every
+// union-, array- and scalar-rooted schema in the corpus.
 func (b *builder) mutations(schema map[string]any, rel string) []payload {
-	base, ok := b.instance(schema, rel, 0).(map[string]any)
-	if !ok {
-		return nil
+	if members, ok := unionOf(schema); ok {
+		props, _ := schema["properties"].(map[string]any)
+		if len(props) == 0 {
+			return b.unionMutations(schema, rel, members)
+		}
 	}
+	if base, ok := b.instance(schema, rel, 0).(map[string]any); ok {
+		return b.objectMutations(schema, rel, base)
+	}
+	return nil
+}
+
+// unionMutations exercises each alternative in turn. A union's content is
+// its alternatives, so the property mutations objectMutations applies have
+// nothing to work on.
+func (b *builder) unionMutations(schema map[string]any, rel string, members []any) []payload {
+	var out []payload
+	add := func(name string, v any) {
+		if raw, err := marshalStable(v); err == nil {
+			out = append(out, payload{name: name, json: raw})
+		}
+	}
+	for i, m := range members {
+		mm, ok := m.(map[string]any)
+		if !ok {
+			continue
+		}
+		if v := b.instance(mm, rel, 0); v != nil {
+			add(fmt.Sprintf("alternative:%d", i), v)
+		}
+	}
+	// An object satisfying no alternative must be rejected. The key is
+	// deliberately one no member declares.
+	//
+	// What makes this a rejection rather than an accidentally valid instance
+	// is that every alternative in this corpus carries at least one required
+	// property — directly, as the message_* and fulfillment_destination
+	// members do, or through an allOf of a base that requires one, as every
+	// ucp.json member does. It is not additionalProperties: false doing the
+	// work; retail_location.json sets additionalProperties: true and is still
+	// rejected, because it requires id and name. So a member that dropped its
+	// required list would turn this payload into a valid instance and the
+	// name into a lie. The harness would stay correct either way — it
+	// compares verdicts, not names — but the case would quietly stop
+	// exercising the rejection path it exists for.
+	add("matches-no-alternative", map[string]any{"__no_such_property__": "x"})
+	return out
+}
+
+// objectMutations is the original strategy, unchanged apart from taking the
+// base instance from its caller: mutations now decides the root's shape
+// before building anything.
+func (b *builder) objectMutations(schema map[string]any, rel string, base map[string]any) []payload {
 	var out []payload
 	add := func(name string, v map[string]any) {
 		if raw, err := marshalStable(v); err == nil {
