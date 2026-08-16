@@ -39,16 +39,21 @@ func buildIndex(t testing.TB, files map[string]map[string]any) *emit.TypeIndex {
 
 // target is one emitted Go type and the payloads to try against it.
 //
-// The three identifiers used to be one — the schema path served as label,
-// model key and (via the $id map) oracle URL alike. A $def separates them:
-// it is named by path and def name together, keyed that way in models, and
-// compiled by the containing document's $id with a JSON-pointer fragment.
-// Keeping them as one field would mean re-deriving two of the three at each
-// use, in three different places, from a string that no longer determines
-// them.
+// location and oracleID used to be the same string: a schema path both
+// named the type and, through the $id map, addressed the schema to compile.
+// A $def breaks that. It is located by path and def name — "rel#def", which
+// is how models keys it and how a failure should name it — but the oracle
+// knows it only as a JSON pointer into the containing document's $id.
+// Deriving one from the other at each use, in three places, would put the
+// same translation in three places to get wrong; carrying both is cheaper
+// and says which is which.
+//
+// models is keyed by exactly the location a failure names, so there is one
+// field rather than two identical ones. A second field claiming to be a
+// different identifier, while always holding the same string, would be a
+// distinction the code does not actually make.
 type target struct {
-	label    string // what a failure names: rel, or rel#def
-	modelKey string // key into models
+	location string // what a failure names and models is keyed by: rel, or rel#def
 	oracleID string // URL to compile: the document $id, or $id#/$defs/<name>
 	cases    []payload
 }
@@ -104,7 +109,7 @@ func TestDifferentialAgreement(t *testing.T) {
 	// consider turns one schema node into a target, or into a named skip.
 	// Both the file-level type and each $def go through it, so a skip reason
 	// means the same thing whichever produced it.
-	consider := func(rel, label, modelKey, oracleID string, node map[string]any) {
+	consider := func(rel, location, oracleID string, node map[string]any) {
 		if kw := usesOutOfScope(node, files, rel); kw != "" {
 			// Documented as unenforced, so the oracle may legitimately
 			// reject where we accept. Counted, never silent.
@@ -117,7 +122,7 @@ func TestDifferentialAgreement(t *testing.T) {
 			return
 		}
 		targets = append(targets, target{
-			label: label, modelKey: modelKey, oracleID: oracleID, cases: cases,
+			location: location, oracleID: oracleID, cases: cases,
 		})
 	}
 
@@ -129,7 +134,7 @@ func TestDifferentialAgreement(t *testing.T) {
 			continue
 		}
 		if _, ok := idx.Lookup(rel, ""); ok {
-			consider(rel, rel, rel, id, schema)
+			consider(rel, rel, id, schema)
 		} else {
 			// Not a gap and not a skip: the file is a $defs container, and
 			// the targets it contributes are the $defs below.
@@ -152,7 +157,7 @@ func TestDifferentialAgreement(t *testing.T) {
 			// The node is the $def, but rel stays the containing file: a
 			// $def's relative $refs resolve against the document it sits in,
 			// not against anything derived from its name.
-			consider(rel, rel+"#"+name, rel+"#"+name, id+"#/$defs/"+name, node)
+			consider(rel, rel+"#"+name, id+"#/$defs/"+name, node)
 		}
 	}
 
@@ -181,20 +186,20 @@ func TestDifferentialAgreement(t *testing.T) {
 			continue
 		}
 		comparedTypes++
-		if !strings.Contains(tg.modelKey, "#") {
+		if !strings.Contains(tg.location, "#") {
 			comparedFiles++
 		}
 		for _, c := range tg.cases {
 			total++
 			var inst any
 			if err := json.Unmarshal(c.json, &inst); err != nil {
-				t.Fatalf("%s/%s: generated payload is not JSON: %v", tg.label, c.name, err)
+				t.Fatalf("%s/%s: generated payload is not JSON: %v", tg.location, c.name, err)
 			}
 			oracleOK := compiled.Validate(inst) == nil
-			make, ok := models[tg.modelKey]
+			make, ok := models[tg.location]
 			if !ok {
 				t.Fatalf("%s: no model registered; TestModelsCoverCorpus or "+
-					"TestModelsCoverDefs should have caught this", tg.label)
+					"TestModelsCoverDefs should have caught this", tg.location)
 			}
 			v := make()
 			// A decode failure is a verdict too: the payload did not fit the
@@ -219,7 +224,7 @@ func TestDifferentialAgreement(t *testing.T) {
 				}
 				mismatches = append(mismatches, fmt.Sprintf(
 					"%s [%s]\n    payload: %s\n    oracle=%v sdk=%v (%s)",
-					tg.label, c.name, c.json, oracleOK, sdkOK, why))
+					tg.location, c.name, c.json, oracleOK, sdkOK, why))
 			}
 		}
 	}
