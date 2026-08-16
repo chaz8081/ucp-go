@@ -1257,10 +1257,6 @@
         "TotalCreateRequest": [
           "if",
           "then"
-        ],
-        "TotalCreateRequest.TotalCreateRequest": [
-          "if",
-          "then"
         ]
       }
     },
@@ -1271,10 +1267,6 @@
       "fields": 0,
       "unenforced": {
         "TotalUpdateRequest": [
-          "if",
-          "then"
-        ],
-        "TotalUpdateRequest.TotalUpdateRequest": [
           "if",
           "then"
         ]

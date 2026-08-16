@@ -280,7 +280,16 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 // when the node is first reached, and a node recorded as a gap before its
 // check exists would stay wrongly recorded.
 func (e *fileEmitter) noteUnenforced(fieldPath string, node map[string]any) {
-	key := e.prefix + "." + fieldPath
+	// A named type reached through the alias path resolves its own schema
+	// and arrives here with fieldPath equal to the prefix. Joining the two
+	// records TotalCreateRequest.TotalCreateRequest alongside the bare
+	// name, reporting the same rules twice. A coverage ledger that
+	// double-counts is worse than one that undercounts, because the
+	// inflation reads as breadth.
+	key := fieldPath
+	if e.prefix != "" && e.prefix != fieldPath {
+		key = e.prefix + "." + fieldPath
+	}
 	if _, seen := e.unenforced[key]; !seen {
 		e.unenforced[key] = node
 	}

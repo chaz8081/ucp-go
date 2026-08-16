@@ -99,12 +99,23 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**412 payloads across 122 schemas, zero disagreements.**
+**583 payloads across 137 schema files, zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
 reproducible; round-trip tests prove the types decode. Neither says whether
 `Validate` agrees with the schema. Only comparison against an independent
 implementation does.
+
+The count is of schema **files**, and for a long time it was only of files
+whose root was an object — every union-, array- and scalar-rooted schema
+produced no payloads at all and was counted as a skip. Widening the payload
+builder to those shapes took the figure from 412 across 122 to the number
+above, and found two real defects on the way: four request-variant types
+that were empty structs accepting any JSON object, and every named type
+accepting a bare `null`. Both are fixed. Eight files whose content lives
+entirely in `$defs` are still counted as skips rather than exercised; that
+is the next gap, and it is named in the harness output rather than left to
+be inferred.
 
 The oracle compiles `pattern` with **ECMA-262** semantics, via
 `dlclark/regexp2`, rather than the RE2 that Go's `regexp` and therefore the
@@ -166,6 +177,15 @@ full JSON Schema implementation, the gap is specific:
   built in Go rather than decoded from JSON skips the presence check —
   otherwise every hand-constructed request would fail before it could be
   sent — but still gets every value check.
+- **A bare `null` is rejected by every generated decoder.**
+  `json.Unmarshal([]byte("null"), &v)` is a documented no-op for every Go
+  type, and this SDK leans on the decoder as its JSON type check — a string
+  payload failing to decode into an `int64` *is* the rejection. `null` was
+  the one input the decoder let through for everything, so a null document
+  validated as though it were a real value. Each decoder now rejects it
+  outright. An optional property may still be `null` or absent, which
+  `encoding/json` handles at the pointer before the type's decoder is
+  reached.
 - **`format` is not asserted** (142 occurrences). In draft 2020-12 `format`
   is an annotation, not an assertion, unless a validator opts in. The oracle
   runs with format assertions off as well, so this is agreement with the
@@ -177,6 +197,13 @@ full JSON Schema implementation, the gap is specific:
   approximated: `else`, which no corpus schema declares, and a condition
   testing more than one property, where a wrong conjunction would silently
   mis-scope the rule it guards.
+
+  `contains` was verified only by unit tests when it shipped. `totals.json`
+  is array-rooted, and the differential harness produced no payloads for a
+  non-object root, so the rule reached the oracle for the first time one
+  phase later — at which point it agreed. The coverage figure above was
+  accurate throughout and still did not cover this; a number counts what it
+  counts, and the thing worth stating is which schemas were behind it.
 - **Two `if`/`then` pairs remain unenforced**, on `TotalCreateRequest` and
   `TotalUpdateRequest`. A request variant is a projection that drops every
   property marked `ucp_request:omit` while keeping the rules, so those two
