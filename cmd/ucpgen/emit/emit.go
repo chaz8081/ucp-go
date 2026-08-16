@@ -617,6 +617,14 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 		e.unenforced[typeName] = schema
 		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
 	}
+	if isRefAlias(schema, &c, underlying) {
+		// A Go type alias, not a defined type: this schema names an
+		// existing type rather than describing a new one, and `=` is the
+		// spelling that says so. See isRefAlias for what the defined form
+		// was silently dropping.
+		fmt.Fprintf(body, "type %s = %s\n\n", typeName, underlying)
+		return nil
+	}
 	fmt.Fprintf(body, "type %s %s\n\n", typeName, underlying)
 
 	// The decoder is this SDK's JSON type check, and null is the one input
@@ -642,6 +650,36 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s%s\treturn nil\n}\n\n",
 		typeName, c.checks.String(), c.nested.String())
 	return nil
+}
+
+// isRefAlias reports a schema whose entire content is a $ref to another
+// generated type.
+//
+// The defined form Go would otherwise get here — `type X types.Y` — copies
+// Y's fields and none of Y's methods, and that silence is the whole defect.
+// Y's UnmarshalJSON is what rejects a bare null and populates the presence
+// map that required-property checks read, so X decoded `null` and `{}` into
+// a zero value with an empty presence map; and X's own Validate is
+// generated from the $ref, which carries no constraints, so it was the
+// empty function. All five such types in the corpus — the $defs of
+// shopping/fulfillment.json — accepted every JSON object and a bare null
+// besides, and nothing else in the SDK enforced them, because the field
+// that holds one calls X.Validate rather than Y's.
+//
+// An alias has none of that to get wrong: X is Y, with Y's methods.
+//
+// The conditions are what keep the alias honest. A schema that adds a
+// keyword to its $ref compiles a check, and a check needs a method, which
+// an alias cannot carry; and a slice or map of a named type is a new type
+// however it is spelled, so only a plain named type qualifies.
+func isRefAlias(schema map[string]any, c *constraintSet, underlying string) bool {
+	if _, ok := schema["$ref"]; !ok {
+		return false
+	}
+	if c.vars.Len() > 0 || c.checks.Len() > 0 || c.nested.Len() > 0 {
+		return false
+	}
+	return underlying == elementType(underlying) && hasValidateMethod(underlying)
 }
 
 // aliasExpr reaches a named type's own value from its Validate receiver.

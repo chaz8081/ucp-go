@@ -220,41 +220,16 @@ func (v *FulfillmentCheckout) Validate() error {
 // not a schema); no type is emitted for it.
 
 // FulfillmentFulfillment is generated from shopping/fulfillment.json.
-type FulfillmentFulfillment types.Fulfillment
-
-// Validate reports the first constraint violation, or nil.
-func (v *FulfillmentFulfillment) Validate() error {
-	return nil
-}
+type FulfillmentFulfillment = types.Fulfillment
 
 // FulfillmentFulfillmentAvailableMethod is generated from shopping/fulfillment.json.
-type FulfillmentFulfillmentAvailableMethod types.FulfillmentAvailableMethod
-
-// Validate reports the first constraint violation, or nil.
-func (v *FulfillmentFulfillmentAvailableMethod) Validate() error {
-	return nil
-}
+type FulfillmentFulfillmentAvailableMethod = types.FulfillmentAvailableMethod
 
 // FulfillmentFulfillmentGroup is generated from shopping/fulfillment.json.
-type FulfillmentFulfillmentGroup types.FulfillmentGroup
-
-// Validate reports the first constraint violation, or nil.
-func (v *FulfillmentFulfillmentGroup) Validate() error {
-	return nil
-}
+type FulfillmentFulfillmentGroup = types.FulfillmentGroup
 
 // FulfillmentFulfillmentMethod is generated from shopping/fulfillment.json.
-type FulfillmentFulfillmentMethod types.FulfillmentMethod
-
-// Validate reports the first constraint violation, or nil.
-func (v *FulfillmentFulfillmentMethod) Validate() error {
-	return nil
-}
+type FulfillmentFulfillmentMethod = types.FulfillmentMethod
 
 // FulfillmentFulfillmentOption is generated from shopping/fulfillment.json.
-type FulfillmentFulfillmentOption types.FulfillmentOption
-
-// Validate reports the first constraint violation, or nil.
-func (v *FulfillmentFulfillmentOption) Validate() error {
-	return nil
-}
+type FulfillmentFulfillmentOption = types.FulfillmentOption
