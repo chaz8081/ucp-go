@@ -4,8 +4,7 @@
 package types
 
 // AttributionCreateRequest Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.
-type AttributionCreateRequest struct {
-}
+type AttributionCreateRequest map[string]string
 
 // Validate reports the first constraint violation, or nil.
 func (v *AttributionCreateRequest) Validate() error {

@@ -557,7 +557,13 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 			return fmt.Errorf("%s: properties is %T, want an object of property definitions", typeName, raw)
 		}
 	}
-	_, hasProps := schema["properties"].(map[string]any)
+	// An empty properties map is not properties. It still satisfies the
+	// type assertion above, which is what sent the four request variants
+	// carrying `properties: {}` down the struct path — they shipped as
+	// empty structs whose Validate accepted any JSON object, while the
+	// identical schema without the empty key rendered as a proper union.
+	props, _ := schema["properties"].(map[string]any)
+	hasProps := len(props) > 0
 
 	// A union whose members are all $refs becomes a Go interface, with each
 	// member type given a marker method. Members must be in this package:

@@ -3,64 +3,10 @@
 
 package types
 
-import "encoding/json"
-
 // TotalUpdateRequest A cost breakdown entry with a category, amount, and optional display text.
 //
-// Not enforced yet (phase 4) on the object itself: if, then.
-type TotalUpdateRequest struct {
-
-	// Extra holds properties the schema does not name. The schema is
-	// open (additionalProperties is not false), so extension keys are
-	// preserved here and re-emitted on marshal rather than dropped.
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-// UnmarshalJSON decodes the named properties and keeps everything else
-// in Extra.
-func (v *TotalUpdateRequest) UnmarshalJSON(data []byte) error {
-	type TotalUpdateRequestAlias TotalUpdateRequest
-	var named TotalUpdateRequestAlias
-	if err := json.Unmarshal(data, &named); err != nil {
-		return err
-	}
-	*v = TotalUpdateRequest(named)
-
-	var all map[string]json.RawMessage
-	if err := json.Unmarshal(data, &all); err != nil {
-		return err
-	}
-	if len(all) > 0 {
-		v.Extra = all
-	}
-	return nil
-}
-
-// MarshalJSON emits the named properties alongside anything held in
-// Extra.
-func (v TotalUpdateRequest) MarshalJSON() ([]byte, error) {
-	type TotalUpdateRequestAlias TotalUpdateRequest
-	named, err := json.Marshal(TotalUpdateRequestAlias(v))
-	if err != nil {
-		return nil, err
-	}
-	if len(v.Extra) == 0 {
-		return named, nil
-	}
-	var merged map[string]json.RawMessage
-	if err := json.Unmarshal(named, &merged); err != nil {
-		return nil, err
-	}
-	if merged == nil {
-		merged = map[string]json.RawMessage{}
-	}
-	for k, val := range v.Extra {
-		if _, named := merged[k]; !named {
-			merged[k] = val
-		}
-	}
-	return json.Marshal(merged)
-}
+// Not enforced yet (phase 4): if, then.
+type TotalUpdateRequest map[string]any
 
 // Validate reports the first constraint violation, or nil.
 func (v *TotalUpdateRequest) Validate() error {

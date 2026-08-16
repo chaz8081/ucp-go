@@ -133,8 +133,13 @@ func (e *fileEmitter) goTypeExpr(node map[string]any, fieldName string) (string,
 	// round-trip losslessly while claiming no typing we haven't done.
 	// Typed variants are phase 4. A node with BOTH a union and properties is
 	// handled by the caller, which renders the properties as a struct.
+	//
+	// An empty properties map names no properties, so a node carrying one is
+	// still a union of alternatives and belongs here rather than in the
+	// object case below, where it would become an untyped map that records
+	// nothing of the union and turns every number inside it into a float64.
 	if hasUnion(node) {
-		if _, hasProps := node["properties"].(map[string]any); !hasProps {
+		if props, _ := node["properties"].(map[string]any); len(props) == 0 {
 			e.imports["encoding/json"] = "json"
 			return "json.RawMessage", nil
 		}
@@ -231,7 +236,13 @@ func (e *fileEmitter) goTypeForNamed(t string, node map[string]any, fieldName st
 			}
 			return "map[string]" + inner, nil
 		}
-		if _, ok := node["properties"].(map[string]any); ok {
+		// An object promoted to a named inline type must have fields to put
+		// in it, and an empty properties map yields none. Worse, at a file's
+		// own type the promotion names the new type after the type being
+		// rendered and queues it for rendering, which promotes it again
+		// under the same prefix — the name grows by one prefix per pass and
+		// generation never finishes. Empty falls through to the map below.
+		if props, _ := node["properties"].(map[string]any); len(props) > 0 {
 			name := e.prefix + GoName(fieldName)
 			// Two different inline objects mapping to one name would emit
 			// two type declarations with that name. format.Source only

@@ -3,62 +3,8 @@
 
 package types
 
-import "encoding/json"
-
 // FulfillmentOptionCreateRequest A fulfillment option within a group (e.g., Standard Shipping $5, Express $15).
-type FulfillmentOptionCreateRequest struct {
-
-	// Extra holds properties the schema does not name. The schema is
-	// open (additionalProperties is not false), so extension keys are
-	// preserved here and re-emitted on marshal rather than dropped.
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-// UnmarshalJSON decodes the named properties and keeps everything else
-// in Extra.
-func (v *FulfillmentOptionCreateRequest) UnmarshalJSON(data []byte) error {
-	type FulfillmentOptionCreateRequestAlias FulfillmentOptionCreateRequest
-	var named FulfillmentOptionCreateRequestAlias
-	if err := json.Unmarshal(data, &named); err != nil {
-		return err
-	}
-	*v = FulfillmentOptionCreateRequest(named)
-
-	var all map[string]json.RawMessage
-	if err := json.Unmarshal(data, &all); err != nil {
-		return err
-	}
-	if len(all) > 0 {
-		v.Extra = all
-	}
-	return nil
-}
-
-// MarshalJSON emits the named properties alongside anything held in
-// Extra.
-func (v FulfillmentOptionCreateRequest) MarshalJSON() ([]byte, error) {
-	type FulfillmentOptionCreateRequestAlias FulfillmentOptionCreateRequest
-	named, err := json.Marshal(FulfillmentOptionCreateRequestAlias(v))
-	if err != nil {
-		return nil, err
-	}
-	if len(v.Extra) == 0 {
-		return named, nil
-	}
-	var merged map[string]json.RawMessage
-	if err := json.Unmarshal(named, &merged); err != nil {
-		return nil, err
-	}
-	if merged == nil {
-		merged = map[string]json.RawMessage{}
-	}
-	for k, val := range v.Extra {
-		if _, named := merged[k]; !named {
-			merged[k] = val
-		}
-	}
-	return json.Marshal(merged)
-}
+type FulfillmentOptionCreateRequest map[string]any
 
 // Validate reports the first constraint violation, or nil.
 func (v *FulfillmentOptionCreateRequest) Validate() error {
