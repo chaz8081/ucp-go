@@ -99,23 +99,50 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**583 payloads across 137 schema files, zero disagreements.**
+**693 payloads across 157 generated types (128 of them schema-file roots),
+one known disagreement.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
 reproducible; round-trip tests prove the types decode. Neither says whether
 `Validate` agrees with the schema. Only comparison against an independent
 implementation does.
 
-The count is of schema **files**, and for a long time it was only of files
-whose root was an object — every union-, array- and scalar-rooted schema
-produced no payloads at all and was counted as a skip. Widening the payload
-builder to those shapes took the figure from 412 across 122 to the number
-above, and found two real defects on the way: four request-variant types
-that were empty structs accepting any JSON object, and every named type
-accepting a bare `null`. Both are fixed. Eight files whose content lives
-entirely in `$defs` are still counted as skips rather than exercised; that
-is the next gap, and it is named in the harness output rather than left to
-be inferred.
+The denominator counts **emitted Go types**, which is a different quantity
+from the schema **files** it used to count, and larger: the emitter produces
+231 types from 145 files, because a file's `$defs` become types of their
+own. Iterating files reached only each file's root type, so every `$defs`
+type went unchecked — and eight files, holding the whole capability model
+along with ap2_mandate, buyer_consent, discount, fulfillment and
+identity_linking, have no root type at all and were skipped entire. That gap
+is now closed: each `$def` that emits a type is a target in its own right.
+The two `$defs` that emit nothing are extension mount points — namespaces
+grouping other schemas — and are not a gap.
+
+Each widening has found real defects. Covering union-, array- and
+scalar-rooted schemas found four request-variant types that were empty
+structs accepting any JSON object, and every named type accepting a bare
+`null`. Covering `$defs` found that a `$def` consisting only of a `$ref` was
+emitted as a Go *defined* type over its target, which copies the target's
+fields and none of its methods: five types accepted `{}` and `null`
+unconditionally. All are fixed.
+
+One disagreement is open and deliberately not suppressed.
+`available_card_payment_instrument` narrows an inherited `type` property to
+`const: "card"`, and the `allOf` merge — which mirrors the python-sdk's
+`properties.update()` precedence — lets the inherited definition overwrite
+the narrowing, so the constant is never enforced. The same precedence
+flattens `CardPaymentInstrument.Display` to `map[string]any` and discards
+the local definition at nine further sites in the corpus. Fixing it changes
+generated types rather than only checks, so it is a decision rather than a
+patch, and the harness names it on every run instead of counting it as a
+skip.
+
+Figures below the headline are equally literal. 71 targets cannot be
+compiled by the oracle at all: `capability.json`, `payment_handler.json` and
+`service.json` each `$ref` a `#/$defs/version` that no file defines, which
+is inherited from the upstream preprocessor rather than introduced here
+(python-sdk#72). They are reported as skips, not folded into the exercised
+count.
 
 The oracle compiles `pattern` with **ECMA-262** semantics, via
 `dlclark/regexp2`, rather than the RE2 that Go's `regexp` and therefore the
