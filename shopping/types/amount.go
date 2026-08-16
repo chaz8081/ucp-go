@@ -3,10 +3,30 @@
 
 package types
 
-import "errors"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // Amount Monetary amount in the currency's minor unit as defined by ISO 4217. Refer to the currency's exponent to determine minor-to-major ratio (e.g., 2 for USD, 0 for JPY, 3 for KWD).
 type Amount int64
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *Amount) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Amount: null is not a valid integer")
+	}
+	type AmountAlias Amount
+	var alias AmountAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = Amount(alias)
+	return nil
+}
 
 // Validate reports the first constraint violation, or nil.
 func (v *Amount) Validate() error {

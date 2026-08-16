@@ -447,6 +447,11 @@ func (b *builder) scalarMutations(schema map[string]any, rel string) []payload {
 	// A value of the wrong JSON type is a rejection both sides must reach.
 	// An object is wrong for every scalar shape.
 	add("wrong-json-type", map[string]any{})
+	// null is the wrong JSON type that the decoder alone cannot catch:
+	// json.Unmarshal treats it as a no-op for every Go type, so it used to
+	// arrive at Validate as an indistinguishable zero value and be accepted.
+	// A nil any marshals to the literal null.
+	add("null", nil)
 	return out
 }
 
@@ -477,6 +482,10 @@ func (b *builder) arrayMutations(schema map[string]any, rel string) []payload {
 	// An empty array carries no items, so nothing but minContains can reject
 	// it — which is what makes it a clean reading of that keyword.
 	add("empty-array", []any{})
+	// null decodes into a slice as a no-op, leaving it nil. Totals then
+	// skipped its contains count outright, because that check is guarded on
+	// the slice being non-nil — the array root's version of the same hole.
+	add("null", nil)
 
 	if match != nil {
 		// Zero matches, then one more than maxContains permits. Both are

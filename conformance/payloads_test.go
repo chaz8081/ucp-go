@@ -152,7 +152,7 @@ func TestMutationsCoverArrayRoots(t *testing.T) {
 	for _, p := range got {
 		names[p.name] = true
 	}
-	for _, want := range []string{"base", "empty-array", "too-few-matching", "too-many-matching"} {
+	for _, want := range []string{"base", "empty-array", "null", "too-few-matching", "too-many-matching"} {
 		if !names[want] {
 			t.Errorf("missing payload %q; got %v", want, names)
 		}
@@ -177,9 +177,9 @@ func TestMutationsCoverScalarRoots(t *testing.T) {
 	}
 	b := builder{corpus: corpus}
 	for rel, want := range map[string][]string{
-		"r.json": {"base", "bad-pattern", "wrong-json-type"},
-		"c.json": {"base", "bad-enum", "wrong-json-type"},
-		"n.json": {"base", "below-minimum", "wrong-json-type"},
+		"r.json": {"base", "bad-pattern", "wrong-json-type", "null"},
+		"c.json": {"base", "bad-enum", "wrong-json-type", "null"},
+		"n.json": {"base", "below-minimum", "wrong-json-type", "null"},
 	} {
 		names := map[string]bool{}
 		for _, p := range b.mutations(corpus[rel], rel) {
@@ -189,6 +189,36 @@ func TestMutationsCoverScalarRoots(t *testing.T) {
 			if !names[w] {
 				t.Errorf("%s: missing payload %q; got %v", rel, w, names)
 			}
+		}
+	}
+}
+
+// The null case is built from a nil any rather than from a literal, so what
+// it actually encodes to is worth stating: a payload that quietly encoded as
+// `""` or `{}` would still be exercised, still agree, and prove nothing about
+// the hole it exists to cover.
+func TestNullPayloadIsTheJSONLiteral(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"n.json": {"$id": "https://x/n.json", "type": "integer"},
+		"t.json": {
+			"$id": "https://x/t.json", "type": "array",
+			"items": map[string]any{"type": "string"},
+		},
+	}
+	b := builder{corpus: corpus}
+	for _, rel := range []string{"n.json", "t.json"} {
+		found := false
+		for _, p := range b.mutations(corpus[rel], rel) {
+			if p.name != "null" {
+				continue
+			}
+			found = true
+			if string(p.json) != "null" {
+				t.Errorf("%s: null payload encodes to %q, want the JSON literal null", rel, p.json)
+			}
+		}
+		if !found {
+			t.Errorf("%s: no null payload", rel)
 		}
 	}
 }

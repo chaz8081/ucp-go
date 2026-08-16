@@ -354,6 +354,23 @@ func (v *AP2MandateCheckout) Validate() error {
 // AP2MandateCheckoutMandate SD-JWT+kb credential in `ap2.checkout_mandate`. Proving user authorization for the checkout. Contains the full checkout including `ap2.merchant_authorization`.
 type AP2MandateCheckoutMandate string
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *AP2MandateCheckoutMandate) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AP2MandateCheckoutMandate: null is not a valid string")
+	}
+	type AP2MandateCheckoutMandateAlias AP2MandateCheckoutMandate
+	var alias AP2MandateCheckoutMandateAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = AP2MandateCheckoutMandate(alias)
+	return nil
+}
+
 var pattern_AP2MandateCheckoutMandate = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile("^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]+(~[A-Za-z0-9_-]+)*$")
 })
@@ -369,6 +386,23 @@ func (v *AP2MandateCheckoutMandate) Validate() error {
 // AP2MandateErrorCode Error codes specific to AP2 mandate verification.
 type AP2MandateErrorCode string
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *AP2MandateErrorCode) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AP2MandateErrorCode: null is not a valid string")
+	}
+	type AP2MandateErrorCodeAlias AP2MandateErrorCode
+	var alias AP2MandateErrorCodeAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = AP2MandateErrorCode(alias)
+	return nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *AP2MandateErrorCode) Validate() error {
 	if string(*v) != "mandate_required" && string(*v) != "agent_missing_key" && string(*v) != "mandate_invalid_signature" && string(*v) != "mandate_expired" && string(*v) != "mandate_scope_mismatch" && string(*v) != "merchant_authorization_invalid" && string(*v) != "merchant_authorization_missing" {
@@ -379,6 +413,23 @@ func (v *AP2MandateErrorCode) Validate() error {
 
 // AP2MandateMerchantAuthorization JWS Detached Content signature (RFC 7515 Appendix F) over the checkout response body (excluding ap2 field). Format: `<base64url-header>..<base64url-signature>`. The header MUST contain 'alg' (ES256/ES384/ES512) and 'kid' claims. The signature covers both the header and JCS-canonicalized checkout payload.
 type AP2MandateMerchantAuthorization string
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *AP2MandateMerchantAuthorization) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AP2MandateMerchantAuthorization: null is not a valid string")
+	}
+	type AP2MandateMerchantAuthorizationAlias AP2MandateMerchantAuthorization
+	var alias AP2MandateMerchantAuthorizationAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = AP2MandateMerchantAuthorization(alias)
+	return nil
+}
 
 var pattern_AP2MandateMerchantAuthorization = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^[A-Za-z0-9_-]+\\.\\.[A-Za-z0-9_-]+$") })
 

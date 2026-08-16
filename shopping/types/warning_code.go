@@ -3,8 +3,30 @@
 
 package types
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // WarningCode Warning code identifying the type of warning. Standard codes are defined in capability specs (see examples), and have standardized semantics; freeform codes are permitted.
 type WarningCode string
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *WarningCode) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("WarningCode: null is not a valid string")
+	}
+	type WarningCodeAlias WarningCode
+	var alias WarningCodeAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = WarningCode(alias)
+	return nil
+}
 
 // Validate reports the first constraint violation, or nil.
 func (v *WarningCode) Validate() error {

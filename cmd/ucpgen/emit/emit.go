@@ -619,6 +619,17 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	}
 	fmt.Fprintf(body, "type %s %s\n\n", typeName, underlying)
 
+	// The decoder is this SDK's JSON type check, and null is the one input
+	// it lets through for every type, so a scalar or array root needs a
+	// decoder of its own to reject it (see nullcodec.go). This is the only
+	// branch of renderNamedType that has not already written an
+	// UnmarshalJSON, which is what keeps it at exactly one per type.
+	if needsNullCodec(underlying) {
+		e.usesErrors = true
+		e.imports["encoding/json"] = "json"
+		renderNullCodec(body, typeName, underlying, schema)
+	}
+
 	// A named primitive usually exists for its constraint, so emitting an
 	// empty Validate here would leave it unenforced precisely where it
 	// carries the most meaning.

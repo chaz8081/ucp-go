@@ -1399,6 +1399,23 @@ func (v *UCPSuccess) Validate() error {
 // UCPVersion UCP version in YYYY-MM-DD format.
 type UCPVersion string
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *UCPVersion) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPVersion: null is not a valid string")
+	}
+	type UCPVersionAlias UCPVersion
+	var alias UCPVersionAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = UCPVersion(alias)
+	return nil
+}
+
 var pattern_UCPVersion = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
 
 // Validate reports the first constraint violation, or nil.
