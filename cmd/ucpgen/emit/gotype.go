@@ -16,9 +16,16 @@ type nestedType struct {
 // fileEmitter carries the per-file state rendering accumulates: the imports
 // the file needs and the inline object types it must also emit.
 type fileEmitter struct {
-	idx     *TypeIndex
-	rel     string            // schema being rendered
-	doc     map[string]any    // the whole document, for resolving local $refs
+	idx *TypeIndex
+	rel string         // schema being rendered
+	doc map[string]any // the whole document, for resolving local $refs
+	// corpus holds every schema in the spec, keyed by relative path, for
+	// the one job that needs the CONTENT a cross-file $ref names rather
+	// than the Go type it becomes: a conditional's consequent tightens a
+	// referenced property without restating its type, and only the
+	// referenced document says what that type is. Nil outside a full
+	// corpus run, where such a lookup fails loudly rather than guessing.
+	corpus  map[string]map[string]any
 	pkg     string            // package it belongs to
 	prefix  string            // type-name prefix for nested types
 	imports map[string]string // import path -> package name
@@ -44,6 +51,12 @@ type fileEmitter struct {
 	// graph acyclic (see goTypeExpr), so the affected fields can say so.
 	degradedRefs map[string]string
 
+	// presenceGated names the types carrying a conditional that only runs
+	// for values decoded from JSON, so the doc comment can say so. A rule
+	// that silently does nothing for half the SDK's use is worse than an
+	// absent one, because the reader has no way to tell.
+	presenceGated map[string]bool
+
 	// breaks[dstImportPath] marks an edge out of this package that must not
 	// be a real import; see CycleBreaks.
 	breaks map[string]bool
@@ -61,6 +74,7 @@ func newFileEmitterWithBreaks(idx *TypeIndex, rel, pkg string, breaks map[string
 		unenforced:    map[string]map[string]any{},
 		enforced:      enforcedKeywords{},
 		degradedRefs:  map[string]string{},
+		presenceGated: map[string]bool{},
 		breaks:        breaks,
 	}
 	// Nested type names hang off the enclosing type, so a file's inline

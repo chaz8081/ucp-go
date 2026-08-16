@@ -251,6 +251,9 @@
         "CatalogLookupDetailProduct.url": [
           "format"
         ],
+        "CatalogLookupLookupResponseProductsItem.url": [
+          "format"
+        ],
         "CatalogLookupLookupVariant.url": [
           "format"
         ],
@@ -1007,13 +1010,7 @@
       "type": "Pagination",
       "package": "types",
       "file": "shopping/types/pagination.go",
-      "fields": 0,
-      "unenforced": {
-        "PaginationResponse": [
-          "if",
-          "then"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/payment_credential.json": {
       "type": "PaymentCredential",
@@ -1249,13 +1246,7 @@
       "type": "Total",
       "package": "types",
       "file": "shopping/types/total.go",
-      "fields": 3,
-      "unenforced": {
-        "Total": [
-          "if",
-          "then"
-        ]
-      }
+      "fields": 3
     },
     "shopping/types/total_create_request.json": {
       "type": "TotalCreateRequest",
@@ -1285,79 +1276,19 @@
       "type": "Totals",
       "package": "types",
       "file": "shopping/types/totals.go",
-      "fields": 0,
-      "unenforced": {
-        "Totals": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "Totals.Totals": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "Totals.Totals_item": [
-          "if",
-          "then"
-        ],
-        "TotalsTotalsItem": [
-          "if",
-          "then"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/totals_create_request.json": {
       "type": "TotalsCreateRequest",
       "package": "types",
       "file": "shopping/types/totals_create_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalsCreateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsCreateRequest.TotalsCreateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsCreateRequest.TotalsCreateRequest_item": [
-          "if",
-          "then"
-        ],
-        "TotalsCreateRequestTotalscreaterequestItem": [
-          "if",
-          "then"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/totals_update_request.json": {
       "type": "TotalsUpdateRequest",
       "package": "types",
       "file": "shopping/types/totals_update_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalsUpdateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsUpdateRequest.TotalsUpdateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsUpdateRequest.TotalsUpdateRequest_item": [
-          "if",
-          "then"
-        ],
-        "TotalsUpdateRequestTotalsupdaterequestItem": [
-          "if",
-          "then"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/variant.json": {
       "type": "Variant",

@@ -108,6 +108,10 @@ func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
 	// node's coverage gap and nothing else would report them — total.json's
 	// two amount rules would otherwise vanish from both the doc comment and
 	// the manifest, which is precisely what this accounting exists to stop.
+	// The ledger is consulted against the branch, not the parent, because
+	// that is the map compileConditional marks; a branch whose rule now
+	// compiles must drop out of the gap, or the doc comment and manifest go
+	// on claiming a hole the generated code has already filled.
 	if branches, ok := node["allOf"].([]any); ok {
 		for _, b := range branches {
 			bm, isObj := b.(map[string]any)
@@ -115,7 +119,7 @@ func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
 				continue
 			}
 			for k := range bm {
-				if validationOnlyKeywords[k] {
+				if validationOnlyKeywords[k] && !e.enforced.has(bm, k) {
 					seen[k] = true
 				}
 			}
@@ -174,11 +178,13 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 	// Kept so a union can compare its members' bodies, which means resolving
 	// local $refs against the document rather than against the node.
 	e.doc = schema
+	e.corpus = corpus
 
 	// ucp.json and its two request variants are skipped by the preprocessing
 	// pipeline (mirroring python), so they arrive with allOf still unmerged
-	// inside their $defs. Merge locally so every renderer below sees a flat
-	// node.
+	// inside their $defs; every other file arrives with its cross-file
+	// branches deferred to here. Merge so every renderer below sees a flat
+	// node, wherever in the document that node sits.
 	if err := mergeAllOf(schema, relPath, corpus); err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
@@ -248,7 +254,15 @@ var lastUnenforced map[string][]string
 // "Type.field-path".
 func LastUnenforced() map[string][]string { return lastUnenforced }
 
-// mergeAllOf flattens allOf at the document root and inside each $def.
+// instanceValuedKeywords hold example JSON values rather than subschemas.
+// Whatever is nested under them is data the schema talks ABOUT, so an
+// "allOf" key found down there is a property of some example object, not a
+// composition to flatten. Merging it would rewrite the spec's own examples.
+var instanceValuedKeywords = map[string]bool{
+	"enum": true, "const": true, "default": true, "examples": true,
+}
+
+// mergeAllOf flattens allOf everywhere it appears in a schema document.
 //
 // preprocess.MergeAllOf resolves only same-document refs and re-emits
 // cross-file branches as a residual allOf. Those branches carry real
@@ -256,47 +270,110 @@ func LastUnenforced() map[string][]string { return lastUnenforced }
 // plus one own property, so ignoring the residual would silently drop nine
 // address fields — so they are resolved here against the rest of the
 // corpus, which the emitter (unlike the preprocessor) has in hand.
+//
+// The walk visits every node rather than a list of the positions a
+// subschema may legally occupy. An inline object promoted to a named type
+// can sit at any depth — totals.json puts one on `items`, catalog_lookup
+// puts one four levels down under a $def — and a position the walk did not
+// think to name would go unmerged in exactly the silent way this function
+// exists to prevent. Enumerating applicator keywords would also miss the
+// spec's two extension mount points, whose business_schema/platform_schema
+// children are schemas hanging off a plain grouping object under no
+// keyword at all.
 func mergeAllOf(schema map[string]any, relPath string, corpus map[string]map[string]any) error {
-	if err := resolveCrossFileAllOf(schema, relPath, corpus, map[string]bool{}); err != nil {
+	return mergeAllOfNode(schema, schema, "", relPath, corpus)
+}
+
+// mergeAllOfNode merges one node's allOf, checks what the merge left
+// behind, and then does the same for every node below it.
+//
+// Order is load-bearing in two directions. Within a node, the cross-file
+// resolution has to run before the local merge, because it is what turns a
+// borrowed file into a branch the local merge can fold in. Between nodes,
+// the parent has to be merged before its children are walked: folding a
+// branch in brings whole subtrees with it, and those subtrees may carry
+// allOf of their own that a bottom-up walk would already have passed.
+//
+// at names the node for error messages; it is empty at the document root.
+func mergeAllOfNode(node, doc map[string]any, at, relPath string, corpus map[string]map[string]any) error {
+	if err := resolveCrossFileAllOf(node, relPath, corpus, map[string]bool{}); err != nil {
+		return locate(at, err)
+	}
+	// doc, not node: a "#/$defs/…" branch anywhere in the document is
+	// written against the document root, so a nested node still resolves its
+	// local refs there.
+	if err := preprocess.MergeAllOf(node, doc); err != nil {
+		return locate(at, err)
+	}
+	if err := checkResidualAllOf(node, at); err != nil {
 		return err
 	}
-	if err := preprocess.MergeAllOf(schema, schema); err != nil {
-		return err
+
+	// Keys are collected after the merge — the merge is what decides which
+	// children exist — and sorted so that a corpus-wide failure always
+	// surfaces at the same node.
+	keys := make([]string, 0, len(node))
+	for k := range node {
+		keys = append(keys, k)
 	}
-	defs, _ := schema["$defs"].(map[string]any)
-	names := make([]string, 0, len(defs))
-	for name := range defs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		def, ok := defs[name].(map[string]any)
-		if !ok {
+	sort.Strings(keys)
+	for _, k := range keys {
+		if instanceValuedKeywords[k] {
 			continue
 		}
-		if err := resolveCrossFileAllOf(def, relPath, corpus, map[string]bool{}); err != nil {
-			return fmt.Errorf("$defs/%s: %w", name, err)
-		}
-		if err := preprocess.MergeAllOf(def, schema); err != nil {
-			return fmt.Errorf("$defs/%s: %w", name, err)
+		if err := mergeAllOfChild(node[k], doc, at+"/"+k, relPath, corpus); err != nil {
+			return err
 		}
 	}
-	if residual, ok := schema["allOf"].([]any); ok && len(residual) > 0 {
-		// A conditional branch is a rule, not a set of fields, so the
-		// preprocessor deliberately leaves it in the allOf rather than
-		// folding it in. That residual is expected and carries no fields to
-		// lose; conditional evaluation is unimplemented, and the keywords
-		// are reported as such. Anything else remaining here is unresolved
-		// inheritance, which silently drops real fields — see the comment
-		// above — and must still fail.
-		for _, b := range residual {
-			bm, isObj := b.(map[string]any)
-			if !isObj || !preprocess.HasConditional(bm) {
-				return fmt.Errorf("allOf branches remain unresolved after merging: %v", residual)
+	return nil
+}
+
+// mergeAllOfChild descends through whatever containers stand between a
+// schema node and the next one — a $defs or properties map, an allOf or
+// prefixItems array — without caring which keyword produced them.
+func mergeAllOfChild(child any, doc map[string]any, at, relPath string, corpus map[string]map[string]any) error {
+	switch t := child.(type) {
+	case map[string]any:
+		return mergeAllOfNode(t, doc, at, relPath, corpus)
+	case []any:
+		for i, el := range t {
+			if err := mergeAllOfChild(el, doc, fmt.Sprintf("%s/%d", at, i), relPath, corpus); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+// checkResidualAllOf fails on inheritance the merge could not resolve.
+//
+// A conditional branch is a rule, not a set of fields, so the preprocessor
+// deliberately leaves it in the allOf rather than folding it in; the
+// emitter compiles those into predicates. Anything else remaining is a
+// branch whose fields were dropped, which produces a type quietly narrower
+// than the schema — the failure mode that cost ShippingDestination nine
+// address fields — so it stops generation instead.
+func checkResidualAllOf(node map[string]any, at string) error {
+	residual, ok := node["allOf"].([]any)
+	if !ok || len(residual) == 0 {
+		return nil
+	}
+	for _, b := range residual {
+		bm, isObj := b.(map[string]any)
+		if !isObj || !preprocess.HasConditional(bm) {
+			return locate(at, fmt.Errorf("allOf branches remain unresolved after merging: %v", residual))
+		}
+	}
+	return nil
+}
+
+// locate prefixes an error with the node it came from. The document root
+// has no path and reads better without one.
+func locate(at string, err error) error {
+	if at == "" {
+		return err
+	}
+	return fmt.Errorf("%s: %w", strings.TrimPrefix(at, "/"), err)
 }
 
 // resolveCrossFileAllOf replaces each cross-file $ref branch of a node's
@@ -307,6 +384,7 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 	if !ok || corpus == nil {
 		return nil
 	}
+	var lifted []any
 	for i, raw := range branches {
 		branch, ok := raw.(map[string]any)
 		if !ok {
@@ -317,10 +395,19 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 			continue
 		}
 		filePart, fragment, _ := strings.Cut(ref, "#")
-		if filePart == "" {
-			continue // local ref: preprocess.MergeAllOf handles it
+		if filePart == "" && ref != "#" {
+			continue // "#/$defs/…": preprocess.MergeAllOf resolves it
 		}
-		target := path.Join(path.Dir(relPath), filePart)
+		// A bare "#" names the document itself — payment_instrument.json's
+		// selected variant is allOf["#"] plus one own property, and its three
+		// request forms repeat the shape. preprocess.MergeAllOf follows only
+		// "#/…" pointers, so this one reaches here unresolved; resolving it is
+		// the same operation as a cross-file ref whose target happens to be
+		// the borrowing file.
+		target := relPath
+		if filePart != "" {
+			target = path.Join(path.Dir(relPath), filePart)
+		}
 		targetSchema, ok := corpus[target]
 		if !ok {
 			return fmt.Errorf("allOf references %q, which is not in the corpus", ref)
@@ -359,9 +446,54 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 		if err := resolveCrossFileAllOf(inlined, target, corpus, seen); err != nil {
 			return err
 		}
+		lifted = append(lifted, liftConditionals(inlined)...)
 		branches[i] = inlined
 	}
+	if len(lifted) > 0 {
+		node["allOf"] = append(branches, lifted...)
+	}
 	return nil
+}
+
+// liftConditionals takes the conditional rule branches off an inlined
+// schema's own allOf and returns them, so the caller can hang them on the
+// borrowing node instead.
+//
+// preprocess.MergeAllOf reserves a resolved branch's leftover allOf to
+// that branch and never copies it onto the parent, matching python-sdk's
+// reserved-key set (preprocess_schemas.py:123-130). That is right for the
+// preprocessor, whose output has to stay byte-identical to python's. But
+// the emitter inlines cross-file refs, which python never does, and a $ref
+// means the instance must satisfy the whole target — rules included. Left
+// reserved, total.json's two amount rules reach the standalone Total type
+// and silently vanish from the element type of Totals, which borrows the
+// same file. The oracle resolves the ref and enforces them in both places,
+// so the gap shows up as a conformance disagreement rather than anything
+// visible in the generated code.
+//
+// Only rules travel. A leftover $ref branch is scoped to the target, and
+// resolving it against the borrowing file would read it from the wrong
+// directory.
+func liftConditionals(inlined map[string]any) []any {
+	branches, ok := inlined["allOf"].([]any)
+	if !ok {
+		return nil
+	}
+	var rules, kept []any
+	for _, raw := range branches {
+		branch, isObj := raw.(map[string]any)
+		if isObj && preprocess.HasConditional(branch) {
+			rules = append(rules, branch)
+			continue
+		}
+		kept = append(kept, raw)
+	}
+	if len(kept) == 0 {
+		delete(inlined, "allOf")
+	} else {
+		inlined["allOf"] = kept
+	}
+	return rules
 }
 
 // rebaseRefs rewrites every relative cross-file $ref in a subtree that was
@@ -465,6 +597,7 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if err := compileConstraints(e, &c, typeName, "", aliasExpr(underlying), accessValue, schema); err != nil {
 		return err
 	}
+	compileNestedAlias(&c, underlying)
 
 	writeDoc(e, body, typeName, schema)
 	if keyword, members := unionMembers(schema); len(members) > 0 {
@@ -486,7 +619,11 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if c.vars.Len() > 0 {
 		body.WriteString(c.vars.String())
 	}
-	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s\treturn nil\n}\n\n", typeName, c.checks.String())
+	// c.nested carries the element recursion for a named slice or map.
+	// Omitting it here is what let Totals validate its own contains rule
+	// while ignoring every element inside it.
+	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s%s\treturn nil\n}\n\n",
+		typeName, c.checks.String(), c.nested.String())
 	return nil
 }
 
@@ -709,21 +846,38 @@ func writeDoc(e *fileEmitter, body *strings.Builder, typeName string, schema map
 	fmt.Fprintf(body, "// %s is generated from %s.\n", typeName, e.rel)
 }
 
-// renderStruct emits an object schema as a Go struct plus its Validate.
-func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
+// fieldsFor derives the struct fields an object schema produces: JSON
+// name, Go name, Go type, and whether it is required. renderStruct and
+// any predicate compiled against the resulting struct both read this, so
+// the struct definition and the checks written against it cannot
+// disagree about a field's name or type. Calling it more than once on the
+// same node is safe, because everything goTypeExpr registers is keyed by
+// the prefix and idempotent under it — e.nestedSchemas dedups, e.imports
+// is a map assign, and noteUnenforced is guarded on not-yet-seen — but
+// calling it for the same node under a different prefix would register
+// one inline object twice, under two names.
+func fieldsFor(e *fileEmitter, typeName string, schema map[string]any) ([]structField, error) {
+	// Nested types discovered under this struct are namespaced by it, so
+	// the prefix has to be in place before any property type is resolved.
+	// It lives here rather than at the call site because a caller that
+	// forgets it gets silently mis-named types rather than an error.
+	savedPrefix := e.prefix
+	e.prefix = typeName
+	defer func() { e.prefix = savedPrefix }()
+
 	required := map[string]bool{}
 	if reqRaw, hasReq := schema["required"]; hasReq {
 		reqs, isArray := reqRaw.([]any)
 		if !isArray {
 			if _, isBool := reqRaw.(bool); isBool {
-				return fmt.Errorf("%s: required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", typeName)
+				return nil, fmt.Errorf("%s: required is a boolean (OpenRPC parameter semantics); object schemas need an array of property-name strings", typeName)
 			}
-			return fmt.Errorf("%s: required is %T, want an array of property-name strings", typeName, reqRaw)
+			return nil, fmt.Errorf("%s: required is %T, want an array of property-name strings", typeName, reqRaw)
 		}
 		for _, r := range reqs {
 			s, ok := r.(string)
 			if !ok {
-				return fmt.Errorf("%s: required entry is not a string", typeName)
+				return nil, fmt.Errorf("%s: required entry is not a string", typeName)
 			}
 			required[s] = true
 		}
@@ -735,40 +889,28 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	}
 	sort.Strings(names) // determinism
 
-	// Nested types discovered under this struct are namespaced by it.
-	savedPrefix := e.prefix
-	e.prefix = typeName
-	defer func() { e.prefix = savedPrefix }()
-
-	// Types are resolved for every property first, because the constraint
-	// compiler needs to know whether a field is a pointer before it can
-	// emit a check against it — and the constraints in turn have to be
-	// compiled before any doc comment is written, so that a comment reports
-	// only the keywords no check ended up covering.
 	seenFields := map[string]string{}
-	fieldNames := make(map[string]string, len(names))
-	fieldTypes := make(map[string]string, len(names))
+	out := make([]structField, 0, len(names))
 	for _, name := range names {
 		prop, ok := props[name].(map[string]any)
 		if !ok {
-			return fmt.Errorf("%s: property %q is not an object", typeName, name)
+			return nil, fmt.Errorf("%s: property %q is not an object", typeName, name)
 		}
 		if kw := checkTypeAffectingKeywords(prop); kw != "" {
-			return fmt.Errorf("%s: property %q has keyword %q, which changes its shape and is not modeled yet (phase 4)", typeName, name, kw)
+			return nil, fmt.Errorf("%s: property %q has keyword %q, which changes its shape and is not modeled yet (phase 4)", typeName, name, kw)
 		}
 		fieldName := GoName(name)
 		if fieldName == "Validate" {
-			return fmt.Errorf("%s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", typeName, name, fieldName)
+			return nil, fmt.Errorf("%s: property %q sanitizes to Go field name %q, which collides with the generated Validate() method", typeName, name, fieldName)
 		}
 		if orig, dup := seenFields[fieldName]; dup {
-			return fmt.Errorf("%s: properties %q and %q both sanitize to Go field name %q", typeName, orig, name, fieldName)
+			return nil, fmt.Errorf("%s: properties %q and %q both sanitize to Go field name %q", typeName, orig, name, fieldName)
 		}
 		seenFields[fieldName] = name
-		fieldNames[name] = fieldName
 
 		typ, err := e.goTypeExpr(prop, name)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// omitzero, not omitempty: on a slice or map, omitempty omits both
 		// nil and empty, so an absent field and a present-but-empty one
@@ -784,7 +926,33 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		if !required[name] && !isNilableType(typ) {
 			typ = "*" + typ
 		}
-		fieldTypes[name] = typ
+		out = append(out, structField{jsonName: name, goName: fieldName, goType: typ, required: required[name]})
+	}
+	return out, nil
+}
+
+// renderStruct emits an object schema as a Go struct plus its Validate.
+func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema map[string]any) error {
+	props, _ := schema["properties"].(map[string]any)
+
+	// Types are resolved for every property first, because the constraint
+	// compiler needs to know whether a field is a pointer before it can
+	// emit a check against it — and the constraints in turn have to be
+	// compiled before any doc comment is written, so that a comment reports
+	// only the keywords no check ended up covering.
+	fields, err := fieldsFor(e, typeName, schema)
+	if err != nil {
+		return err
+	}
+	names := make([]string, 0, len(fields))
+	fieldNames := make(map[string]string, len(fields))
+	fieldTypes := make(map[string]string, len(fields))
+	required := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		names = append(names, f.jsonName)
+		fieldNames[f.jsonName] = f.goName
+		fieldTypes[f.jsonName] = f.goType
+		required[f.jsonName] = f.required
 	}
 
 	// UCP is an extension-first protocol: an open object exists so that
@@ -802,10 +970,8 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 			return err
 		}
 	}
-	fields := make([]structField, 0, len(names))
-	for _, name := range names {
-		fields = append(fields, structField{jsonName: name, goName: fieldNames[name], required: required[name]})
-		compileNested(&c, fieldNames[name], fieldTypes[name])
+	for _, f := range fields {
+		compileNested(&c, f.goName, f.goType)
 	}
 	if err := compileObjectSelf(e, &c, typeName, schema, fields, open); err != nil {
 		return err
@@ -818,6 +984,12 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	if kws := e.unenforcedKeywords(schema); len(kws) > 0 {
 		e.unenforced[typeName] = schema
 		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4) on the object itself: %s.\n", strings.Join(kws, ", "))
+	}
+	// A rule that quietly does nothing for a whole class of values is worse
+	// than one that is absent, because the caller cannot tell the two
+	// apart. compileObjectSelf has already run, so the flag is set by now.
+	if e.presenceGated[typeName] {
+		body.WriteString("//\n// This type carries a conditional rule that depends on which\n// properties the decoder saw. It is enforced for values decoded from\n// JSON and skipped for values built in Go, where presence is\n// unknowable.\n")
 	}
 	fmt.Fprintf(body, "type %s struct {\n", typeName)
 

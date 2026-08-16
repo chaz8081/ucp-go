@@ -88,5 +88,8 @@ func emitFromCorpus(t *testing.T, rel string, corpus map[string]map[string]any) 
 	if err != nil {
 		return "", err
 	}
-	return EmitFile(idx, "m", rel, corpus[rel], "release/test@deadbeef")
+	// The corpus is threaded through, as the real generator does: an allOf
+	// branch naming another file is resolved from the corpus rather than
+	// from the index, so a nil one leaves cross-file inheritance unresolved.
+	return EmitFileWithBreaks(idx, "m", rel, corpus[rel], "release/test@deadbeef", nil, corpus)
 }

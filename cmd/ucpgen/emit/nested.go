@@ -55,6 +55,30 @@ func compileNested(c *constraintSet, goName, goType string) {
 	emitValidateCall(&c.nested, "v."+goName, goType, 0)
 }
 
+// compileNestedAlias emits the recursion for a named slice or map type,
+// whose elements are reached through the receiver rather than a field.
+//
+// Only structs used to recurse, so an alias over a slice of objects
+// emitted a Validate that ignored every element. The corpus's only such
+// types are the totals family, whose element carries the money rules —
+// and the differential harness skipped those schemas for their contains
+// keyword, so nothing was watching.
+//
+// A scalar alias needs nothing. A named alias over another named struct
+// is deliberately left alone: the conversion it would take to reach the
+// value is not addressable, so a pointer-receiver Validate cannot be
+// called on it.
+func compileNestedAlias(c *constraintSet, underlying string) {
+	if !strings.HasPrefix(underlying, "[]") && !strings.HasPrefix(underlying, "map[") {
+		return
+	}
+	if !hasValidateMethod(underlying) {
+		return
+	}
+	// Parenthesized: *v[i] would parse as *(v[i]).
+	emitValidateCall(&c.nested, "(*v)", underlying, 0)
+}
+
 // emitValidateCall peels one layer off a Go type expression and recurses,
 // so a type built from several wrappers — the corpus has
 // map[string][]CapabilityBase — reaches the value that actually has the

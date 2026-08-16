@@ -119,13 +119,29 @@ func (v *PaymentInstrumentCreateRequest) Validate() error {
 
 // PaymentInstrumentCreateRequestSelectedPaymentInstrument A payment instrument with selection state.
 type PaymentInstrumentCreateRequestSelectedPaymentInstrument struct {
+	// The billing address associated with this payment method.
+	BillingAddress *PostalAddressCreateRequest     `json:"billing_address,omitzero"`
+	Credential     *PaymentCredentialCreateRequest `json:"credential,omitzero"`
+	// Display information for this payment instrument. Each payment instrument schema defines its specific display properties, as outlined by the payment handler.
+	Display map[string]any `json:"display,omitzero"`
+	// The unique identifier for the handler instance that produced this instrument. This corresponds to the 'id' field in the Payment Handler definition.
+	HandlerID string `json:"handler_id"`
+	// A unique identifier for this instrument instance, assigned by the platform.
+	ID string `json:"id"`
 	// Whether this instrument is selected by the user.
 	Selected *bool `json:"selected,omitzero"`
+	// The broad category of the instrument (e.g., 'card', 'tokenized_card'). Specific schemas will constrain this to a constant value.
+	Type string `json:"type"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
 	// preserved here and re-emitted on marshal rather than dropped.
 	Extra map[string]json.RawMessage `json:"-"`
+
+	// present records which properties the decoder saw, so a required
+	// property that was absent can be told from one decoded to its zero
+	// value. A nil map means this value was never decoded from JSON.
+	present map[string]bool
 }
 
 // UnmarshalJSON decodes the named properties and keeps everything else
@@ -142,7 +158,19 @@ func (v *PaymentInstrumentCreateRequestSelectedPaymentInstrument) UnmarshalJSON(
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
+	v.present = make(map[string]bool, 3)
+	for _, name := range []string{"handler_id", "id", "type"} {
+		if _, ok := all[name]; ok {
+			v.present[name] = true
+		}
+	}
+	delete(all, "billing_address")
+	delete(all, "credential")
+	delete(all, "display")
+	delete(all, "handler_id")
+	delete(all, "id")
 	delete(all, "selected")
+	delete(all, "type")
 	if len(all) > 0 {
 		v.Extra = all
 	}
@@ -177,5 +205,26 @@ func (v PaymentInstrumentCreateRequestSelectedPaymentInstrument) MarshalJSON() (
 
 // Validate reports the first constraint violation, or nil.
 func (v *PaymentInstrumentCreateRequestSelectedPaymentInstrument) Validate() error {
+	if v.present != nil {
+		if !v.present["handler_id"] {
+			return errors.New("handler_id: required property is missing")
+		}
+		if !v.present["id"] {
+			return errors.New("id: required property is missing")
+		}
+		if !v.present["type"] {
+			return errors.New("type: required property is missing")
+		}
+	}
+	if v.BillingAddress != nil {
+		if err := v.BillingAddress.Validate(); err != nil {
+			return err
+		}
+	}
+	if v.Credential != nil {
+		if err := v.Credential.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }

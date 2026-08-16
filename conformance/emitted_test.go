@@ -8,6 +8,19 @@ import (
 	"github.com/chaz8081/ucp-go/shopping/types"
 )
 
+// validCheckoutJSON is a checkout that satisfies checkout.json in full.
+//
+// totals is deliberately not `[]`: the schema requires exactly one
+// subtotal entry, so an empty list is invalid. Both tests below carried
+// `"totals":[]` and called themselves complete until phase 6 began
+// enforcing contains — neither fixture had ever been schema-valid, the
+// same way phase 4's round-trip fixture never was. Keeping one copy means
+// the claim "this is a valid checkout" is only made in one place.
+const validCheckoutJSON = `{"id":"chk_1","currency":"USD","status":"ready_for_complete",` +
+	`"line_items":[],"links":[],` +
+	`"totals":[{"type":"subtotal","amount":1000,"display_text":"Subtotal"}],` +
+	`"ucp":{"version":"2026-04-08"}}`
+
 // TestModelsRoundTrip guards the defects a build-only check cannot see:
 // fields lost to unresolved cross-file inheritance, extension keys dropped
 // by an open object, and required properties that decode to their zero
@@ -16,7 +29,7 @@ func TestModelsRoundTrip(t *testing.T) {
 	// Every property checkout.json requires is supplied, and status is a
 	// value its enum actually permits.
 	var c shopping.Checkout
-	in := `{"id":"chk_1","currency":"USD","status":"ready_for_complete","line_items":[],"links":[],"totals":[],"ucp":{"version":"2026-04-08"}}`
+	in := validCheckoutJSON
 	if err := json.Unmarshal([]byte(in), &c); err != nil {
 		t.Fatalf("checkout decode: %v", err)
 	}
@@ -75,7 +88,7 @@ func TestModelsRoundTrip(t *testing.T) {
 // use.
 func TestPrimaryTypesCanValidate(t *testing.T) {
 	var c shopping.Checkout
-	in := `{"id":"chk_1","currency":"USD","status":"ready_for_complete","line_items":[],"links":[],"totals":[],"ucp":{"version":"2026-04-08"}}`
+	in := validCheckoutJSON
 	if err := json.Unmarshal([]byte(in), &c); err != nil {
 		t.Fatalf("checkout decode: %v", err)
 	}

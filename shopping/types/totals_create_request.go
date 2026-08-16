@@ -3,27 +3,60 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // TotalsCreateRequest Pricing breakdown provided by the business. MUST contain exactly one subtotal and one total entry. Detail types (tax, fee, discount, fulfillment) may appear multiple times for itemization. Platforms MUST render all entries in order using display_text and amount.
-//
-// Not enforced yet (phase 4): contains, maxContains, minContains.
 type TotalsCreateRequest []TotalsCreateRequestTotalscreaterequestItem
 
 // Validate reports the first constraint violation, or nil.
 func (v *TotalsCreateRequest) Validate() error {
+	if *v != nil {
+		k2 := 0
+		for _, k := range *v {
+			if k.Type == "subtotal" {
+				k2++
+			}
+		}
+		if k2 < 1 {
+			return errors.New("TotalsCreateRequest: has fewer than minContains 1 matching items")
+		}
+		if k2 > 1 {
+			return errors.New("TotalsCreateRequest: has more than maxContains 1 matching items")
+		}
+	}
+	for i := range *v {
+		if err := (*v)[i].Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // TotalsCreateRequestTotalscreaterequestItem is generated from shopping/types/totals_create_request.json.
 //
-// Not enforced yet (phase 4) on the object itself: if, then.
+// This type carries a conditional rule that depends on which
+// properties the decoder saw. It is enforced for values decoded from
+// JSON and skipped for values built in Go, where presence is
+// unknowable.
 type TotalsCreateRequestTotalscreaterequestItem struct {
+	Amount SignedAmount `json:"amount"`
+	// Text to display against the amount. Should reflect appropriate method (e.g., 'Shipping', 'Delivery').
+	DisplayText *string `json:"display_text,omitzero"`
+	// Cost category. Well-known values: subtotal, items_discount, discount, fulfillment, tax, fee, total. Businesses MAY use additional values.
+	Type string `json:"type"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
 	// preserved here and re-emitted on marshal rather than dropped.
 	Extra map[string]json.RawMessage `json:"-"`
+
+	// present records which properties the decoder saw, so a required
+	// property that was absent can be told from one decoded to its zero
+	// value. A nil map means this value was never decoded from JSON.
+	present map[string]bool
 }
 
 // UnmarshalJSON decodes the named properties and keeps everything else
@@ -40,6 +73,15 @@ func (v *TotalsCreateRequestTotalscreaterequestItem) UnmarshalJSON(data []byte) 
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
+	v.present = make(map[string]bool, 2)
+	for _, name := range []string{"amount", "type"} {
+		if _, ok := all[name]; ok {
+			v.present[name] = true
+		}
+	}
+	delete(all, "amount")
+	delete(all, "display_text")
+	delete(all, "type")
 	if len(all) > 0 {
 		v.Extra = all
 	}
@@ -74,5 +116,31 @@ func (v TotalsCreateRequestTotalscreaterequestItem) MarshalJSON() ([]byte, error
 
 // Validate reports the first constraint violation, or nil.
 func (v *TotalsCreateRequestTotalscreaterequestItem) Validate() error {
+	if v.present != nil {
+		if !v.present["amount"] {
+			return errors.New("amount: required property is missing")
+		}
+		if !v.present["type"] {
+			return errors.New("type: required property is missing")
+		}
+	}
+	if v.present != nil && v.present["type"] && v.Type != "subtotal" && v.Type != "items_discount" && v.Type != "discount" && v.Type != "fulfillment" && v.Type != "tax" && v.Type != "fee" && v.Type != "total" {
+		if v.DisplayText == nil {
+			return errors.New("display_text: required property is missing when type is not one of \"subtotal\", \"items_discount\", \"discount\", \"fulfillment\", \"tax\", \"fee\", \"total\"")
+		}
+	}
+	if v.Type == "discount" || v.Type == "items_discount" {
+		if v.Amount >= 0 {
+			return errors.New("amount: not below exclusiveMaximum 0")
+		}
+	}
+	if v.Type == "subtotal" || v.Type == "fulfillment" || v.Type == "tax" || v.Type == "fee" {
+		if v.Amount < 0 {
+			return errors.New("amount: below minimum 0")
+		}
+	}
+	if err := v.Amount.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
