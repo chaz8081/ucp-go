@@ -158,3 +158,37 @@ func TestMutationsCoverArrayRoots(t *testing.T) {
 		}
 	}
 }
+
+func TestMutationsCoverScalarRoots(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"r.json": {
+			"$id": "https://x/r.json", "type": "string",
+			"pattern":   "^[a-z]+\\.[a-z]+$",
+			"maxLength": float64(64),
+		},
+		"c.json": {
+			"$id": "https://x/c.json", "type": "string",
+			"enum": []any{"ok", "failed"},
+		},
+		"n.json": {
+			"$id": "https://x/n.json", "type": "integer",
+			"minimum": float64(0),
+		},
+	}
+	b := builder{corpus: corpus}
+	for rel, want := range map[string][]string{
+		"r.json": {"base", "bad-pattern", "wrong-json-type"},
+		"c.json": {"base", "bad-enum", "wrong-json-type"},
+		"n.json": {"base", "below-minimum", "wrong-json-type"},
+	} {
+		names := map[string]bool{}
+		for _, p := range b.mutations(corpus[rel], rel) {
+			names[p.name] = true
+		}
+		for _, w := range want {
+			if !names[w] {
+				t.Errorf("%s: missing payload %q; got %v", rel, w, names)
+			}
+		}
+	}
+}

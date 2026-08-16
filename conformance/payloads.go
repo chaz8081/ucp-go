@@ -397,13 +397,57 @@ func (b *builder) mutations(schema map[string]any, rel string) []payload {
 			return b.unionMutations(schema, rel, members)
 		}
 	}
-	if typeOf(schema) == "array" {
+	switch typeOf(schema) {
+	case "array":
 		return b.arrayMutations(schema, rel)
+	case "string", "integer", "number", "boolean":
+		return b.scalarMutations(schema, rel)
 	}
 	if base, ok := b.instance(schema, rel, 0).(map[string]any); ok {
 		return b.objectMutations(schema, rel, base)
 	}
 	return nil
+}
+
+// scalarMutations exercises a named primitive's constraints. These types
+// exist precisely for those constraints — ReverseDomainName is a string
+// whose whole purpose is its pattern — so leaving them unexercised left
+// the most constraint-dense types in the corpus unchecked.
+func (b *builder) scalarMutations(schema map[string]any, rel string) []payload {
+	base := b.instance(schema, rel, 0)
+	if base == nil {
+		return nil
+	}
+	var out []payload
+	add := func(name string, v any) {
+		if raw, err := marshalStable(v); err == nil {
+			out = append(out, payload{name: name, json: raw})
+		}
+	}
+	add("base", base)
+
+	if _, has := schema["pattern"]; has {
+		add("bad-pattern", "!! not a match !!")
+	}
+	if _, has := schema["enum"]; has {
+		add("bad-enum", "__not_in_enum__")
+	}
+	if min, has := schema["minimum"].(float64); has {
+		add("below-minimum", min-1)
+	}
+	if max, has := schema["maximum"].(float64); has {
+		add("above-maximum", max+1)
+	}
+	if max, has := schema["maxLength"].(float64); has && max < 4096 {
+		add("over-maxlength", strings.Repeat("a", int(max)+1))
+	}
+	if min, has := schema["minLength"].(float64); has && min > 0 {
+		add("under-minlength", "")
+	}
+	// A value of the wrong JSON type is a rejection both sides must reach.
+	// An object is wrong for every scalar shape.
+	add("wrong-json-type", map[string]any{})
+	return out
 }
 
 // arrayMutations exercises the array's own keywords. contains is the one
