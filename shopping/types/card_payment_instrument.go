@@ -13,13 +13,13 @@ type CardPaymentInstrument struct {
 	// The billing address associated with this payment method.
 	BillingAddress *PostalAddress     `json:"billing_address,omitzero"`
 	Credential     *PaymentCredential `json:"credential,omitzero"`
-	// Display information for this payment instrument. Each payment instrument schema defines its specific display properties, as outlined by the payment handler.
-	Display map[string]any `json:"display,omitzero"`
+	// Display information for this card payment instrument.
+	Display *CardPaymentInstrumentDisplay `json:"display,omitzero"`
 	// The unique identifier for the handler instance that produced this instrument. This corresponds to the 'id' field in the Payment Handler definition.
 	HandlerID string `json:"handler_id"`
 	// A unique identifier for this instrument instance, assigned by the platform.
 	ID string `json:"id"`
-	// The broad category of the instrument (e.g., 'card', 'tokenized_card'). Specific schemas will constrain this to a constant value.
+	// Indicates this is a card payment instrument.
 	Type string `json:"type"`
 
 	// Extra holds properties the schema does not name. The schema is
@@ -107,6 +107,9 @@ func (v *CardPaymentInstrument) Validate() error {
 			return errors.New("type: required property is missing")
 		}
 	}
+	if v.Type != "card" {
+		return errors.New("type: must be \"card\"")
+	}
 	if v.BillingAddress != nil {
 		if err := v.BillingAddress.Validate(); err != nil {
 			return err
@@ -117,13 +120,20 @@ func (v *CardPaymentInstrument) Validate() error {
 			return err
 		}
 	}
+	if v.Display != nil {
+		if err := v.Display.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // CardPaymentInstrumentAvailableCardPaymentInstrument Declares card instrument availability with card-specific constraints.
 type CardPaymentInstrumentAvailableCardPaymentInstrument struct {
 	// Constraints on this instrument type. Structure depends on instrument type and active capabilities.
-	Constraints map[string]any `json:"constraints,omitzero"`
+	//
+	// Not enforced yet (phase 4): minProperties.
+	Constraints *CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints `json:"constraints,omitzero"`
 	// The instrument type identifier (e.g., 'card', 'gift_card'). References an instrument schema's type constant.
 	Type string `json:"type"`
 
@@ -202,8 +212,186 @@ func (v *CardPaymentInstrumentAvailableCardPaymentInstrument) Validate() error {
 			return errors.New("type: required property is missing")
 		}
 	}
-	if v.Constraints != nil && len(v.Constraints) < 1 {
-		return errors.New("constraints: has fewer than minProperties 1")
+	if v.Type != "card" {
+		return errors.New("type: must be \"card\"")
+	}
+	if v.Constraints != nil {
+		if err := v.Constraints.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CardPaymentInstrumentDisplay Display information for this card payment instrument.
+type CardPaymentInstrumentDisplay struct {
+	// The card brand/network (e.g., visa, mastercard, amex).
+	Brand *string `json:"brand,omitzero"`
+	// An optional URI to a rich image representing the card (e.g., card art provided by the issuer).
+	//
+	// Not enforced yet (phase 4): format.
+	CardArt *string `json:"card_art,omitzero"`
+	// An optional rich text description of the card to display to the user (e.g., 'Visa ending in 1234, expires 12/2025').
+	Description *string `json:"description,omitzero"`
+	// The month of the card's expiration date (1-12).
+	ExpiryMonth *int64 `json:"expiry_month,omitzero"`
+	// The year of the card's expiration date.
+	ExpiryYear *int64 `json:"expiry_year,omitzero"`
+	// Last 4 digits of the card number.
+	LastDigits *string `json:"last_digits,omitzero"`
+
+	// Extra holds properties the schema does not name. The schema is
+	// open (additionalProperties is not false), so extension keys are
+	// preserved here and re-emitted on marshal rather than dropped.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the named properties and keeps everything else
+// in Extra.
+func (v *CardPaymentInstrumentDisplay) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CardPaymentInstrumentDisplay: null is not a valid object")
+	}
+	type CardPaymentInstrumentDisplayAlias CardPaymentInstrumentDisplay
+	var named CardPaymentInstrumentDisplayAlias
+	if err := json.Unmarshal(data, &named); err != nil {
+		return err
+	}
+	*v = CardPaymentInstrumentDisplay(named)
+
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal(data, &all); err != nil {
+		return err
+	}
+	delete(all, "brand")
+	delete(all, "card_art")
+	delete(all, "description")
+	delete(all, "expiry_month")
+	delete(all, "expiry_year")
+	delete(all, "last_digits")
+	if len(all) > 0 {
+		v.Extra = all
+	}
+	return nil
+}
+
+// MarshalJSON emits the named properties alongside anything held in
+// Extra.
+func (v CardPaymentInstrumentDisplay) MarshalJSON() ([]byte, error) {
+	type CardPaymentInstrumentDisplayAlias CardPaymentInstrumentDisplay
+	named, err := json.Marshal(CardPaymentInstrumentDisplayAlias(v))
+	if err != nil {
+		return nil, err
+	}
+	if len(v.Extra) == 0 {
+		return named, nil
+	}
+	var merged map[string]json.RawMessage
+	if err := json.Unmarshal(named, &merged); err != nil {
+		return nil, err
+	}
+	if merged == nil {
+		merged = map[string]json.RawMessage{}
+	}
+	for k, val := range v.Extra {
+		if _, named := merged[k]; !named {
+			merged[k] = val
+		}
+	}
+	return json.Marshal(merged)
+}
+
+// Validate reports the first constraint violation, or nil.
+func (v *CardPaymentInstrumentDisplay) Validate() error {
+	return nil
+}
+
+// CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints Constraints on this instrument type. Structure depends on instrument type and active capabilities.
+type CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints struct {
+	// Limit to specific card brands (e.g., ['visa', 'mastercard', 'amex']).
+	Brands []string `json:"brands,omitzero"`
+
+	// Extra holds properties the schema does not name. The schema is
+	// open (additionalProperties is not false), so extension keys are
+	// preserved here and re-emitted on marshal rather than dropped.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the named properties and keeps everything else
+// in Extra.
+func (v *CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints: null is not a valid object")
+	}
+	type CardPaymentInstrumentAvailableCardPaymentInstrumentConstraintsAlias CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints
+	var named CardPaymentInstrumentAvailableCardPaymentInstrumentConstraintsAlias
+	if err := json.Unmarshal(data, &named); err != nil {
+		return err
+	}
+	*v = CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints(named)
+
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal(data, &all); err != nil {
+		return err
+	}
+	delete(all, "brands")
+	if len(all) > 0 {
+		v.Extra = all
+	}
+	return nil
+}
+
+// MarshalJSON emits the named properties alongside anything held in
+// Extra.
+func (v CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints) MarshalJSON() ([]byte, error) {
+	type CardPaymentInstrumentAvailableCardPaymentInstrumentConstraintsAlias CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints
+	named, err := json.Marshal(CardPaymentInstrumentAvailableCardPaymentInstrumentConstraintsAlias(v))
+	if err != nil {
+		return nil, err
+	}
+	if len(v.Extra) == 0 {
+		return named, nil
+	}
+	var merged map[string]json.RawMessage
+	if err := json.Unmarshal(named, &merged); err != nil {
+		return nil, err
+	}
+	if merged == nil {
+		merged = map[string]json.RawMessage{}
+	}
+	for k, val := range v.Extra {
+		if _, named := merged[k]; !named {
+			merged[k] = val
+		}
+	}
+	return json.Marshal(merged)
+}
+
+// Validate reports the first constraint violation, or nil.
+func (v *CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints) Validate() error {
+	if v.Brands != nil && len(v.Brands) < 1 {
+		return errors.New("brands: has fewer than minItems 1")
+	}
+	if v.Brands != nil {
+		{
+			k2 := make(map[string]bool, len(v.Brands))
+			for _, k := range v.Brands {
+				if k2[k] {
+					return errors.New("brands: contains duplicate items")
+				}
+				k2[k] = true
+			}
+		}
+	}
+	{
+		n := 0
+		if v.Brands != nil {
+			n++
+		}
+		n += len(v.Extra)
+		if n < 1 {
+			return errors.New("CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints: has fewer than minProperties 1")
+		}
 	}
 	return nil
 }

@@ -302,9 +302,11 @@ func mergeAllOfNode(node, doc map[string]any, at, relPath string, corpus map[str
 	// doc, not node: a "#/$defs/…" branch anywhere in the document is
 	// written against the document root, so a nested node still resolves its
 	// local refs there.
+	own := ownPropertyDefs(node)
 	if err := preprocess.MergeAllOf(node, doc); err != nil {
 		return locate(at, err)
 	}
+	restoreOwnProperties(node, own)
 	if err := checkResidualAllOf(node, at); err != nil {
 		return err
 	}
@@ -326,6 +328,89 @@ func mergeAllOfNode(node, doc map[string]any, at, relPath string, corpus map[str
 		}
 	}
 	return nil
+}
+
+// ownPropertyDefs snapshots a node's own property definitions before the
+// merge folds branch properties over them. See restoreOwnProperties.
+func ownPropertyDefs(node map[string]any) map[string]any {
+	props, _ := node["properties"].(map[string]any)
+	if len(props) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(props))
+	for k, v := range props {
+		out[k] = v
+	}
+	return out
+}
+
+// restoreOwnProperties puts a node's own definition of a property back on
+// top of the one it inherited.
+//
+// preprocess.MergeAllOf ends with the equivalent of python's
+// `node.setdefault("properties", {}).update(branch_props)`, so a branch
+// definition overwrites the node's own for any property both declare. That
+// is what card_payment_instrument's `type` — narrowed from the inherited
+// `{"type": "string"}` to `{"const": "card"}` — was losing: the constant
+// never reached the emitter, so no check was ever compiled for it, and the
+// differential harness caught the SDK accepting `{"type": "x"}` where the
+// schema does not.
+//
+// This runs emitter-side, on the emitter's own in-memory copy, *after* the
+// parity-critical stage. The invariant this repo holds is that our
+// preprocessor's output is byte-identical to preprocess_schemas.py's — not
+// that our generated Go resembles python's Pydantic models, which two
+// different languages would not produce anyway. `ucpgen preprocess`,
+// goldens/ and cmd/ucpgen/preprocess/ are all untouched by this; only what
+// the emitter reads afterwards changes. So this corrects the override
+// without weakening the parity guarantee.
+//
+// The caveat, for whoever reads this next. JSON Schema `allOf` is a
+// conjunction: the node's own schema and every branch all apply, and the
+// effective constraint is their intersection, not either one winning.
+// Preferring the node's own is correct exactly when the node's is the
+// narrower of the two — `const: "card"` against an inherited `type:
+// "string"` is a narrowing, and every overlapping redefinition in this
+// corpus is. It is not correct in general: an inherited definition narrower
+// than the node's own would be silently widened by this, and nothing here
+// detects that. What bounds the risk is the corpus rather than the logic —
+// the oracle, which implements the real intersection semantics, agrees with
+// the generated code on all 693 differential payloads. A corpus that grew a
+// widening redefinition would show up there as a disagreement, which is the
+// signal to replace this with a real intersection.
+//
+// Keys are merged rather than whole definitions swapped, so a node that
+// narrows one keyword keeps the description, format and type it inherited
+// for the rest. The merge is one level deep: where both sides define a
+// nested `properties`, the node's own map replaces the inherited one whole
+// rather than combining key by key. No node in this corpus does that — the
+// nested objects here are declared on one side only — and going deeper
+// would be building the general intersection this deliberately is not.
+func restoreOwnProperties(node, own map[string]any) {
+	if len(own) == 0 {
+		return
+	}
+	props, _ := node["properties"].(map[string]any)
+	if props == nil {
+		return
+	}
+	for name, ownDef := range own {
+		ownMap, ownIsObj := ownDef.(map[string]any)
+		inherited, inheritedIsObj := props[name].(map[string]any)
+		if !ownIsObj || !inheritedIsObj {
+			// Nothing to merge key-wise: the node's own definition stands.
+			props[name] = ownDef
+			continue
+		}
+		combined := make(map[string]any, len(inherited)+len(ownMap))
+		for k, v := range inherited {
+			combined[k] = v
+		}
+		for k, v := range ownMap {
+			combined[k] = v
+		}
+		props[name] = combined
+	}
 }
 
 // mergeAllOfChild descends through whatever containers stand between a
