@@ -9,12 +9,29 @@ import (
 )
 
 // Totals Pricing breakdown provided by the business. MUST contain exactly one subtotal and one total entry. Detail types (tax, fee, discount, fulfillment) may appear multiple times for itemization. Platforms MUST render all entries in order using display_text and amount.
-//
-// Not enforced yet (phase 4): contains, maxContains, minContains.
 type Totals []TotalsTotalsItem
 
 // Validate reports the first constraint violation, or nil.
 func (v *Totals) Validate() error {
+	if *v != nil {
+		k2 := 0
+		for _, k := range *v {
+			if k.Type == "subtotal" {
+				k2++
+			}
+		}
+		if k2 < 1 {
+			return errors.New("Totals: has fewer than minContains 1 matching items")
+		}
+		if k2 > 1 {
+			return errors.New("Totals: has more than maxContains 1 matching items")
+		}
+	}
+	for i := range *v {
+		if err := (*v)[i].Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

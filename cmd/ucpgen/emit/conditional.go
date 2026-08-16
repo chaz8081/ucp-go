@@ -566,3 +566,118 @@ func prose(members []any) string {
 	}
 	return strings.Join(parts, ", ")
 }
+
+// compileContains emits the counting loop for contains/minContains/
+// maxContains: how many elements satisfy the subschema, and whether that
+// count falls in the permitted range.
+//
+// This is the other consumer of predicate. `contains` is a rule about the
+// array rather than about any one element, so it cannot ride on the
+// element type's own Validate — an element that fails the contains
+// subschema is not invalid, it simply does not count.
+func compileContains(e *fileEmitter, c *constraintSet, t target, node map[string]any) error {
+	contains, hasContains := node["contains"].(map[string]any)
+	_, hasMin := node["minContains"]
+	_, hasMax := node["maxContains"]
+	if !hasContains {
+		if hasMin || hasMax {
+			return fmt.Errorf("%s: %s declares minContains/maxContains with no contains, which asserts nothing (phase 6)",
+				t.typeName, subjectOf(t.label))
+		}
+		return nil
+	}
+
+	// JSON Schema defaults minContains to 1: contains on its own means the
+	// array must hold at least one match.
+	min, max := 1, -1
+	if hasMin {
+		n, err := integerBound(t, node, "minContains")
+		if err != nil {
+			return err
+		}
+		min = n
+	}
+	if hasMax {
+		n, err := integerBound(t, node, "maxContains")
+		if err != nil {
+			return err
+		}
+		max = n
+	}
+	if max >= 0 && max < min {
+		return fmt.Errorf("%s: %s has maxContains %d below minContains %d, which no array can satisfy",
+			t.typeName, subjectOf(t.label), max, min)
+	}
+
+	items, _ := node["items"].(map[string]any)
+	if items == nil {
+		return fmt.Errorf("%s: %s declares contains on an array with no items schema (phase 6)",
+			t.typeName, subjectOf(t.label))
+	}
+	elemType, err := elementTypeName(e, t, node)
+	if err != nil {
+		return err
+	}
+	fields, err := fieldsFor(e, elemType, items)
+	if err != nil {
+		return err
+	}
+
+	elem, count := c.loopVar(), c.loopVar()
+	// The element is a loop variable, not the receiver, so a predicate
+	// needing the decoder's presence record cannot be built here — predicate
+	// rejects that rather than silently testing a zero value.
+	cond, err := predicate(e, elemType, elem, contains, fields)
+	if err != nil {
+		return err
+	}
+
+	guard, value := t.resolve()
+	open, closed := guardBlock(guard)
+	e.usesErrors = true
+	c.checks.WriteString(open)
+	// A nil array was never set. For a value built in Go rather than
+	// decoded that is unknowable rather than empty, so the same rule that
+	// skips presence checks applies — otherwise every hand-built Checkout
+	// fails on a totals list the caller has not filled in yet. A decoded
+	// [] is non-nil, so it is still counted and still rejected.
+	fmt.Fprintf(&c.checks, "if %s != nil {\n", value)
+	fmt.Fprintf(&c.checks, "%s := 0\n", count)
+	fmt.Fprintf(&c.checks, "for _, %s := range %s {\n", elem, value)
+	fmt.Fprintf(&c.checks, "if %s {\n%s++\n}\n}\n", cond, count)
+	fmt.Fprintf(&c.checks, "if %s < %d {\nreturn errors.New(%q)\n}\n",
+		count, min, fmt.Sprintf("%s: has fewer than minContains %d matching items", t.label, min))
+	if max >= 0 {
+		fmt.Fprintf(&c.checks, "if %s > %d {\nreturn errors.New(%q)\n}\n",
+			count, max, fmt.Sprintf("%s: has more than maxContains %d matching items", t.label, max))
+	}
+	c.checks.WriteString("}\n")
+	c.checks.WriteString(closed)
+
+	e.enforced.mark(node, "contains")
+	if hasMin {
+		e.enforced.mark(node, "minContains")
+	}
+	if hasMax {
+		e.enforced.mark(node, "maxContains")
+	}
+	return nil
+}
+
+// elementTypeName reports the Go type goTypeExpr gives an array's element,
+// stripped of its slice and pointer decoration. fieldsFor needs it both to
+// name the type in an error and to namespace anything nested under it, and
+// reading it back from goTypeExpr is what keeps that name in step with the
+// type actually emitted.
+func elementTypeName(e *fileEmitter, t target, node map[string]any) (string, error) {
+	typ, err := e.goTypeExpr(node, t.label)
+	if err != nil {
+		return "", err
+	}
+	base := strings.TrimPrefix(strings.TrimPrefix(typ, "[]"), "*")
+	if base == "" || strings.HasPrefix(base, "[]") || strings.Contains(base, "map[") {
+		return "", fmt.Errorf("%s: %s has contains over element type %q, which is not an object (phase 6)",
+			t.typeName, subjectOf(t.label), typ)
+	}
+	return base, nil
+}

@@ -1276,55 +1276,19 @@
       "type": "Totals",
       "package": "types",
       "file": "shopping/types/totals.go",
-      "fields": 0,
-      "unenforced": {
-        "Totals": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "Totals.Totals": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/totals_create_request.json": {
       "type": "TotalsCreateRequest",
       "package": "types",
       "file": "shopping/types/totals_create_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalsCreateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsCreateRequest.TotalsCreateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/totals_update_request.json": {
       "type": "TotalsUpdateRequest",
       "package": "types",
       "file": "shopping/types/totals_update_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalsUpdateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsUpdateRequest.TotalsUpdateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ]
-      }
+      "fields": 0
     },
     "shopping/types/variant.json": {
       "type": "Variant",

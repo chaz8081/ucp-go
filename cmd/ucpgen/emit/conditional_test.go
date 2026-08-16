@@ -474,3 +474,90 @@ func TestCompileConditionalSkipsRuleOverDroppedProperties(t *testing.T) {
 		t.Errorf("unenforcedKeywords = %v, want [if then] still reported as a gap", kws)
 	}
 }
+
+// containsNode mirrors totals.json: an array whose elements are objects,
+// with a rule that exactly one of them is the subtotal entry.
+func containsNode() map[string]any {
+	return map[string]any{
+		"type": "array",
+		"items": map[string]any{
+			"type":     "object",
+			"required": []any{"type"},
+			"properties": map[string]any{
+				"type": map[string]any{"type": "string"},
+			},
+		},
+		"contains": map[string]any{
+			"properties": map[string]any{"type": map[string]any{"const": "subtotal"}},
+			"required":   []any{"type"},
+		},
+		"minContains": float64(1),
+		"maxContains": float64(1),
+	}
+}
+
+func TestCompileContainsCountsMatchingElements(t *testing.T) {
+	node := containsNode()
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	var c constraintSet
+	tgt := target{typeName: "Totals", varStem: "Totals", label: "Totals", expr: "v", access: accessValue}
+	if err := compileContains(e, &c, tgt, node); err != nil {
+		t.Fatalf("compileContains: %v", err)
+	}
+	got := c.checks.String()
+	for _, want := range []string{"range v", `== "subtotal"`, "< 1", "> 1"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("emitted code missing %q:\n%s", want, got)
+		}
+	}
+	// An unmarked keyword keeps being reported as a coverage gap, so a
+	// check that exists but is not recorded makes the doc comment lie.
+	for _, kw := range []string{"contains", "minContains", "maxContains"} {
+		if !e.enforced.has(node, kw) {
+			t.Errorf("%s checked but not marked enforced", kw)
+		}
+	}
+}
+
+// A bound with nothing to count asserts nothing. Silently ignoring it
+// would hide a schema the generator does not actually understand.
+func TestCompileContainsRejectsBoundWithoutContains(t *testing.T) {
+	node := map[string]any{
+		"type":        "array",
+		"items":       map[string]any{"type": "string"},
+		"minContains": float64(1),
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	var c constraintSet
+	tgt := target{typeName: "Totals", varStem: "Totals", label: "Totals", expr: "v", access: accessValue}
+	if err := compileContains(e, &c, tgt, node); err == nil {
+		t.Fatal("expected an error for minContains without contains, got nil")
+	}
+}
+
+// contains defaults to minContains 1: the array must hold at least one
+// matching element even when no bound is written down.
+func TestCompileContainsDefaultsToAtLeastOne(t *testing.T) {
+	node := containsNode()
+	delete(node, "minContains")
+	delete(node, "maxContains")
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	var c constraintSet
+	tgt := target{typeName: "Totals", varStem: "Totals", label: "Totals", expr: "v", access: accessValue}
+	if err := compileContains(e, &c, tgt, node); err != nil {
+		t.Fatalf("compileContains: %v", err)
+	}
+	got := c.checks.String()
+	if !strings.Contains(got, "< 1") {
+		t.Errorf("absent minContains must still require one match:\n%s", got)
+	}
+	if strings.Contains(got, "> ") {
+		t.Errorf("absent maxContains must not emit an upper bound:\n%s", got)
+	}
+	if !e.enforced.has(node, "contains") {
+		t.Error("contains not marked enforced")
+	}
+	if e.enforced.has(node, "maxContains") {
+		t.Error("maxContains marked enforced though the schema does not declare it")
+	}
+}

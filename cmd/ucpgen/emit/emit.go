@@ -597,6 +597,7 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if err := compileConstraints(e, &c, typeName, "", aliasExpr(underlying), accessValue, schema); err != nil {
 		return err
 	}
+	compileNestedAlias(&c, underlying)
 
 	writeDoc(e, body, typeName, schema)
 	if keyword, members := unionMembers(schema); len(members) > 0 {
@@ -618,7 +619,11 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	if c.vars.Len() > 0 {
 		body.WriteString(c.vars.String())
 	}
-	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s\treturn nil\n}\n\n", typeName, c.checks.String())
+	// c.nested carries the element recursion for a named slice or map.
+	// Omitting it here is what let Totals validate its own contains rule
+	// while ignoring every element inside it.
+	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s%s\treturn nil\n}\n\n",
+		typeName, c.checks.String(), c.nested.String())
 	return nil
 }
 

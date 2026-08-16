@@ -134,3 +134,38 @@ func mergeInto(base map[string]any, k string, v any) map[string]any {
 	out[k] = v
 	return out
 }
+
+// A named slice type validates its elements.
+//
+// Only renderStruct used to call compileNested, so an alias over a slice
+// of objects emitted a Validate that ignored every element. The corpus's
+// only such types are the totals family, whose element carries the money
+// rules — and the differential harness skipped those schemas for their
+// contains keyword, so nothing caught it.
+func TestAliasOverSliceValidatesElements(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"types/entry.json": {
+			"title":    "Entry",
+			"type":     "object",
+			"required": []any{"code"},
+			"properties": map[string]any{
+				"code": map[string]any{"type": "string", "minLength": float64(2)},
+			},
+		},
+		"types/entries.json": {
+			"title": "Entries",
+			"type":  "array",
+			"items": map[string]any{"$ref": "entry.json"},
+		},
+	}
+	src, err := emitFromCorpus(t, "types/entries.json", corpus)
+	if err != nil {
+		t.Fatalf("emitFromCorpus: %v", err)
+	}
+	collapsed := collapse(src)
+	for _, want := range []string{"for i := range *v {", "(*v)[i].Validate()"} {
+		if !strings.Contains(collapsed, want) {
+			t.Errorf("emitted alias Validate missing %q:\n%s", want, src)
+		}
+	}
+}

@@ -558,6 +558,10 @@ func compileArray(e *fileEmitter, c *constraintSet, t target, node map[string]an
 		e.enforced.mark(node, "uniqueItems")
 	}
 
+	if err := compileContains(e, c, t, node); err != nil {
+		return err
+	}
+
 	// An element carrying its own constraints is only reachable through a
 	// loop: a scalar element produces no named Go type to hang a Validate
 	// on. Object elements are promoted to named types by goTypeExpr and
