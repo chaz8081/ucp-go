@@ -11,6 +11,23 @@ import (
 // Pagination Cursor-based pagination for list operations.
 type Pagination map[string]any
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *Pagination) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Pagination: null is not a valid object")
+	}
+	type PaginationAlias Pagination
+	var alias PaginationAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = Pagination(alias)
+	return nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *Pagination) Validate() error {
 	return nil
@@ -32,6 +49,9 @@ type PaginationRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaginationRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaginationRequest: null is not a valid object")
+	}
 	type PaginationRequestAlias PaginationRequest
 	var named PaginationRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -108,6 +128,9 @@ type PaginationResponse struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaginationResponse) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaginationResponse: null is not a valid object")
+	}
 	type PaginationResponseAlias PaginationResponse
 	var named PaginationResponseAlias
 	if err := json.Unmarshal(data, &named); err != nil {

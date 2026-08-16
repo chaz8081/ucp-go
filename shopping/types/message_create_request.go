@@ -28,6 +28,9 @@ type MessageCreateRequest struct {
 // UnmarshalJSON decodes the union member that accepts the input,
 // preferring one that also validates.
 func (v *MessageCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("MessageCreateRequest: null is not a valid object")
+	}
 	var matched, fallback MessageCreateRequest
 	matches := 0
 	parsed := false

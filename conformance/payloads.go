@@ -583,6 +583,11 @@ func (b *builder) objectMutations(schema map[string]any, rel string, base map[st
 	}
 	add("base", base)
 	add("empty-object", map[string]any{})
+	// A nil map marshals to the JSON literal null, which is not an object.
+	// A struct root rejects it because its presence codec allocates the
+	// record before checking, leaving every required property unseen; a
+	// map root needs the generated null codec to reject it.
+	add("null", nil)
 
 	props, _ := schema["properties"].(map[string]any)
 	for _, name := range requiredOf(schema) {

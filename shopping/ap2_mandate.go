@@ -26,6 +26,9 @@ type AP2MandateAP2WithCheckoutMandate struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *AP2MandateAP2WithCheckoutMandate) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AP2MandateAP2WithCheckoutMandate: null is not a valid object")
+	}
 	type AP2MandateAP2WithCheckoutMandateAlias AP2MandateAP2WithCheckoutMandate
 	var named AP2MandateAP2WithCheckoutMandateAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -94,6 +97,9 @@ type AP2MandateAP2WithMerchantAuthorization struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *AP2MandateAP2WithMerchantAuthorization) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AP2MandateAP2WithMerchantAuthorization: null is not a valid object")
+	}
 	type AP2MandateAP2WithMerchantAuthorizationAlias AP2MandateAP2WithMerchantAuthorization
 	var named AP2MandateAP2WithMerchantAuthorizationAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -198,6 +204,9 @@ type AP2MandateCheckout struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *AP2MandateCheckout) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AP2MandateCheckout: null is not a valid object")
+	}
 	type AP2MandateCheckoutAlias AP2MandateCheckout
 	var named AP2MandateCheckoutAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -457,6 +466,9 @@ type AP2MandateCheckoutAP2 struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *AP2MandateCheckoutAP2) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AP2MandateCheckoutAP2: null is not a valid object")
+	}
 	type AP2MandateCheckoutAP2Alias AP2MandateCheckoutAP2
 	var named AP2MandateCheckoutAP2Alias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -37,6 +37,9 @@ type Expectation struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Expectation) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Expectation: null is not a valid object")
+	}
 	type ExpectationAlias Expectation
 	var named ExpectationAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -143,6 +146,9 @@ type ExpectationLineItemsItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ExpectationLineItemsItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ExpectationLineItemsItem: null is not a valid object")
+	}
 	type ExpectationLineItemsItemAlias ExpectationLineItemsItem
 	var named ExpectationLineItemsItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {

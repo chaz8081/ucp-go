@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // FulfillmentGroupCreateRequest A merchant-generated package/group of line items with fulfillment options.
 type FulfillmentGroupCreateRequest struct {
@@ -19,6 +22,9 @@ type FulfillmentGroupCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *FulfillmentGroupCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentGroupCreateRequest: null is not a valid object")
+	}
 	type FulfillmentGroupCreateRequestAlias FulfillmentGroupCreateRequest
 	var named FulfillmentGroupCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

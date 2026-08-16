@@ -29,6 +29,9 @@ type Category struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Category) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Category: null is not a valid object")
+	}
 	type CategoryAlias Category
 	var named CategoryAlias
 	if err := json.Unmarshal(data, &named); err != nil {

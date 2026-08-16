@@ -79,6 +79,9 @@ type TotalsCreateRequestTotalscreaterequestItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *TotalsCreateRequestTotalscreaterequestItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("TotalsCreateRequestTotalscreaterequestItem: null is not a valid object")
+	}
 	type TotalsCreateRequestTotalscreaterequestItemAlias TotalsCreateRequestTotalscreaterequestItem
 	var named TotalsCreateRequestTotalscreaterequestItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {

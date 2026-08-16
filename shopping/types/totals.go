@@ -81,6 +81,9 @@ type TotalsTotalsItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *TotalsTotalsItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("TotalsTotalsItem: null is not a valid object")
+	}
 	type TotalsTotalsItemAlias TotalsTotalsItem
 	var named TotalsTotalsItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -190,6 +193,9 @@ type TotalsTotalsItemLinesItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *TotalsTotalsItemLinesItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("TotalsTotalsItemLinesItem: null is not a valid object")
+	}
 	type TotalsTotalsItemLinesItemAlias TotalsTotalsItemLinesItem
 	var named TotalsTotalsItemLinesItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -31,6 +31,9 @@ type DiscountAllocation struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *DiscountAllocation) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("DiscountAllocation: null is not a valid object")
+	}
 	type DiscountAllocationAlias DiscountAllocation
 	var named DiscountAllocationAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -133,6 +136,9 @@ type DiscountAppliedDiscount struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *DiscountAppliedDiscount) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("DiscountAppliedDiscount: null is not a valid object")
+	}
 	type DiscountAppliedDiscountAlias DiscountAppliedDiscount
 	var named DiscountAppliedDiscountAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -268,6 +274,9 @@ type DiscountCart struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *DiscountCart) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("DiscountCart: null is not a valid object")
+	}
 	type DiscountCartAlias DiscountCart
 	var named DiscountCartAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -448,6 +457,9 @@ type DiscountCheckout struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *DiscountCheckout) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("DiscountCheckout: null is not a valid object")
+	}
 	type DiscountCheckoutAlias DiscountCheckout
 	var named DiscountCheckoutAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -617,6 +629,9 @@ type DiscountDiscountsObject struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *DiscountDiscountsObject) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("DiscountDiscountsObject: null is not a valid object")
+	}
 	type DiscountDiscountsObjectAlias DiscountDiscountsObject
 	var named DiscountDiscountsObjectAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -30,6 +30,9 @@ type Total struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Total) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Total: null is not a valid object")
+	}
 	type TotalAlias Total
 	var named TotalAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -37,6 +37,9 @@ type OrderLineItemCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OrderLineItemCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OrderLineItemCreateRequest: null is not a valid object")
+	}
 	type OrderLineItemCreateRequestAlias OrderLineItemCreateRequest
 	var named OrderLineItemCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -151,6 +154,9 @@ type OrderLineItemCreateRequestQuantity struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OrderLineItemCreateRequestQuantity) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OrderLineItemCreateRequestQuantity: null is not a valid object")
+	}
 	type OrderLineItemCreateRequestQuantityAlias OrderLineItemCreateRequestQuantity
 	var named OrderLineItemCreateRequestQuantityAlias
 	if err := json.Unmarshal(data, &named); err != nil {

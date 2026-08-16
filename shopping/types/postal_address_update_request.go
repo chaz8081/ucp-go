@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // PostalAddressUpdateRequest is generated from shopping/types/postal_address_update_request.json.
 type PostalAddressUpdateRequest struct {
@@ -35,6 +38,9 @@ type PostalAddressUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PostalAddressUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PostalAddressUpdateRequest: null is not a valid object")
+	}
 	type PostalAddressUpdateRequestAlias PostalAddressUpdateRequest
 	var named PostalAddressUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

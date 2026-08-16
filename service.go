@@ -45,6 +45,9 @@ type ServiceBase struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ServiceBase) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ServiceBase: null is not a valid object")
+	}
 	type ServiceBaseAlias ServiceBase
 	var named ServiceBaseAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -161,6 +164,9 @@ type ServiceBusinessSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ServiceBusinessSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ServiceBusinessSchema: null is not a valid object")
+	}
 	type ServiceBusinessSchemaAlias ServiceBusinessSchema
 	var named ServiceBusinessSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -277,6 +283,9 @@ type ServicePlatformSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ServicePlatformSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ServicePlatformSchema: null is not a valid object")
+	}
 	type ServicePlatformSchemaAlias ServicePlatformSchema
 	var named ServicePlatformSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -396,6 +405,9 @@ type ServiceResponseSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ServiceResponseSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ServiceResponseSchema: null is not a valid object")
+	}
 	type ServiceResponseSchemaAlias ServiceResponseSchema
 	var named ServiceResponseSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {

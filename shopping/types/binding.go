@@ -29,6 +29,9 @@ type Binding struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Binding) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Binding: null is not a valid object")
+	}
 	type BindingAlias Binding
 	var named BindingAlias
 	if err := json.Unmarshal(data, &named); err != nil {

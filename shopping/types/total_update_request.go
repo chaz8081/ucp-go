@@ -3,10 +3,32 @@
 
 package types
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // TotalUpdateRequest A cost breakdown entry with a category, amount, and optional display text.
 //
 // Not enforced yet (phase 4): if, then.
 type TotalUpdateRequest map[string]any
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *TotalUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("TotalUpdateRequest: null is not a valid object")
+	}
+	type TotalUpdateRequestAlias TotalUpdateRequest
+	var alias TotalUpdateRequestAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = TotalUpdateRequest(alias)
+	return nil
+}
 
 // Validate reports the first constraint violation, or nil.
 func (v *TotalUpdateRequest) Validate() error {

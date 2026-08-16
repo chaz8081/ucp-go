@@ -13,6 +13,23 @@ import (
 // CatalogSearch Product catalog search capability.
 type CatalogSearch map[string]any
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *CatalogSearch) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogSearch: null is not a valid object")
+	}
+	type CatalogSearchAlias CatalogSearch
+	var alias CatalogSearchAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = CatalogSearch(alias)
+	return nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *CatalogSearch) Validate() error {
 	return nil
@@ -37,6 +54,9 @@ type CatalogSearchSearchRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogSearchSearchRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogSearchSearchRequest: null is not a valid object")
+	}
 	type CatalogSearchSearchRequestAlias CatalogSearchSearchRequest
 	var named CatalogSearchSearchRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -139,6 +159,9 @@ type CatalogSearchSearchResponse struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogSearchSearchResponse) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogSearchSearchResponse: null is not a valid object")
+	}
 	type CatalogSearchSearchResponseAlias CatalogSearchSearchResponse
 	var named CatalogSearchSearchResponseAlias
 	if err := json.Unmarshal(data, &named); err != nil {

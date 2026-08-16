@@ -28,6 +28,9 @@ type MessageUpdateRequest struct {
 // UnmarshalJSON decodes the union member that accepts the input,
 // preferring one that also validates.
 func (v *MessageUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("MessageUpdateRequest: null is not a valid object")
+	}
 	var matched, fallback MessageUpdateRequest
 	matches := 0
 	parsed := false

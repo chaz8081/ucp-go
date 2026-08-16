@@ -317,10 +317,14 @@ func TestEmitFileAlwaysEmitsValidate(t *testing.T) {
 			t.Errorf("missing %q\n%s", want, src)
 		}
 	}
-	for _, unwanted := range []string{`"fmt"`, `"errors"`} {
-		if strings.Contains(src, unwanted) {
-			t.Errorf("unconstrained schema should not import %s\n%s", unwanted, src)
-		}
+	if strings.Contains(src, `"fmt"`) {
+		t.Errorf("unconstrained schema should not import \"fmt\"\n%s", src)
+	}
+	// "errors" IS imported now, and used: every generated decoder opens by
+	// rejecting a bare null, since encoding/json would otherwise accept one
+	// as a no-op and leave the zero value to pass every check.
+	if !strings.Contains(collapse(src), `if string(data) == "null" {`) {
+		t.Errorf("decoder is missing its null guard\n%s", src)
 	}
 }
 

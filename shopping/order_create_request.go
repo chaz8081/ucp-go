@@ -48,6 +48,9 @@ type OrderCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OrderCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OrderCreateRequest: null is not a valid object")
+	}
 	type OrderCreateRequestAlias OrderCreateRequest
 	var named OrderCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -180,6 +183,9 @@ type OrderCreateRequestPlatformSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OrderCreateRequestPlatformSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OrderCreateRequestPlatformSchema: null is not a valid object")
+	}
 	type OrderCreateRequestPlatformSchemaAlias OrderCreateRequestPlatformSchema
 	var named OrderCreateRequestPlatformSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -256,6 +262,9 @@ type OrderCreateRequestFulfillment struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OrderCreateRequestFulfillment) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OrderCreateRequestFulfillment: null is not a valid object")
+	}
 	type OrderCreateRequestFulfillmentAlias OrderCreateRequestFulfillment
 	var named OrderCreateRequestFulfillmentAlias
 	if err := json.Unmarshal(data, &named); err != nil {

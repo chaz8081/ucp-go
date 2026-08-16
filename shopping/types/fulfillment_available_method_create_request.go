@@ -3,8 +3,30 @@
 
 package types
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // FulfillmentAvailableMethodCreateRequest Inventory availability hint for a fulfillment method type.
 type FulfillmentAvailableMethodCreateRequest map[string]any
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *FulfillmentAvailableMethodCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentAvailableMethodCreateRequest: null is not a valid object")
+	}
+	type FulfillmentAvailableMethodCreateRequestAlias FulfillmentAvailableMethodCreateRequest
+	var alias FulfillmentAvailableMethodCreateRequestAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = FulfillmentAvailableMethodCreateRequest(alias)
+	return nil
+}
 
 // Validate reports the first constraint violation, or nil.
 func (v *FulfillmentAvailableMethodCreateRequest) Validate() error {

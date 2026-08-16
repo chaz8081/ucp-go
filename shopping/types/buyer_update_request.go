@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // BuyerUpdateRequest is generated from shopping/types/buyer_update_request.json.
 type BuyerUpdateRequest struct {
@@ -25,6 +28,9 @@ type BuyerUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *BuyerUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("BuyerUpdateRequest: null is not a valid object")
+	}
 	type BuyerUpdateRequestAlias BuyerUpdateRequest
 	var named BuyerUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

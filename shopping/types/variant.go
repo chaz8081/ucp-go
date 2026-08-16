@@ -65,6 +65,9 @@ type Variant struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Variant) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Variant: null is not a valid object")
+	}
 	type VariantAlias Variant
 	var named VariantAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -218,6 +221,9 @@ type VariantAvailability struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *VariantAvailability) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("VariantAvailability: null is not a valid object")
+	}
 	type VariantAvailabilityAlias VariantAvailability
 	var named VariantAvailabilityAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -289,6 +295,9 @@ type VariantBarcodesItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *VariantBarcodesItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("VariantBarcodesItem: null is not a valid object")
+	}
 	type VariantBarcodesItemAlias VariantBarcodesItem
 	var named VariantBarcodesItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -369,6 +378,9 @@ type VariantSeller struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *VariantSeller) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("VariantSeller: null is not a valid object")
+	}
 	type VariantSellerAlias VariantSeller
 	var named VariantSellerAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -449,6 +461,9 @@ type VariantUnitPrice struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *VariantUnitPrice) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("VariantUnitPrice: null is not a valid object")
+	}
 	type VariantUnitPriceAlias VariantUnitPrice
 	var named VariantUnitPriceAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -556,6 +571,9 @@ type VariantUnitPriceMeasure struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *VariantUnitPriceMeasure) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("VariantUnitPriceMeasure: null is not a valid object")
+	}
 	type VariantUnitPriceMeasureAlias VariantUnitPriceMeasure
 	var named VariantUnitPriceMeasureAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -641,6 +659,9 @@ type VariantUnitPriceReference struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *VariantUnitPriceReference) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("VariantUnitPriceReference: null is not a valid object")
+	}
 	type VariantUnitPriceReferenceAlias VariantUnitPriceReference
 	var named VariantUnitPriceReferenceAlias
 	if err := json.Unmarshal(data, &named); err != nil {

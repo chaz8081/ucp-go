@@ -37,6 +37,9 @@ type OrderLineItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OrderLineItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OrderLineItem: null is not a valid object")
+	}
 	type OrderLineItemAlias OrderLineItem
 	var named OrderLineItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -151,6 +154,9 @@ type OrderLineItemQuantity struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OrderLineItemQuantity) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OrderLineItemQuantity: null is not a valid object")
+	}
 	type OrderLineItemQuantityAlias OrderLineItemQuantity
 	var named OrderLineItemQuantityAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -35,6 +35,9 @@ type Item struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Item) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Item: null is not a valid object")
+	}
 	type ItemAlias Item
 	var named ItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {

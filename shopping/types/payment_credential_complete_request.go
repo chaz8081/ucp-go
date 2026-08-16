@@ -27,6 +27,9 @@ type PaymentCredentialCompleteRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentCredentialCompleteRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentCredentialCompleteRequest: null is not a valid object")
+	}
 	type PaymentCredentialCompleteRequestAlias PaymentCredentialCompleteRequest
 	var named PaymentCredentialCompleteRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

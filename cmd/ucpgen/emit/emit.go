@@ -803,6 +803,7 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 	// falls back to the first that parsed only so that the bytes are not
 	// lost — Validate then reports why they are wrong.
 	fmt.Fprintf(body, "// UnmarshalJSON decodes the union member that accepts the input,\n// preferring one that also validates.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	writeNullGuard(body, typeName, "object")
 	fmt.Fprintf(body, "\tvar matched, fallback %s\n\tmatches := 0\n\tparsed := false\n", typeName)
 	for _, f := range fields {
 		fmt.Fprintf(body, "\tvar as%s %s\n\tif err := json.Unmarshal(data, &as%s); err == nil {\n", f.field, f.typ, f.field)
@@ -1046,8 +1047,10 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	case open:
 		// One UnmarshalJSON per type: an open object's decoder carries the
 		// presence capture rather than getting a second one of its own.
+		e.usesErrors = true // the decoder's null guard
 		renderExtraCodec(body, typeName, names, fieldNames, req)
 	case len(req) > 0:
+		e.usesErrors = true // the decoder's null guard
 		renderPresenceCodec(body, typeName, req)
 	}
 
@@ -1086,6 +1089,7 @@ func isOpenObject(schema map[string]any) bool {
 func renderExtraCodec(body *strings.Builder, typeName string, names []string, fieldNames map[string]string, required []string) {
 	alias := typeName + "Alias"
 	fmt.Fprintf(body, "\n// UnmarshalJSON decodes the named properties and keeps everything else\n// in Extra.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	writeNullGuard(body, typeName, "object")
 	fmt.Fprintf(body, "\ttype %s %s\n\tvar named %s\n\tif err := json.Unmarshal(data, &named); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(named)\n\n", alias, typeName, alias, typeName)
 	body.WriteString("\tvar all map[string]json.RawMessage\n\tif err := json.Unmarshal(data, &all); err != nil {\n\t\treturn err\n\t}\n")
 	// Presence is captured before the named keys are removed below, since

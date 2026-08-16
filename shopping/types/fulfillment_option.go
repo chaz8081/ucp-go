@@ -43,6 +43,9 @@ type FulfillmentOption struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *FulfillmentOption) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentOption: null is not a valid object")
+	}
 	type FulfillmentOptionAlias FulfillmentOption
 	var named FulfillmentOptionAlias
 	if err := json.Unmarshal(data, &named); err != nil {

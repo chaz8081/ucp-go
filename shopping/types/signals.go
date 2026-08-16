@@ -26,6 +26,9 @@ type Signals struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Signals) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Signals: null is not a valid object")
+	}
 	type SignalsAlias Signals
 	var named SignalsAlias
 	if err := json.Unmarshal(data, &named); err != nil {

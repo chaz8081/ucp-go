@@ -34,6 +34,9 @@ type ContextUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ContextUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ContextUpdateRequest: null is not a valid object")
+	}
 	type ContextUpdateRequestAlias ContextUpdateRequest
 	var named ContextUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

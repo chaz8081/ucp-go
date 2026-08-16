@@ -44,6 +44,9 @@ type MessageWarning struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *MessageWarning) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("MessageWarning: null is not a valid object")
+	}
 	type MessageWarningAlias MessageWarning
 	var named MessageWarningAlias
 	if err := json.Unmarshal(data, &named); err != nil {

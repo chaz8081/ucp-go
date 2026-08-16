@@ -46,18 +46,20 @@ import (
 //     Go forbids a method on a defined pointer type, so the generated
 //     Validate would not compile — but the rule has to state the exemption
 //     rather than rely on that accident.
-//   - A map underlying, which a property-less object root becomes. Those
-//     have the same hole and no harness coverage yet; widening to them is
-//     a change of its own, not a rider on this one.
 //   - A named type (types.Fulfillment) or json.RawMessage, where the alias
 //     is standing in for a $ref or an untyped union and the shape the null
 //     would have to be judged against lives elsewhere.
+//
+// A map underlying — what a property-less object root becomes — qualifies
+// for the same reason a slice does. A struct root does not need it: its
+// presence codec allocates the record before checking, so a decoded null
+// leaves every required property unseen and the check rejects it.
 func needsNullCodec(underlying string) bool {
 	switch underlying {
 	case "string", "int64", "float64", "bool":
 		return true
 	}
-	return strings.HasPrefix(underlying, "[]")
+	return strings.HasPrefix(underlying, "[]") || strings.HasPrefix(underlying, "map[")
 }
 
 // jsonTypeName renders the schema type a null was rejected in favour of, for
@@ -72,6 +74,9 @@ func jsonTypeName(schema map[string]any, underlying string) string {
 	if strings.HasPrefix(underlying, "[]") {
 		return "array"
 	}
+	if strings.HasPrefix(underlying, "map[") {
+		return "object"
+	}
 	return underlying
 }
 
@@ -79,11 +84,24 @@ func jsonTypeName(schema map[string]any, underlying string) string {
 // indirection is the same one renderPresenceCodec uses: the local type drops
 // the method set, so the nested Unmarshal decodes normally instead of
 // recursing into the method being defined.
+// writeNullGuard emits the bare-null rejection that opens every generated
+// decoder.
+//
+// Every named type needs it, not only the aliases. A struct whose schema
+// requires nothing has no check a zero value fails, so a decoded null
+// passed straight through — Checkout happened to reject it only because it
+// has required properties, which made the hole look narrower than it was.
+// Putting the guard in each decoder rather than in Validate is what keeps
+// a hand-built zero value legal while a null document is not.
+func writeNullGuard(body *strings.Builder, typeName, jsonType string) {
+	fmt.Fprintf(body, "\tif string(data) == \"null\" {\n\t\treturn errors.New(%q)\n\t}\n",
+		fmt.Sprintf("%s: null is not a valid %s", typeName, jsonType))
+}
+
 func renderNullCodec(body *strings.Builder, typeName, underlying string, schema map[string]any) {
 	alias := typeName + "Alias"
 	fmt.Fprintf(body, "// UnmarshalJSON rejects a bare null. encoding/json treats null as a\n// no-op for every Go type, so without this the zero value would pass\n// every check and a null document would validate as though it were a\n// real value.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
-	fmt.Fprintf(body, "\tif string(data) == \"null\" {\n\t\treturn errors.New(%q)\n\t}\n",
-		fmt.Sprintf("%s: null is not a valid %s", typeName, jsonTypeName(schema, underlying)))
+	writeNullGuard(body, typeName, jsonTypeName(schema, underlying))
 	fmt.Fprintf(body, "\ttype %s %s\n\tvar alias %s\n\tif err := json.Unmarshal(data, &alias); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(alias)\n\treturn nil\n}\n\n",
 		alias, typeName, alias, typeName)
 }

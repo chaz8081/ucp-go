@@ -34,6 +34,9 @@ type CheckoutCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CheckoutCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CheckoutCreateRequest: null is not a valid object")
+	}
 	type CheckoutCreateRequestAlias CheckoutCreateRequest
 	var named CheckoutCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

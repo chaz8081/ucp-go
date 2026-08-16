@@ -78,6 +78,7 @@ func compilePresenceChecks(e *fileEmitter, c *constraintSet, required []string) 
 func renderPresenceCodec(body *strings.Builder, typeName string, required []string) {
 	alias := typeName + "Alias"
 	fmt.Fprintf(body, "\n// UnmarshalJSON decodes the named properties and records which of the\n// required ones were present.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	writeNullGuard(body, typeName, "object")
 	fmt.Fprintf(body, "\ttype %s %s\n\tvar named %s\n\tif err := json.Unmarshal(data, &named); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(named)\n\n", alias, typeName, alias, typeName)
 	body.WriteString("\tvar all map[string]json.RawMessage\n\tif err := json.Unmarshal(data, &all); err != nil {\n\t\treturn err\n\t}\n")
 	renderPresenceCapture(body, required)

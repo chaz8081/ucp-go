@@ -28,6 +28,9 @@ type LineItemCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *LineItemCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("LineItemCreateRequest: null is not a valid object")
+	}
 	type LineItemCreateRequestAlias LineItemCreateRequest
 	var named LineItemCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

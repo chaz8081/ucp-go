@@ -3,8 +3,30 @@
 
 package types
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // AttributionCreateRequest Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.
 type AttributionCreateRequest map[string]string
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *AttributionCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AttributionCreateRequest: null is not a valid object")
+	}
+	type AttributionCreateRequestAlias AttributionCreateRequest
+	var alias AttributionCreateRequestAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = AttributionCreateRequest(alias)
+	return nil
+}
 
 // Validate reports the first constraint violation, or nil.
 func (v *AttributionCreateRequest) Validate() error {

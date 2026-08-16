@@ -29,6 +29,9 @@ type InputCorrelation struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *InputCorrelation) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("InputCorrelation: null is not a valid object")
+	}
 	type InputCorrelationAlias InputCorrelation
 	var named InputCorrelationAlias
 	if err := json.Unmarshal(data, &named); err != nil {

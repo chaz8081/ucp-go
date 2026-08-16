@@ -3,8 +3,30 @@
 
 package types
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // FulfillmentOptionUpdateRequest A fulfillment option within a group (e.g., Standard Shipping $5, Express $15).
 type FulfillmentOptionUpdateRequest map[string]any
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *FulfillmentOptionUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentOptionUpdateRequest: null is not a valid object")
+	}
+	type FulfillmentOptionUpdateRequestAlias FulfillmentOptionUpdateRequest
+	var alias FulfillmentOptionUpdateRequestAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = FulfillmentOptionUpdateRequest(alias)
+	return nil
+}
 
 // Validate reports the first constraint violation, or nil.
 func (v *FulfillmentOptionUpdateRequest) Validate() error {

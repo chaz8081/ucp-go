@@ -15,6 +15,23 @@ import (
 // CatalogLookup Product/variant lookup by identifier. Supports batch retrieval (lookup_catalog) and single-product detail (get_product).
 type CatalogLookup map[string]any
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *CatalogLookup) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookup: null is not a valid object")
+	}
+	type CatalogLookupAlias CatalogLookup
+	var alias CatalogLookupAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = CatalogLookup(alias)
+	return nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *CatalogLookup) Validate() error {
 	return nil
@@ -69,6 +86,9 @@ type CatalogLookupDetailProduct struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupDetailProduct) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupDetailProduct: null is not a valid object")
+	}
 	type CatalogLookupDetailProductAlias CatalogLookupDetailProduct
 	var named CatalogLookupDetailProductAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -227,6 +247,9 @@ type CatalogLookupGetProductRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupGetProductRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupGetProductRequest: null is not a valid object")
+	}
 	type CatalogLookupGetProductRequestAlias CatalogLookupGetProductRequest
 	var named CatalogLookupGetProductRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -340,6 +363,9 @@ type CatalogLookupGetProductResponse struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupGetProductResponse) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupGetProductResponse: null is not a valid object")
+	}
 	type CatalogLookupGetProductResponseAlias CatalogLookupGetProductResponse
 	var named CatalogLookupGetProductResponseAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -440,6 +466,9 @@ type CatalogLookupLookupRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupRequest: null is not a valid object")
+	}
 	type CatalogLookupLookupRequestAlias CatalogLookupLookupRequest
 	var named CatalogLookupLookupRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -549,6 +578,9 @@ type CatalogLookupLookupResponse struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupResponse) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupResponse: null is not a valid object")
+	}
 	type CatalogLookupLookupResponseAlias CatalogLookupLookupResponse
 	var named CatalogLookupLookupResponseAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -684,6 +716,9 @@ type CatalogLookupLookupVariant struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupVariant) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupVariant: null is not a valid object")
+	}
 	type CatalogLookupLookupVariantAlias CatalogLookupLookupVariant
 	var named CatalogLookupLookupVariantAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -880,6 +915,9 @@ type CatalogLookupLookupResponseProductsItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupResponseProductsItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupResponseProductsItem: null is not a valid object")
+	}
 	type CatalogLookupLookupResponseProductsItemAlias CatalogLookupLookupResponseProductsItem
 	var named CatalogLookupLookupResponseProductsItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1020,6 +1058,9 @@ type CatalogLookupLookupVariantAvailability struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupVariantAvailability) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupVariantAvailability: null is not a valid object")
+	}
 	type CatalogLookupLookupVariantAvailabilityAlias CatalogLookupLookupVariantAvailability
 	var named CatalogLookupLookupVariantAvailabilityAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1091,6 +1132,9 @@ type CatalogLookupLookupVariantBarcodesItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupVariantBarcodesItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupVariantBarcodesItem: null is not a valid object")
+	}
 	type CatalogLookupLookupVariantBarcodesItemAlias CatalogLookupLookupVariantBarcodesItem
 	var named CatalogLookupLookupVariantBarcodesItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1171,6 +1215,9 @@ type CatalogLookupLookupVariantSeller struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupVariantSeller) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupVariantSeller: null is not a valid object")
+	}
 	type CatalogLookupLookupVariantSellerAlias CatalogLookupLookupVariantSeller
 	var named CatalogLookupLookupVariantSellerAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1251,6 +1298,9 @@ type CatalogLookupLookupVariantUnitPrice struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupVariantUnitPrice) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupVariantUnitPrice: null is not a valid object")
+	}
 	type CatalogLookupLookupVariantUnitPriceAlias CatalogLookupLookupVariantUnitPrice
 	var named CatalogLookupLookupVariantUnitPriceAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1358,6 +1408,9 @@ type CatalogLookupLookupVariantUnitPriceMeasure struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupVariantUnitPriceMeasure) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupVariantUnitPriceMeasure: null is not a valid object")
+	}
 	type CatalogLookupLookupVariantUnitPriceMeasureAlias CatalogLookupLookupVariantUnitPriceMeasure
 	var named CatalogLookupLookupVariantUnitPriceMeasureAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1443,6 +1496,9 @@ type CatalogLookupLookupVariantUnitPriceReference struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CatalogLookupLookupVariantUnitPriceReference) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupLookupVariantUnitPriceReference: null is not a valid object")
+	}
 	type CatalogLookupLookupVariantUnitPriceReferenceAlias CatalogLookupLookupVariantUnitPriceReference
 	var named CatalogLookupLookupVariantUnitPriceReferenceAlias
 	if err := json.Unmarshal(data, &named); err != nil {

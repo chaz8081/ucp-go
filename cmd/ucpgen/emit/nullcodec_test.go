@@ -76,14 +76,19 @@ func TestNullCodecSkipsTypesThatPermitNull(t *testing.T) {
 // other branches are untouched and that the non-scalar, non-array aliases
 // stay out of scope.
 func TestNullCodecScope(t *testing.T) {
-	for _, underlying := range []string{"string", "int64", "float64", "bool", "[]Total", "[]any"} {
+	// A property-less object root becomes a map, and null is no more an
+	// object than it is an array or a string.
+	for _, underlying := range []string{
+		"string", "int64", "float64", "bool",
+		"[]Total", "[]any", "map[string]any", "map[string]string",
+	} {
 		if !needsNullCodec(underlying) {
-			t.Errorf("%s is a scalar or array root and must reject a bare null", underlying)
+			t.Errorf("%s cannot admit null and must reject a bare one", underlying)
 		}
 	}
-	// A $ref root aliases another named type, and a property-less object
-	// root becomes a map. Neither is in this fix's scope.
-	for _, underlying := range []string{"types.Fulfillment", "map[string]any", "map[string]string", "json.RawMessage"} {
+	// A $ref root aliases another named type, so the shape a null would be
+	// judged against lives there rather than here.
+	for _, underlying := range []string{"types.Fulfillment", "json.RawMessage"} {
 		if needsNullCodec(underlying) {
 			t.Errorf("%s is out of scope and must not get a null-rejecting decoder", underlying)
 		}
@@ -100,7 +105,15 @@ func TestEmitStructKeepsExactlyOneDecoder(t *testing.T) {
 	if n := strings.Count(src, "func (v *Thing) UnmarshalJSON("); n != 1 {
 		t.Errorf("want exactly 1 UnmarshalJSON for Thing, got %d:\n%s", n, src)
 	}
-	if strings.Contains(src, `null is not a valid`) {
-		t.Errorf("an object root rejects null through its required-property check, not a second decoder:\n%s", src)
+	// The guard goes inside that one decoder rather than in a second.
+	//
+	// An object root was first thought to reject null already, through its
+	// required-property check. That holds only for a schema that requires
+	// something: Checkout rejected null and so looked like proof, while
+	// every root requiring nothing — account_info, buyer, context,
+	// fulfillment — accepted it. The differential harness found them once
+	// it started sending null.
+	if n := strings.Count(src, `null is not a valid`); n != 1 {
+		t.Errorf("want exactly 1 null guard inside the decoder, got %d:\n%s", n, src)
 	}
 }
