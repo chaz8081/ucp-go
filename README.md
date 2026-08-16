@@ -100,7 +100,7 @@ an independent implementation is the only thing that catches it.
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
 **693 payloads across 157 generated types (128 of them schema-file roots),
-one known disagreement.**
+zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
 reproducible; round-trip tests prove the types decode. Neither says whether
@@ -121,21 +121,24 @@ grouping other schemas — and are not a gap.
 Each widening has found real defects. Covering union-, array- and
 scalar-rooted schemas found four request-variant types that were empty
 structs accepting any JSON object, and every named type accepting a bare
-`null`. Covering `$defs` found that a `$def` consisting only of a `$ref` was
-emitted as a Go *defined* type over its target, which copies the target's
-fields and none of its methods: five types accepted `{}` and `null`
-unconditionally. All are fixed.
+`null`. Covering `$defs` found two more. A `$def` consisting only of a
+`$ref` was emitted as a Go *defined* type over its target, which copies the
+target's fields and none of its methods, so five types accepted `{}` and
+`null` unconditionally; they are Go type aliases now. And the `allOf` merge
+let an inherited property definition overwrite the node's own, so a schema
+that narrows what it inherits lost the narrowing — `const: "card"` was never
+enforced, and `CardPaymentInstrument.Display` was flattened to
+`map[string]any`, six typed card fields and all. The node's own definition
+now wins, which recovered five field types and three constant checks. All
+are fixed.
 
-One disagreement is open and deliberately not suppressed.
-`available_card_payment_instrument` narrows an inherited `type` property to
-`const: "card"`, and the `allOf` merge — which mirrors the python-sdk's
-`properties.update()` precedence — lets the inherited definition overwrite
-the narrowing, so the constant is never enforced. The same precedence
-flattens `CardPaymentInstrument.Display` to `map[string]any` and discards
-the local definition at nine further sites in the corpus. Fixing it changes
-generated types rather than only checks, so it is a decision rather than a
-patch, and the harness names it on every run instead of counting it as a
-skip.
+That last one is a narrowing rather than the intersection `allOf` really
+specifies, correct for every overlapping redefinition in this corpus and not
+in general; the emitter says so at the code, and a corpus that grew a
+widening redefinition would surface here as a disagreement.
+
+Nothing is suppressed to reach zero. There is no skip list of known-failing
+payloads, and a disagreement fails the suite.
 
 Figures below the headline are equally literal. 71 targets cannot be
 compiled by the oracle at all: `capability.json`, `payment_handler.json` and
