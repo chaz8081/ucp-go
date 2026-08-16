@@ -1,9 +1,11 @@
 package conformance
 
 import (
+	"sort"
 	"testing"
 
 	ucp "github.com/chaz8081/ucp-go"
+	"github.com/chaz8081/ucp-go/common"
 	"github.com/chaz8081/ucp-go/shopping"
 	"github.com/chaz8081/ucp-go/shopping/types"
 	"github.com/chaz8081/ucp-go/transports"
@@ -12,15 +14,18 @@ import (
 // validator is the uniform interface every generated type satisfies.
 type validator interface{ Validate() error }
 
-// models maps a schema to a fresh value of the Go type it produces.
+// models maps a schema location to a fresh value of the Go type it
+// produces. A location is a schema path for a file-level type, or
+// "<path>#<defName>" for a type emitted from a $def.
 //
 // Go cannot construct a type from a name, so driving the corpus by schema
-// path needs an explicit table. It is generated from the emitter's type
-// index rather than hand-written, and TestModelsCoverCorpus below fails if
-// it ever falls behind the corpus.
+// location needs an explicit table. It is generated from the emitter's type
+// index rather than hand-written, and TestModelsCoverCorpus and
+// TestModelsCoverDefs below fail if it ever falls behind the corpus.
 //
-// Only schemas that emit a file-level type appear: the rest — a bare enum,
-// a union with no properties of its own — produce no value to construct.
+// Only locations that emit a type appear: the rest — a document root that is
+// nothing but a $defs container, a $def that is a namespace grouping other
+// schemas — produce no value to construct.
 var models = map[string]func() validator{
 	"shopping/cart.json":                                              func() validator { return new(shopping.Cart) },
 	"shopping/cart_create_request.json":                               func() validator { return new(shopping.CartCreateRequest) },
@@ -159,6 +164,111 @@ var models = map[string]func() validator{
 	"ucp.json":                                                        func() validator { return new(ucp.UCPMetadata) },
 	"ucp_create_request.json":                                         func() validator { return new(ucp.UCPMetadataCreateRequest) },
 	"ucp_update_request.json":                                         func() validator { return new(ucp.UCPMetadataUpdateRequest) },
+
+	// $defs-derived types, keyed "<rel>#<defName>". Iterating schema files
+	// alone reaches only the file-level type, which left every $def type
+	// unexercised — including the whole capability model, all of fulfillment
+	// and discount, and ap2_mandate: those eight files declare no file-level
+	// type at all, so the harness skipped them whole.
+	//
+	// Every $def that emits a type is registered, not only those in the eight
+	// files lacking a root type. A $def in a file that also has a root type is
+	// just as untested, because the root type is a different Go struct that
+	// merely happens to share the document.
+	"capability.json#base":                                                                func() validator { return new(ucp.CapabilityBase) },
+	"capability.json#business_schema":                                                     func() validator { return new(ucp.CapabilityBusinessSchema) },
+	"capability.json#platform_schema":                                                     func() validator { return new(ucp.CapabilityPlatformSchema) },
+	"capability.json#response_schema":                                                     func() validator { return new(ucp.CapabilityResponseSchema) },
+	"common/identity_linking.json#scope_policy":                                           func() validator { return new(common.IdentityLinkingScopePolicy) },
+	"common/identity_linking.json#scope_token":                                            func() validator { return new(common.IdentityLinkingScopeToken) },
+	"payment_handler.json#base":                                                           func() validator { return new(ucp.PaymentHandlerBase) },
+	"payment_handler.json#business_schema":                                                func() validator { return new(ucp.PaymentHandlerBusinessSchema) },
+	"payment_handler.json#platform_schema":                                                func() validator { return new(ucp.PaymentHandlerPlatformSchema) },
+	"payment_handler.json#response_schema":                                                func() validator { return new(ucp.PaymentHandlerResponseSchema) },
+	"service.json#base":                                                                   func() validator { return new(ucp.ServiceBase) },
+	"service.json#business_schema":                                                        func() validator { return new(ucp.ServiceBusinessSchema) },
+	"service.json#platform_schema":                                                        func() validator { return new(ucp.ServicePlatformSchema) },
+	"service.json#response_schema":                                                        func() validator { return new(ucp.ServiceResponseSchema) },
+	"shopping/ap2_mandate.json#ap2_with_checkout_mandate":                                 func() validator { return new(shopping.AP2MandateAP2WithCheckoutMandate) },
+	"shopping/ap2_mandate.json#ap2_with_merchant_authorization":                           func() validator { return new(shopping.AP2MandateAP2WithMerchantAuthorization) },
+	"shopping/ap2_mandate.json#checkout":                                                  func() validator { return new(shopping.AP2MandateCheckout) },
+	"shopping/ap2_mandate.json#checkout_mandate":                                          func() validator { return new(shopping.AP2MandateCheckoutMandate) },
+	"shopping/ap2_mandate.json#error_code":                                                func() validator { return new(shopping.AP2MandateErrorCode) },
+	"shopping/ap2_mandate.json#merchant_authorization":                                    func() validator { return new(shopping.AP2MandateMerchantAuthorization) },
+	"shopping/buyer_consent.json#buyer":                                                   func() validator { return new(shopping.BuyerConsentBuyer) },
+	"shopping/buyer_consent.json#checkout":                                                func() validator { return new(shopping.BuyerConsentCheckout) },
+	"shopping/buyer_consent.json#consent":                                                 func() validator { return new(shopping.BuyerConsentConsent) },
+	"shopping/cart.json#checkout":                                                         func() validator { return new(shopping.CartCheckout) },
+	"shopping/cart_create_request.json#checkout":                                          func() validator { return new(shopping.CartCreateRequestCheckout) },
+	"shopping/cart_update_request.json#checkout":                                          func() validator { return new(shopping.CartUpdateRequestCheckout) },
+	"shopping/catalog_lookup.json#detail_product":                                         func() validator { return new(shopping.CatalogLookupDetailProduct) },
+	"shopping/catalog_lookup.json#get_product_request":                                    func() validator { return new(shopping.CatalogLookupGetProductRequest) },
+	"shopping/catalog_lookup.json#get_product_response":                                   func() validator { return new(shopping.CatalogLookupGetProductResponse) },
+	"shopping/catalog_lookup.json#lookup_request":                                         func() validator { return new(shopping.CatalogLookupLookupRequest) },
+	"shopping/catalog_lookup.json#lookup_response":                                        func() validator { return new(shopping.CatalogLookupLookupResponse) },
+	"shopping/catalog_lookup.json#lookup_variant":                                         func() validator { return new(shopping.CatalogLookupLookupVariant) },
+	"shopping/catalog_search.json#search_request":                                         func() validator { return new(shopping.CatalogSearchSearchRequest) },
+	"shopping/catalog_search.json#search_response":                                        func() validator { return new(shopping.CatalogSearchSearchResponse) },
+	"shopping/discount.json#allocation":                                                   func() validator { return new(shopping.DiscountAllocation) },
+	"shopping/discount.json#applied_discount":                                             func() validator { return new(shopping.DiscountAppliedDiscount) },
+	"shopping/discount.json#cart":                                                         func() validator { return new(shopping.DiscountCart) },
+	"shopping/discount.json#checkout":                                                     func() validator { return new(shopping.DiscountCheckout) },
+	"shopping/discount.json#discounts_object":                                             func() validator { return new(shopping.DiscountDiscountsObject) },
+	"shopping/fulfillment.json#checkout":                                                  func() validator { return new(shopping.FulfillmentCheckout) },
+	"shopping/fulfillment.json#fulfillment":                                               func() validator { return new(shopping.FulfillmentFulfillment) },
+	"shopping/fulfillment.json#fulfillment_available_method":                              func() validator { return new(shopping.FulfillmentFulfillmentAvailableMethod) },
+	"shopping/fulfillment.json#fulfillment_group":                                         func() validator { return new(shopping.FulfillmentFulfillmentGroup) },
+	"shopping/fulfillment.json#fulfillment_method":                                        func() validator { return new(shopping.FulfillmentFulfillmentMethod) },
+	"shopping/fulfillment.json#fulfillment_option":                                        func() validator { return new(shopping.FulfillmentFulfillmentOption) },
+	"shopping/order.json#platform_schema":                                                 func() validator { return new(shopping.OrderPlatformSchema) },
+	"shopping/order_create_request.json#platform_schema":                                  func() validator { return new(shopping.OrderCreateRequestPlatformSchema) },
+	"shopping/order_update_request.json#platform_schema":                                  func() validator { return new(shopping.OrderUpdateRequestPlatformSchema) },
+	"shopping/types/card_payment_instrument.json#available_card_payment_instrument":       func() validator { return new(types.CardPaymentInstrumentAvailableCardPaymentInstrument) },
+	"shopping/types/pagination.json#request":                                              func() validator { return new(types.PaginationRequest) },
+	"shopping/types/pagination.json#response":                                             func() validator { return new(types.PaginationResponse) },
+	"shopping/types/payment_instrument.json#selected_payment_instrument":                  func() validator { return new(types.PaymentInstrumentSelectedPaymentInstrument) },
+	"shopping/types/payment_instrument_complete_request.json#selected_payment_instrument": func() validator { return new(types.PaymentInstrumentCompleteRequestSelectedPaymentInstrument) },
+	"shopping/types/payment_instrument_create_request.json#selected_payment_instrument":   func() validator { return new(types.PaymentInstrumentCreateRequestSelectedPaymentInstrument) },
+	"shopping/types/payment_instrument_update_request.json#selected_payment_instrument":   func() validator { return new(types.PaymentInstrumentUpdateRequestSelectedPaymentInstrument) },
+	"ucp.json#base":                                    func() validator { return new(ucp.UCPBase) },
+	"ucp.json#business_schema":                         func() validator { return new(ucp.UCPBusinessSchema) },
+	"ucp.json#entity":                                  func() validator { return new(ucp.UCPEntity) },
+	"ucp.json#error":                                   func() validator { return new(ucp.UCPError) },
+	"ucp.json#platform_schema":                         func() validator { return new(ucp.UCPPlatformSchema) },
+	"ucp.json#requires":                                func() validator { return new(ucp.UCPRequires) },
+	"ucp.json#response_cart_schema":                    func() validator { return new(ucp.UCPResponseCartSchema) },
+	"ucp.json#response_catalog_schema":                 func() validator { return new(ucp.UCPResponseCatalogSchema) },
+	"ucp.json#response_checkout_schema":                func() validator { return new(ucp.UCPResponseCheckoutSchema) },
+	"ucp.json#response_order_schema":                   func() validator { return new(ucp.UCPResponseOrderSchema) },
+	"ucp.json#success":                                 func() validator { return new(ucp.UCPSuccess) },
+	"ucp.json#version":                                 func() validator { return new(ucp.UCPVersion) },
+	"ucp.json#version_constraint":                      func() validator { return new(ucp.UCPVersionConstraint) },
+	"ucp_create_request.json#base":                     func() validator { return new(ucp.UCPCreateRequestBase) },
+	"ucp_create_request.json#business_schema":          func() validator { return new(ucp.UCPCreateRequestBusinessSchema) },
+	"ucp_create_request.json#entity":                   func() validator { return new(ucp.UCPCreateRequestEntity) },
+	"ucp_create_request.json#error":                    func() validator { return new(ucp.UCPCreateRequestError) },
+	"ucp_create_request.json#platform_schema":          func() validator { return new(ucp.UCPCreateRequestPlatformSchema) },
+	"ucp_create_request.json#requires":                 func() validator { return new(ucp.UCPCreateRequestRequires) },
+	"ucp_create_request.json#response_cart_schema":     func() validator { return new(ucp.UCPCreateRequestResponseCartSchema) },
+	"ucp_create_request.json#response_catalog_schema":  func() validator { return new(ucp.UCPCreateRequestResponseCatalogSchema) },
+	"ucp_create_request.json#response_checkout_schema": func() validator { return new(ucp.UCPCreateRequestResponseCheckoutSchema) },
+	"ucp_create_request.json#response_order_schema":    func() validator { return new(ucp.UCPCreateRequestResponseOrderSchema) },
+	"ucp_create_request.json#success":                  func() validator { return new(ucp.UCPCreateRequestSuccess) },
+	"ucp_create_request.json#version":                  func() validator { return new(ucp.UCPCreateRequestVersion) },
+	"ucp_create_request.json#version_constraint":       func() validator { return new(ucp.UCPCreateRequestVersionConstraint) },
+	"ucp_update_request.json#base":                     func() validator { return new(ucp.UCPUpdateRequestBase) },
+	"ucp_update_request.json#business_schema":          func() validator { return new(ucp.UCPUpdateRequestBusinessSchema) },
+	"ucp_update_request.json#entity":                   func() validator { return new(ucp.UCPUpdateRequestEntity) },
+	"ucp_update_request.json#error":                    func() validator { return new(ucp.UCPUpdateRequestError) },
+	"ucp_update_request.json#platform_schema":          func() validator { return new(ucp.UCPUpdateRequestPlatformSchema) },
+	"ucp_update_request.json#requires":                 func() validator { return new(ucp.UCPUpdateRequestRequires) },
+	"ucp_update_request.json#response_cart_schema":     func() validator { return new(ucp.UCPUpdateRequestResponseCartSchema) },
+	"ucp_update_request.json#response_catalog_schema":  func() validator { return new(ucp.UCPUpdateRequestResponseCatalogSchema) },
+	"ucp_update_request.json#response_checkout_schema": func() validator { return new(ucp.UCPUpdateRequestResponseCheckoutSchema) },
+	"ucp_update_request.json#response_order_schema":    func() validator { return new(ucp.UCPUpdateRequestResponseOrderSchema) },
+	"ucp_update_request.json#success":                  func() validator { return new(ucp.UCPUpdateRequestSuccess) },
+	"ucp_update_request.json#version":                  func() validator { return new(ucp.UCPUpdateRequestVersion) },
+	"ucp_update_request.json#version_constraint":       func() validator { return new(ucp.UCPUpdateRequestVersionConstraint) },
 }
 
 // TestModelsCoverCorpus keeps the table honest. Without it a schema added
@@ -178,5 +288,41 @@ func TestModelsCoverCorpus(t *testing.T) {
 	}
 	if len(missing) > 0 {
 		t.Errorf("models is missing %d schemas that emit a file-level type: %v", len(missing), missing)
+	}
+}
+
+// TestModelsCoverDefs is the same guarantee for $defs-derived types, and it
+// exists because iterating schema files was never the same thing as
+// iterating emitted types. Eight files put all their content in $defs and so
+// have no file-level type; the harness looked them up by file, missed, and
+// skipped them whole, taking 34 emitted types — the entire capability model
+// among them — out of the comparison without ever naming them as a gap.
+//
+// A $def with no emitted type is not a failure here. The two grouping
+// objects in the corpus, identity_linking and dev_ucp_shopping_fulfillment,
+// are namespaces whose values are themselves schemas; the emitter produces
+// nothing for them by design, so there is nothing to register.
+func TestModelsCoverDefs(t *testing.T) {
+	set := loadGoldens(t)
+	idx := buildIndex(t, set)
+	var missing []string
+	for _, rel := range sortedKeys(set) {
+		defs, _ := set[rel]["$defs"].(map[string]any)
+		names := make([]string, 0, len(defs))
+		for name := range defs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			if _, ok := idx.Lookup(rel, name); !ok {
+				continue // a grouping object, no type emitted
+			}
+			if _, ok := models[rel+"#"+name]; !ok {
+				missing = append(missing, rel+"#"+name)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("models is missing %d $defs types: %v", len(missing), missing)
 	}
 }
