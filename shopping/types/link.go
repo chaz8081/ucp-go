@@ -33,6 +33,9 @@ type Link struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Link) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Link: null is not a valid object")
+	}
 	type LinkAlias Link
 	var named LinkAlias
 	if err := json.Unmarshal(data, &named); err != nil {

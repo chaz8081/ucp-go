@@ -33,6 +33,9 @@ type Rating struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Rating) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Rating: null is not a valid object")
+	}
 	type RatingAlias Rating
 	var named RatingAlias
 	if err := json.Unmarshal(data, &named); err != nil {

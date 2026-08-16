@@ -24,6 +24,9 @@ type EmbeddedTransportConfig struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *EmbeddedTransportConfig) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("EmbeddedTransportConfig: null is not a valid object")
+	}
 	type EmbeddedTransportConfigAlias EmbeddedTransportConfig
 	var named EmbeddedTransportConfigAlias
 	if err := json.Unmarshal(data, &named); err != nil {

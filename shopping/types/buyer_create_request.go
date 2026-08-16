@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // BuyerCreateRequest is generated from shopping/types/buyer_create_request.json.
 type BuyerCreateRequest struct {
@@ -25,6 +28,9 @@ type BuyerCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *BuyerCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("BuyerCreateRequest: null is not a valid object")
+	}
 	type BuyerCreateRequestAlias BuyerCreateRequest
 	var named BuyerCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

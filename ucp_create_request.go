@@ -27,6 +27,9 @@ type UCPMetadataCreateRequest struct {
 // UnmarshalJSON decodes the union member that accepts the input,
 // preferring one that also validates.
 func (v *UCPMetadataCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPMetadataCreateRequest: null is not a valid object")
+	}
 	var matched, fallback UCPMetadataCreateRequest
 	matches := 0
 	parsed := false
@@ -185,6 +188,9 @@ type UCPCreateRequestBase struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestBase) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestBase: null is not a valid object")
+	}
 	type UCPCreateRequestBaseAlias UCPCreateRequestBase
 	var named UCPCreateRequestBaseAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -301,6 +307,9 @@ type UCPCreateRequestBusinessSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestBusinessSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestBusinessSchema: null is not a valid object")
+	}
 	type UCPCreateRequestBusinessSchemaAlias UCPCreateRequestBusinessSchema
 	var named UCPCreateRequestBusinessSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -430,6 +439,9 @@ type UCPCreateRequestEntity struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestEntity) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestEntity: null is not a valid object")
+	}
 	type UCPCreateRequestEntityAlias UCPCreateRequestEntity
 	var named UCPCreateRequestEntityAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -522,6 +534,9 @@ type UCPCreateRequestError struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestError) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestError: null is not a valid object")
+	}
 	type UCPCreateRequestErrorAlias UCPCreateRequestError
 	var named UCPCreateRequestErrorAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -639,6 +654,9 @@ type UCPCreateRequestPlatformSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestPlatformSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestPlatformSchema: null is not a valid object")
+	}
 	type UCPCreateRequestPlatformSchemaAlias UCPCreateRequestPlatformSchema
 	var named UCPCreateRequestPlatformSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -752,6 +770,9 @@ type UCPCreateRequestRequires struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestRequires) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestRequires: null is not a valid object")
+	}
 	type UCPCreateRequestRequiresAlias UCPCreateRequestRequires
 	var named UCPCreateRequestRequiresAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -837,6 +858,9 @@ type UCPCreateRequestResponseCartSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestResponseCartSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestResponseCartSchema: null is not a valid object")
+	}
 	type UCPCreateRequestResponseCartSchemaAlias UCPCreateRequestResponseCartSchema
 	var named UCPCreateRequestResponseCartSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -953,6 +977,9 @@ type UCPCreateRequestResponseCatalogSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestResponseCatalogSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestResponseCatalogSchema: null is not a valid object")
+	}
 	type UCPCreateRequestResponseCatalogSchemaAlias UCPCreateRequestResponseCatalogSchema
 	var named UCPCreateRequestResponseCatalogSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1067,6 +1094,9 @@ type UCPCreateRequestResponseCheckoutSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestResponseCheckoutSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestResponseCheckoutSchema: null is not a valid object")
+	}
 	type UCPCreateRequestResponseCheckoutSchemaAlias UCPCreateRequestResponseCheckoutSchema
 	var named UCPCreateRequestResponseCheckoutSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1186,6 +1216,9 @@ type UCPCreateRequestResponseOrderSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestResponseOrderSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestResponseOrderSchema: null is not a valid object")
+	}
 	type UCPCreateRequestResponseOrderSchemaAlias UCPCreateRequestResponseOrderSchema
 	var named UCPCreateRequestResponseOrderSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1302,6 +1335,9 @@ type UCPCreateRequestSuccess struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestSuccess) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestSuccess: null is not a valid object")
+	}
 	type UCPCreateRequestSuccessAlias UCPCreateRequestSuccess
 	var named UCPCreateRequestSuccessAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -1399,6 +1435,23 @@ func (v *UCPCreateRequestSuccess) Validate() error {
 // UCPCreateRequestVersion UCP version in YYYY-MM-DD format.
 type UCPCreateRequestVersion string
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *UCPCreateRequestVersion) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestVersion: null is not a valid string")
+	}
+	type UCPCreateRequestVersionAlias UCPCreateRequestVersion
+	var alias UCPCreateRequestVersionAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = UCPCreateRequestVersion(alias)
+	return nil
+}
+
 var pattern_UCPCreateRequestVersion = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
 
 // Validate reports the first constraint violation, or nil.
@@ -1430,6 +1483,9 @@ type UCPCreateRequestVersionConstraint struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *UCPCreateRequestVersionConstraint) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("UCPCreateRequestVersionConstraint: null is not a valid object")
+	}
 	type UCPCreateRequestVersionConstraintAlias UCPCreateRequestVersionConstraint
 	var named UCPCreateRequestVersionConstraintAlias
 	if err := json.Unmarshal(data, &named); err != nil {

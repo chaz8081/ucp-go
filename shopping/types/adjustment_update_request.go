@@ -41,6 +41,9 @@ type AdjustmentUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *AdjustmentUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AdjustmentUpdateRequest: null is not a valid object")
+	}
 	type AdjustmentUpdateRequestAlias AdjustmentUpdateRequest
 	var named AdjustmentUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -150,6 +153,9 @@ type AdjustmentUpdateRequestLineItemsItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *AdjustmentUpdateRequestLineItemsItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("AdjustmentUpdateRequestLineItemsItem: null is not a valid object")
+	}
 	type AdjustmentUpdateRequestLineItemsItemAlias AdjustmentUpdateRequestLineItemsItem
 	var named AdjustmentUpdateRequestLineItemsItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {

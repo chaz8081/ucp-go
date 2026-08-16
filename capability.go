@@ -41,6 +41,9 @@ type CapabilityBase struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CapabilityBase) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CapabilityBase: null is not a valid object")
+	}
 	type CapabilityBaseAlias CapabilityBase
 	var named CapabilityBaseAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -142,6 +145,9 @@ type CapabilityBusinessSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CapabilityBusinessSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CapabilityBusinessSchema: null is not a valid object")
+	}
 	type CapabilityBusinessSchemaAlias CapabilityBusinessSchema
 	var named CapabilityBusinessSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -243,6 +249,9 @@ type CapabilityPlatformSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CapabilityPlatformSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CapabilityPlatformSchema: null is not a valid object")
+	}
 	type CapabilityPlatformSchemaAlias CapabilityPlatformSchema
 	var named CapabilityPlatformSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -350,6 +359,9 @@ type CapabilityResponseSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CapabilityResponseSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CapabilityResponseSchema: null is not a valid object")
+	}
 	type CapabilityResponseSchemaAlias CapabilityResponseSchema
 	var named CapabilityResponseSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {

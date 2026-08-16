@@ -32,6 +32,9 @@ type ErrorResponse struct {
 // UnmarshalJSON decodes the named properties and records which of the
 // required ones were present.
 func (v *ErrorResponse) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ErrorResponse: null is not a valid object")
+	}
 	type ErrorResponseAlias ErrorResponse
 	var named ErrorResponseAlias
 	if err := json.Unmarshal(data, &named); err != nil {

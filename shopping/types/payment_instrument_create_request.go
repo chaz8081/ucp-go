@@ -36,6 +36,9 @@ type PaymentInstrumentCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentInstrumentCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentInstrumentCreateRequest: null is not a valid object")
+	}
 	type PaymentInstrumentCreateRequestAlias PaymentInstrumentCreateRequest
 	var named PaymentInstrumentCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -147,6 +150,9 @@ type PaymentInstrumentCreateRequestSelectedPaymentInstrument struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentInstrumentCreateRequestSelectedPaymentInstrument) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentInstrumentCreateRequestSelectedPaymentInstrument: null is not a valid object")
+	}
 	type PaymentInstrumentCreateRequestSelectedPaymentInstrumentAlias PaymentInstrumentCreateRequestSelectedPaymentInstrument
 	var named PaymentInstrumentCreateRequestSelectedPaymentInstrumentAlias
 	if err := json.Unmarshal(data, &named); err != nil {

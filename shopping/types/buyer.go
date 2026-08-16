@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // Buyer is generated from shopping/types/buyer.json.
 type Buyer struct {
@@ -25,6 +28,9 @@ type Buyer struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Buyer) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Buyer: null is not a valid object")
+	}
 	type BuyerAlias Buyer
 	var named BuyerAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // FulfillmentUpdateRequest Container for fulfillment methods and availability.
 type FulfillmentUpdateRequest struct {
@@ -19,6 +22,9 @@ type FulfillmentUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *FulfillmentUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentUpdateRequest: null is not a valid object")
+	}
 	type FulfillmentUpdateRequestAlias FulfillmentUpdateRequest
 	var named FulfillmentUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

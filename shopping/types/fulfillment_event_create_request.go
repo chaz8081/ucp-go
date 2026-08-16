@@ -45,6 +45,9 @@ type FulfillmentEventCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *FulfillmentEventCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentEventCreateRequest: null is not a valid object")
+	}
 	type FulfillmentEventCreateRequestAlias FulfillmentEventCreateRequest
 	var named FulfillmentEventCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -147,6 +150,9 @@ type FulfillmentEventCreateRequestLineItemsItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *FulfillmentEventCreateRequestLineItemsItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentEventCreateRequestLineItemsItem: null is not a valid object")
+	}
 	type FulfillmentEventCreateRequestLineItemsItemAlias FulfillmentEventCreateRequestLineItemsItem
 	var named FulfillmentEventCreateRequestLineItemsItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {

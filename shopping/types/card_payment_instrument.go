@@ -36,6 +36,9 @@ type CardPaymentInstrument struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CardPaymentInstrument) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CardPaymentInstrument: null is not a valid object")
+	}
 	type CardPaymentInstrumentAlias CardPaymentInstrument
 	var named CardPaymentInstrumentAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -138,6 +141,9 @@ type CardPaymentInstrumentAvailableCardPaymentInstrument struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CardPaymentInstrumentAvailableCardPaymentInstrument) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CardPaymentInstrumentAvailableCardPaymentInstrument: null is not a valid object")
+	}
 	type CardPaymentInstrumentAvailableCardPaymentInstrumentAlias CardPaymentInstrumentAvailableCardPaymentInstrument
 	var named CardPaymentInstrumentAvailableCardPaymentInstrumentAlias
 	if err := json.Unmarshal(data, &named); err != nil {

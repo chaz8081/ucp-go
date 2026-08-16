@@ -11,6 +11,23 @@ import (
 // Totals Pricing breakdown provided by the business. MUST contain exactly one subtotal and one total entry. Detail types (tax, fee, discount, fulfillment) may appear multiple times for itemization. Platforms MUST render all entries in order using display_text and amount.
 type Totals []TotalsTotalsItem
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *Totals) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Totals: null is not a valid array")
+	}
+	type TotalsAlias Totals
+	var alias TotalsAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = Totals(alias)
+	return nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *Totals) Validate() error {
 	if *v != nil {
@@ -64,6 +81,9 @@ type TotalsTotalsItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *TotalsTotalsItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("TotalsTotalsItem: null is not a valid object")
+	}
 	type TotalsTotalsItemAlias TotalsTotalsItem
 	var named TotalsTotalsItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -173,6 +193,9 @@ type TotalsTotalsItemLinesItem struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *TotalsTotalsItemLinesItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("TotalsTotalsItemLinesItem: null is not a valid object")
+	}
 	type TotalsTotalsItemLinesItemAlias TotalsTotalsItemLinesItem
 	var named TotalsTotalsItemLinesItemAlias
 	if err := json.Unmarshal(data, &named); err != nil {

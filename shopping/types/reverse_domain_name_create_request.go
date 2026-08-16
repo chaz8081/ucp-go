@@ -4,6 +4,7 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
 	"regexp"
 	"sync"
@@ -11,6 +12,23 @@ import (
 
 // ReverseDomainNameCreateRequest Reverse-domain identifier used for collision-safe namespacing of capabilities, services, handlers, eligibility claims, and extension-contributed keys. Must contain at least two dot-separated segments (e.g., 'dev.ucp.shopping.checkout', 'com.example.loyalty_gold').
 type ReverseDomainNameCreateRequest string
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *ReverseDomainNameCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ReverseDomainNameCreateRequest: null is not a valid string")
+	}
+	type ReverseDomainNameCreateRequestAlias ReverseDomainNameCreateRequest
+	var alias ReverseDomainNameCreateRequestAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = ReverseDomainNameCreateRequest(alias)
+	return nil
+}
 
 var pattern_ReverseDomainNameCreateRequest = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9_]*)+$") })
 

@@ -3,68 +3,113 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // MessageUpdateRequest Container for error, warning, or info messages.
 //
-// The schema also declares 3 oneOf variants that narrow or replace
-// these fields; they are not modeled as distinct types yet (phase 4),
-// so this type reflects only the shared base.
+// MessageUpdateRequest is a closed oneOf union: one field is set, holding the
+// alternative the input matched. The schema requires that exactly one
+// alternative match.
 type MessageUpdateRequest struct {
+	MessageError   *MessageError   `json:"-"`
+	MessageInfo    *MessageInfo    `json:"-"`
+	MessageWarning *MessageWarning `json:"-"`
 
-	// Extra holds properties the schema does not name. The schema is
-	// open (additionalProperties is not false), so extension keys are
-	// preserved here and re-emitted on marshal rather than dropped.
-	Extra map[string]json.RawMessage `json:"-"`
+	// matched counts the alternatives the decoded input satisfied.
+	// oneOf permits exactly one, so more than one is a violation that
+	// only decoding can observe. Zero means this value was never
+	// decoded from JSON.
+	matched int
 }
 
-// UnmarshalJSON decodes the named properties and keeps everything else
-// in Extra.
+// UnmarshalJSON decodes the union member that accepts the input,
+// preferring one that also validates.
 func (v *MessageUpdateRequest) UnmarshalJSON(data []byte) error {
-	type MessageUpdateRequestAlias MessageUpdateRequest
-	var named MessageUpdateRequestAlias
-	if err := json.Unmarshal(data, &named); err != nil {
-		return err
+	if string(data) == "null" {
+		return errors.New("MessageUpdateRequest: null is not a valid object")
 	}
-	*v = MessageUpdateRequest(named)
-
-	var all map[string]json.RawMessage
-	if err := json.Unmarshal(data, &all); err != nil {
-		return err
-	}
-	if len(all) > 0 {
-		v.Extra = all
-	}
-	return nil
-}
-
-// MarshalJSON emits the named properties alongside anything held in
-// Extra.
-func (v MessageUpdateRequest) MarshalJSON() ([]byte, error) {
-	type MessageUpdateRequestAlias MessageUpdateRequest
-	named, err := json.Marshal(MessageUpdateRequestAlias(v))
-	if err != nil {
-		return nil, err
-	}
-	if len(v.Extra) == 0 {
-		return named, nil
-	}
-	var merged map[string]json.RawMessage
-	if err := json.Unmarshal(named, &merged); err != nil {
-		return nil, err
-	}
-	if merged == nil {
-		merged = map[string]json.RawMessage{}
-	}
-	for k, val := range v.Extra {
-		if _, named := merged[k]; !named {
-			merged[k] = val
+	var matched, fallback MessageUpdateRequest
+	matches := 0
+	parsed := false
+	var asMessageError MessageError
+	if err := json.Unmarshal(data, &asMessageError); err == nil {
+		if asMessageError.Validate() == nil {
+			if matches == 0 {
+				matched = MessageUpdateRequest{MessageError: &asMessageError}
+			}
+			matches++
+		}
+		if !parsed {
+			fallback, parsed = MessageUpdateRequest{MessageError: &asMessageError}, true
 		}
 	}
-	return json.Marshal(merged)
+	var asMessageInfo MessageInfo
+	if err := json.Unmarshal(data, &asMessageInfo); err == nil {
+		if asMessageInfo.Validate() == nil {
+			if matches == 0 {
+				matched = MessageUpdateRequest{MessageInfo: &asMessageInfo}
+			}
+			matches++
+		}
+		if !parsed {
+			fallback, parsed = MessageUpdateRequest{MessageInfo: &asMessageInfo}, true
+		}
+	}
+	var asMessageWarning MessageWarning
+	if err := json.Unmarshal(data, &asMessageWarning); err == nil {
+		if asMessageWarning.Validate() == nil {
+			if matches == 0 {
+				matched = MessageUpdateRequest{MessageWarning: &asMessageWarning}
+			}
+			matches++
+		}
+		if !parsed {
+			fallback, parsed = MessageUpdateRequest{MessageWarning: &asMessageWarning}, true
+		}
+	}
+	if matches > 0 {
+		*v = matched
+		v.matched = matches
+		return nil
+	}
+	if parsed {
+		*v = fallback
+		v.matched = 1
+		return nil
+	}
+	return errors.New("MessageUpdateRequest: no union member accepted the input")
+}
+
+// MarshalJSON encodes whichever union member is set.
+func (v MessageUpdateRequest) MarshalJSON() ([]byte, error) {
+	if v.MessageError != nil {
+		return json.Marshal(v.MessageError)
+	}
+	if v.MessageInfo != nil {
+		return json.Marshal(v.MessageInfo)
+	}
+	if v.MessageWarning != nil {
+		return json.Marshal(v.MessageWarning)
+	}
+	return nil, errors.New("MessageUpdateRequest: no union member is set")
 }
 
 // Validate reports the first constraint violation, or nil.
 func (v *MessageUpdateRequest) Validate() error {
+	if v.matched > 1 {
+		return errors.New("MessageUpdateRequest: input satisfies more than one alternative, and oneOf permits exactly one")
+	}
+	if v.MessageError != nil {
+		return v.MessageError.Validate()
+	}
+	if v.MessageInfo != nil {
+		return v.MessageInfo.Validate()
+	}
+	if v.MessageWarning != nil {
+		return v.MessageWarning.Validate()
+	}
 	return nil
 }

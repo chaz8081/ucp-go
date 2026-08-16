@@ -29,6 +29,9 @@ type OptionValue struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *OptionValue) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("OptionValue: null is not a valid object")
+	}
 	type OptionValueAlias OptionValue
 	var named OptionValueAlias
 	if err := json.Unmarshal(data, &named); err != nil {

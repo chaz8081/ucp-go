@@ -29,6 +29,9 @@ type RetailLocationCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *RetailLocationCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("RetailLocationCreateRequest: null is not a valid object")
+	}
 	type RetailLocationCreateRequestAlias RetailLocationCreateRequest
 	var named RetailLocationCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

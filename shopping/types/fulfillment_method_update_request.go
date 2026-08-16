@@ -37,6 +37,9 @@ type FulfillmentMethodUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *FulfillmentMethodUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentMethodUpdateRequest: null is not a valid object")
+	}
 	type FulfillmentMethodUpdateRequestAlias FulfillmentMethodUpdateRequest
 	var named FulfillmentMethodUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

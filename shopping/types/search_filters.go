@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // SearchFilters Filter criteria to narrow search results. All specified filters combine with AND logic.
 type SearchFilters struct {
@@ -20,6 +23,9 @@ type SearchFilters struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *SearchFilters) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("SearchFilters: null is not a valid object")
+	}
 	type SearchFiltersAlias SearchFilters
 	var named SearchFiltersAlias
 	if err := json.Unmarshal(data, &named); err != nil {

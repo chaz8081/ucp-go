@@ -4,6 +4,7 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
 	"regexp"
 	"sync"
@@ -11,6 +12,23 @@ import (
 
 // ReverseDomainName Reverse-domain identifier used for collision-safe namespacing of capabilities, services, handlers, eligibility claims, and extension-contributed keys. Must contain at least two dot-separated segments (e.g., 'dev.ucp.shopping.checkout', 'com.example.loyalty_gold').
 type ReverseDomainName string
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *ReverseDomainName) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ReverseDomainName: null is not a valid string")
+	}
+	type ReverseDomainNameAlias ReverseDomainName
+	var alias ReverseDomainNameAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = ReverseDomainName(alias)
+	return nil
+}
 
 var pattern_ReverseDomainName = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9_]*)+$") })
 

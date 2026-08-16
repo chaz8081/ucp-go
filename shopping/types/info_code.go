@@ -3,8 +3,30 @@
 
 package types
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // InfoCode Info code identifying the type of informational message. Standard codes are defined in capability specs (see examples), and have standardized semantics; freeform codes are permitted.
 type InfoCode string
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *InfoCode) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("InfoCode: null is not a valid string")
+	}
+	type InfoCodeAlias InfoCode
+	var alias InfoCodeAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = InfoCode(alias)
+	return nil
+}
 
 // Validate reports the first constraint violation, or nil.
 func (v *InfoCode) Validate() error {

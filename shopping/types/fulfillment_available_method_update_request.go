@@ -3,61 +3,29 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // FulfillmentAvailableMethodUpdateRequest Inventory availability hint for a fulfillment method type.
-type FulfillmentAvailableMethodUpdateRequest struct {
+type FulfillmentAvailableMethodUpdateRequest map[string]any
 
-	// Extra holds properties the schema does not name. The schema is
-	// open (additionalProperties is not false), so extension keys are
-	// preserved here and re-emitted on marshal rather than dropped.
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-// UnmarshalJSON decodes the named properties and keeps everything else
-// in Extra.
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
 func (v *FulfillmentAvailableMethodUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentAvailableMethodUpdateRequest: null is not a valid object")
+	}
 	type FulfillmentAvailableMethodUpdateRequestAlias FulfillmentAvailableMethodUpdateRequest
-	var named FulfillmentAvailableMethodUpdateRequestAlias
-	if err := json.Unmarshal(data, &named); err != nil {
+	var alias FulfillmentAvailableMethodUpdateRequestAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
 		return err
 	}
-	*v = FulfillmentAvailableMethodUpdateRequest(named)
-
-	var all map[string]json.RawMessage
-	if err := json.Unmarshal(data, &all); err != nil {
-		return err
-	}
-	if len(all) > 0 {
-		v.Extra = all
-	}
+	*v = FulfillmentAvailableMethodUpdateRequest(alias)
 	return nil
-}
-
-// MarshalJSON emits the named properties alongside anything held in
-// Extra.
-func (v FulfillmentAvailableMethodUpdateRequest) MarshalJSON() ([]byte, error) {
-	type FulfillmentAvailableMethodUpdateRequestAlias FulfillmentAvailableMethodUpdateRequest
-	named, err := json.Marshal(FulfillmentAvailableMethodUpdateRequestAlias(v))
-	if err != nil {
-		return nil, err
-	}
-	if len(v.Extra) == 0 {
-		return named, nil
-	}
-	var merged map[string]json.RawMessage
-	if err := json.Unmarshal(named, &merged); err != nil {
-		return nil, err
-	}
-	if merged == nil {
-		merged = map[string]json.RawMessage{}
-	}
-	for k, val := range v.Extra {
-		if _, named := merged[k]; !named {
-			merged[k] = val
-		}
-	}
-	return json.Marshal(merged)
 }
 
 // Validate reports the first constraint violation, or nil.

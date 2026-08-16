@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // MerchantFulfillmentConfig Merchant's fulfillment configuration.
 type MerchantFulfillmentConfig struct {
@@ -21,6 +24,9 @@ type MerchantFulfillmentConfig struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *MerchantFulfillmentConfig) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("MerchantFulfillmentConfig: null is not a valid object")
+	}
 	type MerchantFulfillmentConfigAlias MerchantFulfillmentConfig
 	var named MerchantFulfillmentConfigAlias
 	if err := json.Unmarshal(data, &named); err != nil {

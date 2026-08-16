@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // PaymentAccountInfo Non-sensitive backend identifiers for linking.
 type PaymentAccountInfo struct {
@@ -19,6 +22,9 @@ type PaymentAccountInfo struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentAccountInfo) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentAccountInfo: null is not a valid object")
+	}
 	type PaymentAccountInfoAlias PaymentAccountInfo
 	var named PaymentAccountInfoAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -44,6 +44,9 @@ type CardCredential struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CardCredential) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CardCredential: null is not a valid object")
+	}
 	type CardCredentialAlias CardCredential
 	var named CardCredentialAlias
 	if err := json.Unmarshal(data, &named); err != nil {

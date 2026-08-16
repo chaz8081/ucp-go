@@ -29,6 +29,9 @@ type PriceRange struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PriceRange) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PriceRange: null is not a valid object")
+	}
 	type PriceRangeAlias PriceRange
 	var named PriceRangeAlias
 	if err := json.Unmarshal(data, &named); err != nil {

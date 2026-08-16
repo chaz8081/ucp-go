@@ -27,6 +27,9 @@ type FulfillmentDestination struct {
 // UnmarshalJSON decodes the union member that accepts the input,
 // preferring one that also validates.
 func (v *FulfillmentDestination) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentDestination: null is not a valid object")
+	}
 	var matched, fallback FulfillmentDestination
 	matches := 0
 	parsed := false

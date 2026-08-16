@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // PriceFilter Price range filter denominated in context.currency. When context.currency matches the presentment currency, businesses apply the filter directly. When it differs, businesses SHOULD convert filter values to the presentment currency before applying; if conversion is not supported, businesses MAY ignore the filter and SHOULD indicate this via a message. When context.currency is absent, filter denomination is ambiguous and businesses MAY ignore it.
 type PriceFilter struct {
@@ -21,6 +24,9 @@ type PriceFilter struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PriceFilter) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PriceFilter: null is not a valid object")
+	}
 	type PriceFilterAlias PriceFilter
 	var named PriceFilterAlias
 	if err := json.Unmarshal(data, &named); err != nil {

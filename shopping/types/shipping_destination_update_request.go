@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // ShippingDestinationUpdateRequest Shipping destination.
 type ShippingDestinationUpdateRequest struct {
@@ -37,6 +40,9 @@ type ShippingDestinationUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ShippingDestinationUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ShippingDestinationUpdateRequest: null is not a valid object")
+	}
 	type ShippingDestinationUpdateRequestAlias ShippingDestinationUpdateRequest
 	var named ShippingDestinationUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

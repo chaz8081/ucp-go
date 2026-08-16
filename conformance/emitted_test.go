@@ -97,6 +97,112 @@ func TestPrimaryTypesCanValidate(t *testing.T) {
 	}
 }
 
+// TestBareNullRejected pins the fix for a defect the differential harness
+// surfaced: json.Unmarshal treats null as a no-op for every Go type, and the
+// decoder is this SDK's JSON type check, so a null document decoded to the
+// zero value and then validated as though it were real. Amount accepted it
+// outright; Totals accepted it and additionally skipped its contains count,
+// which is guarded on the slice being non-nil. ReverseDomainName rejected it
+// only by luck, because the empty string fails its pattern — which is why
+// the rule cannot live in Validate.
+func TestBareNullRejected(t *testing.T) {
+	var a types.Amount
+	if err := json.Unmarshal([]byte(`null`), &a); err == nil {
+		t.Error("Amount decoded a bare null; the schema is type: integer")
+	}
+	var tot types.Totals
+	if err := json.Unmarshal([]byte(`null`), &tot); err == nil {
+		t.Error("Totals decoded a bare null; the schema is type: array")
+	}
+	var code types.ErrorCode
+	if err := json.Unmarshal([]byte(`null`), &code); err == nil {
+		t.Error("ErrorCode decoded a bare null; the schema is type: string")
+	}
+
+	// A required property of one of these types is a value, not a pointer,
+	// so its decoder runs and the null is rejected there rather than
+	// reaching Validate. total.json requires amount.
+	var tl types.Total
+	if err := json.Unmarshal([]byte(`{"amount":null,"type":"subtotal"}`), &tl); err == nil {
+		t.Error("Total accepted null for its required amount")
+	}
+
+	// Real values must still decode, or the codec has broken the type.
+	if err := json.Unmarshal([]byte(`1000`), &a); err != nil {
+		t.Errorf("Amount rejected a real value: %v", err)
+	}
+	if a != 1000 {
+		t.Errorf("Amount = %d, want 1000", a)
+	}
+	if err := json.Unmarshal([]byte(validTotalsJSON), &tot); err != nil {
+		t.Errorf("Totals rejected a real value: %v", err)
+	}
+	if err := tot.Validate(); err != nil {
+		t.Errorf("a valid Totals must validate: %v", err)
+	}
+}
+
+const validTotalsJSON = `[{"type":"subtotal","amount":1000,"display_text":"Subtotal"}]`
+
+// TestOptionalNullStillAccepted is the regression guard on the fix above.
+// An explicit null for an OPTIONAL property means absent, and the schema
+// permits it. It keeps working because an optional non-nilable property is
+// rendered as a pointer and encoding/json stores nil for a null pointer
+// field without ever consulting the pointed-to type's Unmarshaler — so the
+// null-rejecting decoder is never reached. If that stops holding, the fix
+// has started rejecting payloads the spec allows.
+func TestOptionalNullStillAccepted(t *testing.T) {
+	// price_filter.json makes both of its Amount properties optional.
+	var pf types.PriceFilter
+	if err := json.Unmarshal([]byte(`{"max":null,"min":null}`), &pf); err != nil {
+		t.Fatalf("PriceFilter rejected an explicit null for its optional Amounts: %v", err)
+	}
+	if pf.Max != nil || pf.Min != nil {
+		t.Errorf("an explicit null must mean absent, got max=%v min=%v", pf.Max, pf.Min)
+	}
+	if err := pf.Validate(); err != nil {
+		t.Errorf("a PriceFilter with no bounds must validate: %v", err)
+	}
+
+	// Absence must behave identically to an explicit null.
+	var absent types.PriceFilter
+	if err := json.Unmarshal([]byte(`{}`), &absent); err != nil {
+		t.Fatalf("PriceFilter rejected an absent optional: %v", err)
+	}
+	if absent.Max != nil {
+		t.Error("an absent optional must decode to nil")
+	}
+
+	// A real value still reaches the decoder and is kept.
+	var set types.PriceFilter
+	if err := json.Unmarshal([]byte(`{"max":5000}`), &set); err != nil {
+		t.Fatalf("PriceFilter rejected a real optional value: %v", err)
+	}
+	if set.Max == nil || *set.Max != 5000 {
+		t.Errorf("max = %v, want 5000", set.Max)
+	}
+
+	// The corpus has no optional property of an ARRAY alias today — every
+	// totals field is required — so the same rule is pinned on the shape the
+	// emitter would produce for one, which is what a spec release adding
+	// such a property would ship.
+	var opt struct {
+		Totals *types.Totals `json:"totals,omitzero"`
+	}
+	if err := json.Unmarshal([]byte(`{"totals":null}`), &opt); err != nil {
+		t.Fatalf("an optional Totals rejected an explicit null: %v", err)
+	}
+	if opt.Totals != nil {
+		t.Error("an explicit null for an optional Totals must mean absent")
+	}
+	if err := json.Unmarshal([]byte(`{"totals":`+validTotalsJSON+`}`), &opt); err != nil {
+		t.Fatalf("an optional Totals rejected a real value: %v", err)
+	}
+	if opt.Totals == nil || len(*opt.Totals) != 1 {
+		t.Errorf("optional Totals = %v, want one entry", opt.Totals)
+	}
+}
+
 // TestRequiredPresence pins the rule that keeps the SDK usable for building
 // requests while still rejecting incomplete payloads.
 func TestRequiredPresence(t *testing.T) {

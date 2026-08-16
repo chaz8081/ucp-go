@@ -35,6 +35,9 @@ type CartCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CartCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CartCreateRequest: null is not a valid object")
+	}
 	type CartCreateRequestAlias CartCreateRequest
 	var named CartCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -174,6 +177,9 @@ type CartCreateRequestCheckout struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CartCreateRequestCheckout) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CartCreateRequestCheckout: null is not a valid object")
+	}
 	type CartCreateRequestCheckoutAlias CartCreateRequestCheckout
 	var named CartCreateRequestCheckoutAlias
 	if err := json.Unmarshal(data, &named); err != nil {

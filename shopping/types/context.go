@@ -34,6 +34,9 @@ type Context struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Context) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Context: null is not a valid object")
+	}
 	type ContextAlias Context
 	var named ContextAlias
 	if err := json.Unmarshal(data, &named); err != nil {

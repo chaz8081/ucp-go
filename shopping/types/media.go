@@ -37,6 +37,9 @@ type Media struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Media) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Media: null is not a valid object")
+	}
 	type MediaAlias Media
 	var named MediaAlias
 	if err := json.Unmarshal(data, &named); err != nil {

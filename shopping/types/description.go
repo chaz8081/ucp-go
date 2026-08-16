@@ -26,6 +26,9 @@ type Description struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *Description) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("Description: null is not a valid object")
+	}
 	type DescriptionAlias Description
 	var named DescriptionAlias
 	if err := json.Unmarshal(data, &named); err != nil {

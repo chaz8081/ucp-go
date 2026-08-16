@@ -557,7 +557,13 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 			return fmt.Errorf("%s: properties is %T, want an object of property definitions", typeName, raw)
 		}
 	}
-	_, hasProps := schema["properties"].(map[string]any)
+	// An empty properties map is not properties. It still satisfies the
+	// type assertion above, which is what sent the four request variants
+	// carrying `properties: {}` down the struct path — they shipped as
+	// empty structs whose Validate accepted any JSON object, while the
+	// identical schema without the empty key rendered as a proper union.
+	props, _ := schema["properties"].(map[string]any)
+	hasProps := len(props) > 0
 
 	// A union whose members are all $refs becomes a Go interface, with each
 	// member type given a marker method. Members must be in this package:
@@ -612,6 +618,17 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
 	}
 	fmt.Fprintf(body, "type %s %s\n\n", typeName, underlying)
+
+	// The decoder is this SDK's JSON type check, and null is the one input
+	// it lets through for every type, so a scalar or array root needs a
+	// decoder of its own to reject it (see nullcodec.go). This is the only
+	// branch of renderNamedType that has not already written an
+	// UnmarshalJSON, which is what keeps it at exactly one per type.
+	if needsNullCodec(underlying) {
+		e.usesErrors = true
+		e.imports["encoding/json"] = "json"
+		renderNullCodec(body, typeName, underlying, schema)
+	}
 
 	// A named primitive usually exists for its constraint, so emitting an
 	// empty Validate here would leave it unenforced precisely where it
@@ -786,6 +803,7 @@ func renderUnion(e *fileEmitter, body *strings.Builder, typeName, keyword string
 	// falls back to the first that parsed only so that the bytes are not
 	// lost — Validate then reports why they are wrong.
 	fmt.Fprintf(body, "// UnmarshalJSON decodes the union member that accepts the input,\n// preferring one that also validates.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	writeNullGuard(body, typeName, "object")
 	fmt.Fprintf(body, "\tvar matched, fallback %s\n\tmatches := 0\n\tparsed := false\n", typeName)
 	for _, f := range fields {
 		fmt.Fprintf(body, "\tvar as%s %s\n\tif err := json.Unmarshal(data, &as%s); err == nil {\n", f.field, f.typ, f.field)
@@ -1029,8 +1047,10 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	case open:
 		// One UnmarshalJSON per type: an open object's decoder carries the
 		// presence capture rather than getting a second one of its own.
+		e.usesErrors = true // the decoder's null guard
 		renderExtraCodec(body, typeName, names, fieldNames, req)
 	case len(req) > 0:
+		e.usesErrors = true // the decoder's null guard
 		renderPresenceCodec(body, typeName, req)
 	}
 
@@ -1069,6 +1089,7 @@ func isOpenObject(schema map[string]any) bool {
 func renderExtraCodec(body *strings.Builder, typeName string, names []string, fieldNames map[string]string, required []string) {
 	alias := typeName + "Alias"
 	fmt.Fprintf(body, "\n// UnmarshalJSON decodes the named properties and keeps everything else\n// in Extra.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	writeNullGuard(body, typeName, "object")
 	fmt.Fprintf(body, "\ttype %s %s\n\tvar named %s\n\tif err := json.Unmarshal(data, &named); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(named)\n\n", alias, typeName, alias, typeName)
 	body.WriteString("\tvar all map[string]json.RawMessage\n\tif err := json.Unmarshal(data, &all); err != nil {\n\t\treturn err\n\t}\n")
 	// Presence is captured before the named keys are removed below, since

@@ -63,7 +63,11 @@ func usesOutOfScope(schema map[string]any, corpus map[string]map[string]any, rel
 // that one becomes a struct of alternatives whose Validate delegates, and
 // it is exercised rather than skipped.
 func hasUnmodeledUnion(node map[string]any) bool {
-	if _, hasProps := node["properties"].(map[string]any); !hasProps {
+	// An empty properties map is not properties. It satisfies the type
+	// assertion, which is what turned four types the emitter was breaking
+	// into a counted skip line rather than a failure.
+	props, _ := node["properties"].(map[string]any)
+	if len(props) == 0 {
 		return false
 	}
 	_, unionOK := unionOf(node)
@@ -241,6 +245,35 @@ func (b *builder) object(node map[string]any, rel string, depth int) map[string]
 			out[name] = v
 		}
 	}
+	// An allOf member contributes required properties of its own, and the
+	// corpus reaches the builder unmerged: totals.json's items node declares
+	// no required properties at all and inherits amount and type entirely
+	// through an allOf $ref to total.json. Without folding those in, every
+	// instance of such a node is missing a required property, and a mutation
+	// built from it is rejected for that rather than for the constraint it
+	// set out to break — agreement by accident, which proves nothing.
+	//
+	// Members contributing no object of their own — the bare if/then pairs
+	// total.json carries — fold in as nothing, which is correct: the emitter
+	// enforces those conditionals, and building an instance that deliberately
+	// trips one is what the mutations are for.
+	if members, ok := node["allOf"].([]any); ok {
+		for _, m := range members {
+			mm, ok := m.(map[string]any)
+			if !ok {
+				continue
+			}
+			sub, ok := b.instance(mm, rel, depth+1).(map[string]any)
+			if !ok {
+				continue
+			}
+			for k, v := range sub {
+				if _, have := out[k]; !have {
+					out[k] = v
+				}
+			}
+		}
+	}
 	// A map-shaped object needs at least one entry to satisfy minProperties
 	// and to give propertyNames something to check.
 	if len(props) == 0 {
@@ -353,11 +386,195 @@ func requiredOf(node map[string]any) []string {
 // valid instance, then one variant per constraint that instance satisfies.
 // Each variant breaks exactly one thing, so a disagreement names the check
 // that is missing or wrong.
+//
+// The strategy depends on the shape of the root. It used to require an
+// object and return nothing otherwise, which silently excluded every
+// union-, array- and scalar-rooted schema in the corpus.
 func (b *builder) mutations(schema map[string]any, rel string) []payload {
-	base, ok := b.instance(schema, rel, 0).(map[string]any)
+	if members, ok := unionOf(schema); ok {
+		props, _ := schema["properties"].(map[string]any)
+		if len(props) == 0 {
+			return b.unionMutations(schema, rel, members)
+		}
+	}
+	switch typeOf(schema) {
+	case "array":
+		return b.arrayMutations(schema, rel)
+	case "string", "integer", "number", "boolean":
+		return b.scalarMutations(schema, rel)
+	}
+	if base, ok := b.instance(schema, rel, 0).(map[string]any); ok {
+		return b.objectMutations(schema, rel, base)
+	}
+	return nil
+}
+
+// scalarMutations exercises a named primitive's constraints. These types
+// exist precisely for those constraints — ReverseDomainName is a string
+// whose whole purpose is its pattern — so leaving them unexercised left
+// the most constraint-dense types in the corpus unchecked.
+func (b *builder) scalarMutations(schema map[string]any, rel string) []payload {
+	base := b.instance(schema, rel, 0)
+	if base == nil {
+		return nil
+	}
+	var out []payload
+	add := func(name string, v any) {
+		if raw, err := marshalStable(v); err == nil {
+			out = append(out, payload{name: name, json: raw})
+		}
+	}
+	add("base", base)
+
+	if _, has := schema["pattern"]; has {
+		add("bad-pattern", "!! not a match !!")
+	}
+	if _, has := schema["enum"]; has {
+		add("bad-enum", "__not_in_enum__")
+	}
+	if min, has := schema["minimum"].(float64); has {
+		add("below-minimum", min-1)
+	}
+	if max, has := schema["maximum"].(float64); has {
+		add("above-maximum", max+1)
+	}
+	if max, has := schema["maxLength"].(float64); has && max < 4096 {
+		add("over-maxlength", strings.Repeat("a", int(max)+1))
+	}
+	if min, has := schema["minLength"].(float64); has && min > 0 {
+		add("under-minlength", "")
+	}
+	// A value of the wrong JSON type is a rejection both sides must reach.
+	// An object is wrong for every scalar shape.
+	add("wrong-json-type", map[string]any{})
+	// null is the wrong JSON type that the decoder alone cannot catch:
+	// json.Unmarshal treats it as a no-op for every Go type, so it used to
+	// arrive at Validate as an indistinguishable zero value and be accepted.
+	// A nil any marshals to the literal null.
+	add("null", nil)
+	return out
+}
+
+// arrayMutations exercises the array's own keywords. contains is the one
+// that matters most: totals.json requires exactly one subtotal entry, and
+// until this existed that rule was checked only by unit tests — the schema
+// produced no payloads at all, so it never reached the oracle.
+func (b *builder) arrayMutations(schema map[string]any, rel string) []payload {
+	base, ok := b.instance(schema, rel, 0).([]any)
 	if !ok {
 		return nil
 	}
+	var out []payload
+	add := func(name string, v any) {
+		if raw, err := marshalStable(v); err == nil {
+			out = append(out, payload{name: name, json: raw})
+		}
+	}
+
+	match := b.matching(schema, rel)
+	if match != nil {
+		// An array of exactly one match is the instance the count keywords
+		// are supposed to accept. Without it the whole set below is
+		// rejections, and a count that rejected everything would pass.
+		base = []any{match}
+	}
+	add("base", base)
+	// An empty array carries no items, so nothing but minContains can reject
+	// it — which is what makes it a clean reading of that keyword.
+	add("empty-array", []any{})
+	// null decodes into a slice as a no-op, leaving it nil. Totals then
+	// skipped its contains count outright, because that check is guarded on
+	// the slice being non-nil — the array root's version of the same hole.
+	add("null", nil)
+
+	if match != nil {
+		// Zero matches, then one more than maxContains permits. Both are
+		// rejections the generated count has to reach the same verdict on.
+		add("too-few-matching", []any{})
+		max := 1
+		if m, ok := schema["maxContains"].(float64); ok {
+			max = int(m)
+		}
+		over := make([]any, 0, max+1)
+		for range max + 1 {
+			over = append(over, match)
+		}
+		add("too-many-matching", over)
+	}
+	return out
+}
+
+// matching builds an array element that satisfies both items and contains.
+//
+// contains is a fragment, not a whole element schema: totals.json's is only
+// {"type": "subtotal"}, which says nothing about the amount that items
+// requires. An instance of the fragment alone therefore violates items, and
+// every payload built from it would be rejected over the missing property
+// rather than over the count under test — both sides agreeing for a reason
+// that has nothing to do with the keyword. Layering the fragment over a full
+// items instance leaves the count as the only thing left to disagree about.
+func (b *builder) matching(schema map[string]any, rel string) any {
+	contains, ok := schema["contains"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	match := b.instance(contains, rel, 0)
+	items, ok := schema["items"].(map[string]any)
+	if !ok {
+		return match
+	}
+	elem, elemOK := b.instance(items, rel, 0).(map[string]any)
+	over, overOK := match.(map[string]any)
+	if !elemOK || !overOK {
+		return match
+	}
+	for k, v := range over {
+		elem[k] = v
+	}
+	return elem
+}
+
+// unionMutations exercises each alternative in turn. A union's content is
+// its alternatives, so the property mutations objectMutations applies have
+// nothing to work on.
+func (b *builder) unionMutations(schema map[string]any, rel string, members []any) []payload {
+	var out []payload
+	add := func(name string, v any) {
+		if raw, err := marshalStable(v); err == nil {
+			out = append(out, payload{name: name, json: raw})
+		}
+	}
+	for i, m := range members {
+		mm, ok := m.(map[string]any)
+		if !ok {
+			continue
+		}
+		if v := b.instance(mm, rel, 0); v != nil {
+			add(fmt.Sprintf("alternative:%d", i), v)
+		}
+	}
+	// An object satisfying no alternative must be rejected. The key is
+	// deliberately one no member declares.
+	//
+	// What makes this a rejection rather than an accidentally valid instance
+	// is that every alternative in this corpus carries at least one required
+	// property — directly, as the message_* and fulfillment_destination
+	// members do, or through an allOf of a base that requires one, as every
+	// ucp.json member does. It is not additionalProperties: false doing the
+	// work; retail_location.json sets additionalProperties: true and is still
+	// rejected, because it requires id and name. So a member that dropped its
+	// required list would turn this payload into a valid instance and the
+	// name into a lie. The harness would stay correct either way — it
+	// compares verdicts, not names — but the case would quietly stop
+	// exercising the rejection path it exists for.
+	add("matches-no-alternative", map[string]any{"__no_such_property__": "x"})
+	return out
+}
+
+// objectMutations is the original strategy, unchanged apart from taking the
+// base instance from its caller: mutations now decides the root's shape
+// before building anything.
+func (b *builder) objectMutations(schema map[string]any, rel string, base map[string]any) []payload {
 	var out []payload
 	add := func(name string, v map[string]any) {
 		if raw, err := marshalStable(v); err == nil {
@@ -366,6 +583,11 @@ func (b *builder) mutations(schema map[string]any, rel string) []payload {
 	}
 	add("base", base)
 	add("empty-object", map[string]any{})
+	// A nil map marshals to the JSON literal null, which is not an object.
+	// A struct root rejects it because its presence codec allocates the
+	// record before checking, leaving every required property unseen; a
+	// map root needs the generated null codec to reject it.
+	add("null", nil)
 
 	props, _ := schema["properties"].(map[string]any)
 	for _, name := range requiredOf(schema) {

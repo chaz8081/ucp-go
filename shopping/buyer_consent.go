@@ -32,6 +32,9 @@ type BuyerConsentBuyer struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *BuyerConsentBuyer) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("BuyerConsentBuyer: null is not a valid object")
+	}
 	type BuyerConsentBuyerAlias BuyerConsentBuyer
 	var named BuyerConsentBuyerAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -138,6 +141,9 @@ type BuyerConsentCheckout struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *BuyerConsentCheckout) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("BuyerConsentCheckout: null is not a valid object")
+	}
 	type BuyerConsentCheckoutAlias BuyerConsentCheckout
 	var named BuyerConsentCheckoutAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -305,6 +311,9 @@ type BuyerConsentConsent struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *BuyerConsentConsent) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("BuyerConsentConsent: null is not a valid object")
+	}
 	type BuyerConsentConsentAlias BuyerConsentConsent
 	var named BuyerConsentConsentAlias
 	if err := json.Unmarshal(data, &named); err != nil {

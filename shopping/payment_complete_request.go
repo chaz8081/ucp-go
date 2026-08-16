@@ -5,6 +5,7 @@ package shopping
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/chaz8081/ucp-go/shopping/types"
 )
 
@@ -22,6 +23,9 @@ type PaymentCompleteRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentCompleteRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentCompleteRequest: null is not a valid object")
+	}
 	type PaymentCompleteRequestAlias PaymentCompleteRequest
 	var named PaymentCompleteRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

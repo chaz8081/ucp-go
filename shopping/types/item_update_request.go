@@ -27,6 +27,9 @@ type ItemUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ItemUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ItemUpdateRequest: null is not a valid object")
+	}
 	type ItemUpdateRequestAlias ItemUpdateRequest
 	var named ItemUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -63,3 +63,162 @@ func TestOutOfScopeScanClearsAnOrdinaryChain(t *testing.T) {
 		t.Errorf("ordinary chain flagged as out of scope: %q", kw)
 	}
 }
+
+// The harness had the same empty-map bug as the emitter, which is why four
+// broken types were reported as a skip line instead of a failure.
+func TestUnmodeledUnionIgnoresEmptyProperties(t *testing.T) {
+	empty := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{},
+		"oneOf": []any{
+			map[string]any{"$ref": "a.json"},
+			map[string]any{"$ref": "b.json"},
+		},
+	}
+	if hasUnmodeledUnion(empty) {
+		t.Error("a union with an empty properties map has no sibling properties to be unmodeled")
+	}
+
+	real := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"id": map[string]any{"type": "string"}},
+		"oneOf": []any{
+			map[string]any{"$ref": "a.json"},
+			map[string]any{"$ref": "b.json"},
+		},
+	}
+	if !hasUnmodeledUnion(real) {
+		t.Error("a union alongside real properties is still unmodeled")
+	}
+}
+
+func TestMutationsCoverUnionAlternatives(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"a.json": {
+			"$id": "https://x/a.json", "type": "object",
+			"required":   []any{"code"},
+			"properties": map[string]any{"code": map[string]any{"type": "string"}},
+		},
+		"b.json": {
+			"$id": "https://x/b.json", "type": "object",
+			"required":   []any{"text"},
+			"properties": map[string]any{"text": map[string]any{"type": "string"}},
+		},
+		"u.json": {
+			"$id": "https://x/u.json", "type": "object",
+			"properties": map[string]any{},
+			"oneOf": []any{
+				map[string]any{"$ref": "a.json"},
+				map[string]any{"$ref": "b.json"},
+			},
+		},
+	}
+	b := builder{corpus: corpus}
+	got := b.mutations(corpus["u.json"], "u.json")
+	if len(got) == 0 {
+		t.Fatal("a union-rooted schema produced no payloads")
+	}
+	names := map[string]bool{}
+	for _, p := range got {
+		names[p.name] = true
+	}
+	for _, want := range []string{"alternative:0", "alternative:1", "matches-no-alternative"} {
+		if !names[want] {
+			t.Errorf("missing payload %q; got %v", want, names)
+		}
+	}
+}
+
+func TestMutationsCoverArrayRoots(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"t.json": {
+			"$id": "https://x/t.json", "type": "array",
+			"items": map[string]any{
+				"type":       "object",
+				"required":   []any{"type"},
+				"properties": map[string]any{"type": map[string]any{"type": "string"}},
+			},
+			"contains": map[string]any{
+				"properties": map[string]any{"type": map[string]any{"const": "subtotal"}},
+				"required":   []any{"type"},
+			},
+			"minContains": float64(1),
+			"maxContains": float64(1),
+		},
+	}
+	b := builder{corpus: corpus}
+	got := b.mutations(corpus["t.json"], "t.json")
+	names := map[string]bool{}
+	for _, p := range got {
+		names[p.name] = true
+	}
+	for _, want := range []string{"base", "empty-array", "null", "too-few-matching", "too-many-matching"} {
+		if !names[want] {
+			t.Errorf("missing payload %q; got %v", want, names)
+		}
+	}
+}
+
+func TestMutationsCoverScalarRoots(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"r.json": {
+			"$id": "https://x/r.json", "type": "string",
+			"pattern":   "^[a-z]+\\.[a-z]+$",
+			"maxLength": float64(64),
+		},
+		"c.json": {
+			"$id": "https://x/c.json", "type": "string",
+			"enum": []any{"ok", "failed"},
+		},
+		"n.json": {
+			"$id": "https://x/n.json", "type": "integer",
+			"minimum": float64(0),
+		},
+	}
+	b := builder{corpus: corpus}
+	for rel, want := range map[string][]string{
+		"r.json": {"base", "bad-pattern", "wrong-json-type", "null"},
+		"c.json": {"base", "bad-enum", "wrong-json-type", "null"},
+		"n.json": {"base", "below-minimum", "wrong-json-type", "null"},
+	} {
+		names := map[string]bool{}
+		for _, p := range b.mutations(corpus[rel], rel) {
+			names[p.name] = true
+		}
+		for _, w := range want {
+			if !names[w] {
+				t.Errorf("%s: missing payload %q; got %v", rel, w, names)
+			}
+		}
+	}
+}
+
+// The null case is built from a nil any rather than from a literal, so what
+// it actually encodes to is worth stating: a payload that quietly encoded as
+// `""` or `{}` would still be exercised, still agree, and prove nothing about
+// the hole it exists to cover.
+func TestNullPayloadIsTheJSONLiteral(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"n.json": {"$id": "https://x/n.json", "type": "integer"},
+		"t.json": {
+			"$id": "https://x/t.json", "type": "array",
+			"items": map[string]any{"type": "string"},
+		},
+	}
+	b := builder{corpus: corpus}
+	for _, rel := range []string{"n.json", "t.json"} {
+		found := false
+		for _, p := range b.mutations(corpus[rel], rel) {
+			if p.name != "null" {
+				continue
+			}
+			found = true
+			if string(p.json) != "null" {
+				t.Errorf("%s: null payload encodes to %q, want the JSON literal null", rel, p.json)
+			}
+		}
+		if !found {
+			t.Errorf("%s: no null payload", rel)
+		}
+	}
+}

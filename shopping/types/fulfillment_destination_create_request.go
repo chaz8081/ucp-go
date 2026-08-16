@@ -3,68 +3,94 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // FulfillmentDestinationCreateRequest A destination for fulfillment.
 //
-// The schema also declares 2 oneOf variants that narrow or replace
-// these fields; they are not modeled as distinct types yet (phase 4),
-// so this type reflects only the shared base.
+// FulfillmentDestinationCreateRequest is a closed oneOf union: one field is set, holding the
+// alternative the input matched. The schema requires that exactly one
+// alternative match.
 type FulfillmentDestinationCreateRequest struct {
+	RetailLocation      *RetailLocation      `json:"-"`
+	ShippingDestination *ShippingDestination `json:"-"`
 
-	// Extra holds properties the schema does not name. The schema is
-	// open (additionalProperties is not false), so extension keys are
-	// preserved here and re-emitted on marshal rather than dropped.
-	Extra map[string]json.RawMessage `json:"-"`
+	// matched counts the alternatives the decoded input satisfied.
+	// oneOf permits exactly one, so more than one is a violation that
+	// only decoding can observe. Zero means this value was never
+	// decoded from JSON.
+	matched int
 }
 
-// UnmarshalJSON decodes the named properties and keeps everything else
-// in Extra.
+// UnmarshalJSON decodes the union member that accepts the input,
+// preferring one that also validates.
 func (v *FulfillmentDestinationCreateRequest) UnmarshalJSON(data []byte) error {
-	type FulfillmentDestinationCreateRequestAlias FulfillmentDestinationCreateRequest
-	var named FulfillmentDestinationCreateRequestAlias
-	if err := json.Unmarshal(data, &named); err != nil {
-		return err
+	if string(data) == "null" {
+		return errors.New("FulfillmentDestinationCreateRequest: null is not a valid object")
 	}
-	*v = FulfillmentDestinationCreateRequest(named)
-
-	var all map[string]json.RawMessage
-	if err := json.Unmarshal(data, &all); err != nil {
-		return err
-	}
-	if len(all) > 0 {
-		v.Extra = all
-	}
-	return nil
-}
-
-// MarshalJSON emits the named properties alongside anything held in
-// Extra.
-func (v FulfillmentDestinationCreateRequest) MarshalJSON() ([]byte, error) {
-	type FulfillmentDestinationCreateRequestAlias FulfillmentDestinationCreateRequest
-	named, err := json.Marshal(FulfillmentDestinationCreateRequestAlias(v))
-	if err != nil {
-		return nil, err
-	}
-	if len(v.Extra) == 0 {
-		return named, nil
-	}
-	var merged map[string]json.RawMessage
-	if err := json.Unmarshal(named, &merged); err != nil {
-		return nil, err
-	}
-	if merged == nil {
-		merged = map[string]json.RawMessage{}
-	}
-	for k, val := range v.Extra {
-		if _, named := merged[k]; !named {
-			merged[k] = val
+	var matched, fallback FulfillmentDestinationCreateRequest
+	matches := 0
+	parsed := false
+	var asRetailLocation RetailLocation
+	if err := json.Unmarshal(data, &asRetailLocation); err == nil {
+		if asRetailLocation.Validate() == nil {
+			if matches == 0 {
+				matched = FulfillmentDestinationCreateRequest{RetailLocation: &asRetailLocation}
+			}
+			matches++
+		}
+		if !parsed {
+			fallback, parsed = FulfillmentDestinationCreateRequest{RetailLocation: &asRetailLocation}, true
 		}
 	}
-	return json.Marshal(merged)
+	var asShippingDestination ShippingDestination
+	if err := json.Unmarshal(data, &asShippingDestination); err == nil {
+		if asShippingDestination.Validate() == nil {
+			if matches == 0 {
+				matched = FulfillmentDestinationCreateRequest{ShippingDestination: &asShippingDestination}
+			}
+			matches++
+		}
+		if !parsed {
+			fallback, parsed = FulfillmentDestinationCreateRequest{ShippingDestination: &asShippingDestination}, true
+		}
+	}
+	if matches > 0 {
+		*v = matched
+		v.matched = matches
+		return nil
+	}
+	if parsed {
+		*v = fallback
+		v.matched = 1
+		return nil
+	}
+	return errors.New("FulfillmentDestinationCreateRequest: no union member accepted the input")
+}
+
+// MarshalJSON encodes whichever union member is set.
+func (v FulfillmentDestinationCreateRequest) MarshalJSON() ([]byte, error) {
+	if v.RetailLocation != nil {
+		return json.Marshal(v.RetailLocation)
+	}
+	if v.ShippingDestination != nil {
+		return json.Marshal(v.ShippingDestination)
+	}
+	return nil, errors.New("FulfillmentDestinationCreateRequest: no union member is set")
 }
 
 // Validate reports the first constraint violation, or nil.
 func (v *FulfillmentDestinationCreateRequest) Validate() error {
+	if v.matched > 1 {
+		return errors.New("FulfillmentDestinationCreateRequest: input satisfies more than one alternative, and oneOf permits exactly one")
+	}
+	if v.RetailLocation != nil {
+		return v.RetailLocation.Validate()
+	}
+	if v.ShippingDestination != nil {
+		return v.ShippingDestination.Validate()
+	}
 	return nil
 }

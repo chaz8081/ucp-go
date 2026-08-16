@@ -34,6 +34,9 @@ type MessageInfo struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *MessageInfo) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("MessageInfo: null is not a valid object")
+	}
 	type MessageInfoAlias MessageInfo
 	var named MessageInfoAlias
 	if err := json.Unmarshal(data, &named); err != nil {

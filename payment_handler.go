@@ -42,6 +42,9 @@ type PaymentHandlerBase struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentHandlerBase) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentHandlerBase: null is not a valid object")
+	}
 	type PaymentHandlerBaseAlias PaymentHandlerBase
 	var named PaymentHandlerBaseAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -154,6 +157,9 @@ type PaymentHandlerBusinessSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentHandlerBusinessSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentHandlerBusinessSchema: null is not a valid object")
+	}
 	type PaymentHandlerBusinessSchemaAlias PaymentHandlerBusinessSchema
 	var named PaymentHandlerBusinessSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -266,6 +272,9 @@ type PaymentHandlerPlatformSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentHandlerPlatformSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentHandlerPlatformSchema: null is not a valid object")
+	}
 	type PaymentHandlerPlatformSchemaAlias PaymentHandlerPlatformSchema
 	var named PaymentHandlerPlatformSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -384,6 +393,9 @@ type PaymentHandlerResponseSchema struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PaymentHandlerResponseSchema) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PaymentHandlerResponseSchema: null is not a valid object")
+	}
 	type PaymentHandlerResponseSchemaAlias PaymentHandlerResponseSchema
 	var named PaymentHandlerResponseSchemaAlias
 	if err := json.Unmarshal(data, &named); err != nil {

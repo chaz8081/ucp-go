@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // BusinessFulfillmentConfig Business's fulfillment configuration.
 type BusinessFulfillmentConfig struct {
@@ -21,6 +24,9 @@ type BusinessFulfillmentConfig struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *BusinessFulfillmentConfig) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("BusinessFulfillmentConfig: null is not a valid object")
+	}
 	type BusinessFulfillmentConfigAlias BusinessFulfillmentConfig
 	var named BusinessFulfillmentConfigAlias
 	if err := json.Unmarshal(data, &named); err != nil {

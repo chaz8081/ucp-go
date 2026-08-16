@@ -29,6 +29,9 @@ type FulfillmentGroupUpdateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *FulfillmentGroupUpdateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("FulfillmentGroupUpdateRequest: null is not a valid object")
+	}
 	type FulfillmentGroupUpdateRequestAlias FulfillmentGroupUpdateRequest
 	var named FulfillmentGroupUpdateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

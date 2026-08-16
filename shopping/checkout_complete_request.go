@@ -29,6 +29,9 @@ type CheckoutCompleteRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *CheckoutCompleteRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CheckoutCompleteRequest: null is not a valid object")
+	}
 	type CheckoutCompleteRequestAlias CheckoutCompleteRequest
 	var named CheckoutCompleteRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

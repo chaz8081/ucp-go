@@ -202,8 +202,13 @@ func shapeOf(node map[string]any) shape {
 			return shape(t)
 		case "object":
 			// An object with named properties is a struct; anything else is a
-			// map, whose length and keys are checkable.
-			if _, hasProps := node["properties"].(map[string]any); hasProps {
+			// map, whose length and keys are checkable. An empty properties
+			// map names none, and calling it a struct here is not merely
+			// cosmetic: compileInto drops a struct's own keywords on the
+			// floor because renderStruct is supposed to carry them, and an
+			// empty properties map is exactly the shape renderStruct no
+			// longer sees.
+			if props, _ := node["properties"].(map[string]any); len(props) > 0 {
 				return shapeStruct
 			}
 			return shapeMap

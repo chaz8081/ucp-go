@@ -28,6 +28,9 @@ type IdentityLinkingScopePolicy struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *IdentityLinkingScopePolicy) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("IdentityLinkingScopePolicy: null is not a valid object")
+	}
 	type IdentityLinkingScopePolicyAlias IdentityLinkingScopePolicy
 	var named IdentityLinkingScopePolicyAlias
 	if err := json.Unmarshal(data, &named); err != nil {
@@ -84,6 +87,23 @@ func (v *IdentityLinkingScopePolicy) Validate() error {
 
 // IdentityLinkingScopeToken OAuth scope string formed by joining a capability name and a scope name with a colon: '{capability}:{scope}', e.g. 'dev.ucp.shopping.order:read'. Capability names use reverse-DNS naming; scope names denote the permission granted, defined by each capability's spec (e.g. 'read', 'manage', 'create'). Platforms request these strings verbatim in OAuth 'scope' parameters; issued tokens carry them in the 'scope' claim.
 type IdentityLinkingScopeToken string
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this the zero value would pass
+// every check and a null document would validate as though it were a
+// real value.
+func (v *IdentityLinkingScopeToken) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("IdentityLinkingScopeToken: null is not a valid string")
+	}
+	type IdentityLinkingScopeTokenAlias IdentityLinkingScopeToken
+	var alias IdentityLinkingScopeTokenAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+	*v = IdentityLinkingScopeToken(alias)
+	return nil
+}
 
 var pattern_IdentityLinkingScopeToken = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile("^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9_]*)+:[a-z][a-z0-9_]*$")

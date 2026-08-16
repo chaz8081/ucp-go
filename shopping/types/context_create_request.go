@@ -34,6 +34,9 @@ type ContextCreateRequest struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *ContextCreateRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ContextCreateRequest: null is not a valid object")
+	}
 	type ContextCreateRequestAlias ContextCreateRequest
 	var named ContextCreateRequestAlias
 	if err := json.Unmarshal(data, &named); err != nil {

@@ -3,7 +3,10 @@
 
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 // PlatformFulfillmentConfig Platform's fulfillment configuration.
 type PlatformFulfillmentConfig struct {
@@ -19,6 +22,9 @@ type PlatformFulfillmentConfig struct {
 // UnmarshalJSON decodes the named properties and keeps everything else
 // in Extra.
 func (v *PlatformFulfillmentConfig) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("PlatformFulfillmentConfig: null is not a valid object")
+	}
 	type PlatformFulfillmentConfigAlias PlatformFulfillmentConfig
 	var named PlatformFulfillmentConfigAlias
 	if err := json.Unmarshal(data, &named); err != nil {
