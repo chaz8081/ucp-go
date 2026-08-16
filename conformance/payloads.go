@@ -30,10 +30,15 @@ type payload struct {
 // the generated code: they are documented as unenforced, so the oracle can
 // reject where we accept, and a disagreement would be expected rather than
 // a defect. Schemas declaring one are skipped, and the skips are counted.
+//
+// if/then/not/contains/minContains/maxContains left this set in phase 6,
+// when the emitter began compiling them. They are now checked against the
+// oracle like any other keyword. else stays: it has no corpus occurrence
+// and the emitter fails generation rather than guessing at it.
 var outOfScopeKeywords = map[string]bool{
-	"if": true, "then": true, "else": true, "not": true,
-	"contains": true, "minContains": true, "maxContains": true,
-	"dependentRequired": true, "dependentSchemas": true,
+	"else":              true,
+	"dependentRequired": true,
+	"dependentSchemas":  true,
 	"patternProperties": true,
 	// format is annotation-only in draft 2020-12 and the oracle runs with
 	// assertions off, so it does NOT belong here: both sides ignore it.
