@@ -63,7 +63,11 @@ func usesOutOfScope(schema map[string]any, corpus map[string]map[string]any, rel
 // that one becomes a struct of alternatives whose Validate delegates, and
 // it is exercised rather than skipped.
 func hasUnmodeledUnion(node map[string]any) bool {
-	if _, hasProps := node["properties"].(map[string]any); !hasProps {
+	// An empty properties map is not properties. It satisfies the type
+	// assertion, which is what turned four types the emitter was breaking
+	// into a counted skip line rather than a failure.
+	props, _ := node["properties"].(map[string]any)
+	if len(props) == 0 {
 		return false
 	}
 	_, unionOK := unionOf(node)

@@ -63,3 +63,31 @@ func TestOutOfScopeScanClearsAnOrdinaryChain(t *testing.T) {
 		t.Errorf("ordinary chain flagged as out of scope: %q", kw)
 	}
 }
+
+// The harness had the same empty-map bug as the emitter, which is why four
+// broken types were reported as a skip line instead of a failure.
+func TestUnmodeledUnionIgnoresEmptyProperties(t *testing.T) {
+	empty := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{},
+		"oneOf": []any{
+			map[string]any{"$ref": "a.json"},
+			map[string]any{"$ref": "b.json"},
+		},
+	}
+	if hasUnmodeledUnion(empty) {
+		t.Error("a union with an empty properties map has no sibling properties to be unmodeled")
+	}
+
+	real := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"id": map[string]any{"type": "string"}},
+		"oneOf": []any{
+			map[string]any{"$ref": "a.json"},
+			map[string]any{"$ref": "b.json"},
+		},
+	}
+	if !hasUnmodeledUnion(real) {
+		t.Error("a union alongside real properties is still unmodeled")
+	}
+}
