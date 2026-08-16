@@ -245,6 +245,35 @@ func (b *builder) object(node map[string]any, rel string, depth int) map[string]
 			out[name] = v
 		}
 	}
+	// An allOf member contributes required properties of its own, and the
+	// corpus reaches the builder unmerged: totals.json's items node declares
+	// no required properties at all and inherits amount and type entirely
+	// through an allOf $ref to total.json. Without folding those in, every
+	// instance of such a node is missing a required property, and a mutation
+	// built from it is rejected for that rather than for the constraint it
+	// set out to break — agreement by accident, which proves nothing.
+	//
+	// Members contributing no object of their own — the bare if/then pairs
+	// total.json carries — fold in as nothing, which is correct: the emitter
+	// enforces those conditionals, and building an instance that deliberately
+	// trips one is what the mutations are for.
+	if members, ok := node["allOf"].([]any); ok {
+		for _, m := range members {
+			mm, ok := m.(map[string]any)
+			if !ok {
+				continue
+			}
+			sub, ok := b.instance(mm, rel, depth+1).(map[string]any)
+			if !ok {
+				continue
+			}
+			for k, v := range sub {
+				if _, have := out[k]; !have {
+					out[k] = v
+				}
+			}
+		}
+	}
 	// A map-shaped object needs at least one entry to satisfy minProperties
 	// and to give propertyNames something to check.
 	if len(props) == 0 {
@@ -368,10 +397,88 @@ func (b *builder) mutations(schema map[string]any, rel string) []payload {
 			return b.unionMutations(schema, rel, members)
 		}
 	}
+	if typeOf(schema) == "array" {
+		return b.arrayMutations(schema, rel)
+	}
 	if base, ok := b.instance(schema, rel, 0).(map[string]any); ok {
 		return b.objectMutations(schema, rel, base)
 	}
 	return nil
+}
+
+// arrayMutations exercises the array's own keywords. contains is the one
+// that matters most: totals.json requires exactly one subtotal entry, and
+// until this existed that rule was checked only by unit tests — the schema
+// produced no payloads at all, so it never reached the oracle.
+func (b *builder) arrayMutations(schema map[string]any, rel string) []payload {
+	base, ok := b.instance(schema, rel, 0).([]any)
+	if !ok {
+		return nil
+	}
+	var out []payload
+	add := func(name string, v any) {
+		if raw, err := marshalStable(v); err == nil {
+			out = append(out, payload{name: name, json: raw})
+		}
+	}
+
+	match := b.matching(schema, rel)
+	if match != nil {
+		// An array of exactly one match is the instance the count keywords
+		// are supposed to accept. Without it the whole set below is
+		// rejections, and a count that rejected everything would pass.
+		base = []any{match}
+	}
+	add("base", base)
+	// An empty array carries no items, so nothing but minContains can reject
+	// it — which is what makes it a clean reading of that keyword.
+	add("empty-array", []any{})
+
+	if match != nil {
+		// Zero matches, then one more than maxContains permits. Both are
+		// rejections the generated count has to reach the same verdict on.
+		add("too-few-matching", []any{})
+		max := 1
+		if m, ok := schema["maxContains"].(float64); ok {
+			max = int(m)
+		}
+		over := make([]any, 0, max+1)
+		for range max + 1 {
+			over = append(over, match)
+		}
+		add("too-many-matching", over)
+	}
+	return out
+}
+
+// matching builds an array element that satisfies both items and contains.
+//
+// contains is a fragment, not a whole element schema: totals.json's is only
+// {"type": "subtotal"}, which says nothing about the amount that items
+// requires. An instance of the fragment alone therefore violates items, and
+// every payload built from it would be rejected over the missing property
+// rather than over the count under test — both sides agreeing for a reason
+// that has nothing to do with the keyword. Layering the fragment over a full
+// items instance leaves the count as the only thing left to disagree about.
+func (b *builder) matching(schema map[string]any, rel string) any {
+	contains, ok := schema["contains"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	match := b.instance(contains, rel, 0)
+	items, ok := schema["items"].(map[string]any)
+	if !ok {
+		return match
+	}
+	elem, elemOK := b.instance(items, rel, 0).(map[string]any)
+	over, overOK := match.(map[string]any)
+	if !elemOK || !overOK {
+		return match
+	}
+	for k, v := range over {
+		elem[k] = v
+	}
+	return elem
 }
 
 // unionMutations exercises each alternative in turn. A union's content is

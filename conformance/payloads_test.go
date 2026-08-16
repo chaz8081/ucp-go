@@ -128,3 +128,33 @@ func TestMutationsCoverUnionAlternatives(t *testing.T) {
 		}
 	}
 }
+
+func TestMutationsCoverArrayRoots(t *testing.T) {
+	corpus := map[string]map[string]any{
+		"t.json": {
+			"$id": "https://x/t.json", "type": "array",
+			"items": map[string]any{
+				"type":       "object",
+				"required":   []any{"type"},
+				"properties": map[string]any{"type": map[string]any{"type": "string"}},
+			},
+			"contains": map[string]any{
+				"properties": map[string]any{"type": map[string]any{"const": "subtotal"}},
+				"required":   []any{"type"},
+			},
+			"minContains": float64(1),
+			"maxContains": float64(1),
+		},
+	}
+	b := builder{corpus: corpus}
+	got := b.mutations(corpus["t.json"], "t.json")
+	names := map[string]bool{}
+	for _, p := range got {
+		names[p.name] = true
+	}
+	for _, want := range []string{"base", "empty-array", "too-few-matching", "too-many-matching"} {
+		if !names[want] {
+			t.Errorf("missing payload %q; got %v", want, names)
+		}
+	}
+}
