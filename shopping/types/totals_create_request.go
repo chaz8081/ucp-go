@@ -36,6 +36,11 @@ func (v *TotalsCreateRequest) Validate() error {
 }
 
 // TotalsCreateRequestTotalscreaterequestItem is generated from shopping/types/totals_create_request.json.
+//
+// This type carries a conditional rule that depends on which
+// properties the decoder saw. It is enforced for values decoded from
+// JSON and skipped for values built in Go, where presence is
+// unknowable.
 type TotalsCreateRequestTotalscreaterequestItem struct {
 	Amount SignedAmount `json:"amount"`
 	// Text to display against the amount. Should reflect appropriate method (e.g., 'Shipping', 'Delivery').

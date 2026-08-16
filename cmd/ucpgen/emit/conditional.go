@@ -327,6 +327,9 @@ func compileOneConditional(e *fileEmitter, c *constraintSet, typeName string, ow
 	if err != nil {
 		return err
 	}
+	if usesPresenceGate(ifNode) {
+		e.presenceGated[typeName] = true
+	}
 	body, err := thenChecks(e, c, typeName, owner, thenNode, fields, describe(ifNode))
 	if err != nil {
 		return err
@@ -680,4 +683,28 @@ func elementTypeName(e *fileEmitter, t target, node map[string]any) (string, err
 			t.typeName, subjectOf(t.label), typ)
 	}
 	return base, nil
+}
+
+// usesPresenceGate reports whether an if-condition depends on the
+// decoder's presence record.
+//
+// That happens exactly when the condition negates a test. A positive test
+// cannot hold unless the property was set, so it carries its own proof of
+// presence; a negation is satisfied by the Go zero value, so a value the
+// decoder never saw would match it and the record is the only thing that
+// tells the two apart. predicate emits the gate; this reports it so the
+// generated type can disclose that the rule is inert for values built in
+// Go rather than decoded.
+func usesPresenceGate(ifNode map[string]any) bool {
+	props, _ := ifNode["properties"].(map[string]any)
+	for _, raw := range props {
+		sub, isObj := raw.(map[string]any)
+		if !isObj {
+			continue
+		}
+		if _, negated := sub["not"]; negated {
+			return true
+		}
+	}
+	return false
 }

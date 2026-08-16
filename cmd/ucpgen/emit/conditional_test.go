@@ -561,3 +561,58 @@ func TestCompileContainsDefaultsToAtLeastOne(t *testing.T) {
 		t.Error("maxContains marked enforced though the schema does not declare it")
 	}
 }
+
+// A conditional gated on the presence record does nothing for values built
+// in Go. A rule that silently does nothing is worse than an absent one,
+// because the reader has no way to tell, so the type has to say so.
+func TestPresenceGatedConditionalIsRecordedForDisclosure(t *testing.T) {
+	gated := map[string]any{
+		"type":     "object",
+		"required": []any{"type"},
+		"properties": map[string]any{
+			"display_text": map[string]any{"type": "string"},
+			"type":         map[string]any{"type": "string"},
+		},
+		"if": map[string]any{
+			"properties": map[string]any{
+				"type": map[string]any{"not": map[string]any{"enum": []any{"subtotal", "total"}}},
+			},
+			"required": []any{"type"},
+		},
+		"then": map[string]any{"required": []any{"display_text"}},
+	}
+	// The same shape with a positive test needs no presence record: the
+	// zero value cannot satisfy `== "subtotal"`.
+	plain := map[string]any{
+		"type":     "object",
+		"required": []any{"type"},
+		"properties": map[string]any{
+			"display_text": map[string]any{"type": "string"},
+			"type":         map[string]any{"type": "string"},
+		},
+		"if": map[string]any{
+			"properties": map[string]any{"type": map[string]any{"const": "subtotal"}},
+			"required":   []any{"type"},
+		},
+		"then": map[string]any{"required": []any{"display_text"}},
+	}
+	for name, tc := range map[string]struct {
+		schema map[string]any
+		want   bool
+	}{"negated": {gated, true}, "positive": {plain, false}} {
+		t.Run(name, func(t *testing.T) {
+			e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+			fields, err := fieldsFor(e, "Item", tc.schema)
+			if err != nil {
+				t.Fatalf("fieldsFor: %v", err)
+			}
+			var c constraintSet
+			if err := compileConditional(e, &c, "Item", tc.schema, fields); err != nil {
+				t.Fatalf("compileConditional: %v", err)
+			}
+			if got := e.presenceGated["Item"]; got != tc.want {
+				t.Errorf("presenceGated = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

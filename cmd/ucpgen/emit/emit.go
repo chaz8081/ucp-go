@@ -985,6 +985,12 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		e.unenforced[typeName] = schema
 		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4) on the object itself: %s.\n", strings.Join(kws, ", "))
 	}
+	// A rule that quietly does nothing for a whole class of values is worse
+	// than one that is absent, because the caller cannot tell the two
+	// apart. compileObjectSelf has already run, so the flag is set by now.
+	if e.presenceGated[typeName] {
+		body.WriteString("//\n// This type carries a conditional rule that depends on which\n// properties the decoder saw. It is enforced for values decoded from\n// JSON and skipped for values built in Go, where presence is\n// unknowable.\n")
+	}
 	fmt.Fprintf(body, "type %s struct {\n", typeName)
 
 	for _, name := range names {

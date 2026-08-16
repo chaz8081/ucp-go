@@ -51,6 +51,12 @@ type fileEmitter struct {
 	// graph acyclic (see goTypeExpr), so the affected fields can say so.
 	degradedRefs map[string]string
 
+	// presenceGated names the types carrying a conditional that only runs
+	// for values decoded from JSON, so the doc comment can say so. A rule
+	// that silently does nothing for half the SDK's use is worse than an
+	// absent one, because the reader has no way to tell.
+	presenceGated map[string]bool
+
 	// breaks[dstImportPath] marks an edge out of this package that must not
 	// be a real import; see CycleBreaks.
 	breaks map[string]bool
@@ -68,6 +74,7 @@ func newFileEmitterWithBreaks(idx *TypeIndex, rel, pkg string, breaks map[string
 		unenforced:    map[string]map[string]any{},
 		enforced:      enforcedKeywords{},
 		degradedRefs:  map[string]string{},
+		presenceGated: map[string]bool{},
 		breaks:        breaks,
 	}
 	// Nested type names hang off the enclosing type, so a file's inline
