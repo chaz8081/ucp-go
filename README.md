@@ -40,9 +40,12 @@ import (
 	"github.com/chaz8081/ucp-go/shopping"
 )
 
-// A checkout as a UCP server returns it.
+// A checkout as a UCP server returns it. totals carries a subtotal entry
+// because the schema requires exactly one.
 const response = `{"id":"chk_1","currency":"USD","status":"ready_for_complete",
-	"line_items":[],"links":[],"totals":[],"ucp":{"version":"2026-04-08"}}`
+	"line_items":[],"links":[],
+	"totals":[{"type":"subtotal","amount":1000,"display_text":"Subtotal"}],
+	"ucp":{"version":"2026-04-08"}}`
 
 func main() {
 	var c shopping.Checkout
@@ -96,7 +99,7 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**324 payloads across 99 schemas, zero disagreements.**
+**412 payloads across 122 schemas, zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
 reproducible; round-trip tests prove the types decode. Neither says whether
@@ -163,15 +166,31 @@ full JSON Schema implementation, the gap is specific:
   built in Go rather than decoded from JSON skips the presence check —
   otherwise every hand-constructed request would fail before it could be
   sent — but still gets every value check.
-- **`format` is not asserted** (82 occurrences). In draft 2020-12 `format`
+- **`format` is not asserted** (142 occurrences). In draft 2020-12 `format`
   is an annotation, not an assertion, unless a validator opts in. The oracle
   runs with format assertions off as well, so this is agreement with the
   spec's own default rather than a gap between the two implementations.
-- **`if`/`then`/`else`, `not`, and the `contains` family are not
-  evaluated** (23 occurrences: 7 `if`, 7 `then`, 3 each of `contains`,
-  `minContains`, `maxContains`; `not` and `else` do not occur in this
-  corpus). The differential harness skips these schemas by name rather than
-  letting them pass by accident.
+- **`if`/`then` and the `contains` family are enforced.** A condition
+  compiles to a Go `if` guarding the consequent's checks; `contains`
+  compiles to a count of the elements matching its subschema. Two
+  restrictions are deliberate and fail generation rather than being
+  approximated: `else`, which no corpus schema declares, and a condition
+  testing more than one property, where a wrong conjunction would silently
+  mis-scope the rule it guards.
+- **Two `if`/`then` pairs remain unenforced**, on `TotalCreateRequest` and
+  `TotalUpdateRequest`. A request variant is a projection that drops every
+  property marked `ucp_request:omit` while keeping the rules, so those two
+  arrive carrying rules about properties the Go struct no longer has. There
+  is nothing to bind them to and no rewriting recovers them, so they are
+  reported as gaps rather than approximated.
+- **A conditional whose condition negates a test is enforced only for
+  decoded values.** The Go zero value satisfies a negation, so an unset
+  field would match a rule that should not apply to it; only the decoder's
+  presence record tells the two apart. This affects one rule, on the
+  `totals` element type, and the affected types say so in their doc
+  comments. Relatedly, a JSON `null` for an optional property is
+  indistinguishable from an absent one after decoding, so a conditional
+  requiring that property accepts `null` where JSON Schema would not.
 - **One import cycle is broken by carrying a single edge as raw JSON.** Go
   forbids import cycles and JSON Schema does not. The corpus contains
   exactly one: `shopping/types/error_response.json`'s `ucp` property points
@@ -218,8 +237,11 @@ a narrow, documented fallback that resolves these references against
 `ucp.json`, which is where they were written.
 
 The conformance harness skips the affected schemas by name and counts them,
-rather than passing over them silently. Its tally reports four, because the
-other five are already skipped a step earlier for out-of-scope keywords.
+rather than passing over them silently. Its tally reports all nine. It used
+to report four: the other five were skipped a step earlier for conditional
+keywords, and only became visible once phase 6 implemented those — a small
+instance of the pattern this repository keeps running into, where one gap
+hides another and the count looks healthier than the coverage is.
 
 ### Resolved upstream: the `ucp` metadata union
 
