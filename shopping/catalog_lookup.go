@@ -53,8 +53,8 @@ type CatalogLookupDetailProduct struct {
 	Media []types.Media `json:"media,omitzero"`
 	// Business-defined custom data extending the standard product model.
 	Metadata map[string]any `json:"metadata,omitzero"`
-	// Product options (Size, Color, etc.).
-	Options []types.ProductOption `json:"options,omitzero"`
+	// Product options with availability signals relative to the effective selections.
+	Options []CatalogLookupDetailProductOptionsItem `json:"options,omitzero"`
 	// Price range across all variants.
 	PriceRange types.PriceRange `json:"price_range"`
 	// Aggregate product rating.
@@ -868,6 +868,100 @@ func (v *CatalogLookupLookupVariant) Validate() error {
 	return nil
 }
 
+// CatalogLookupDetailProductOptionsItem is generated from shopping/catalog_lookup.json.
+type CatalogLookupDetailProductOptionsItem struct {
+	Name   string                    `json:"name"`
+	Values []types.DetailOptionValue `json:"values"`
+
+	// Extra holds properties the schema does not name. The schema is
+	// open (additionalProperties is not false), so extension keys are
+	// preserved here and re-emitted on marshal rather than dropped.
+	Extra map[string]json.RawMessage `json:"-"`
+
+	// present records which properties the decoder saw, so a required
+	// property that was absent can be told from one decoded to its zero
+	// value. A nil map means this value was never decoded from JSON.
+	present map[string]bool
+}
+
+// UnmarshalJSON decodes the named properties and keeps everything else
+// in Extra.
+func (v *CatalogLookupDetailProductOptionsItem) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("CatalogLookupDetailProductOptionsItem: null is not a valid object")
+	}
+	type CatalogLookupDetailProductOptionsItemAlias CatalogLookupDetailProductOptionsItem
+	var named CatalogLookupDetailProductOptionsItemAlias
+	if err := json.Unmarshal(data, &named); err != nil {
+		return err
+	}
+	*v = CatalogLookupDetailProductOptionsItem(named)
+
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal(data, &all); err != nil {
+		return err
+	}
+	v.present = make(map[string]bool, 2)
+	for _, name := range []string{"name", "values"} {
+		if _, ok := all[name]; ok {
+			v.present[name] = true
+		}
+	}
+	delete(all, "name")
+	delete(all, "values")
+	if len(all) > 0 {
+		v.Extra = all
+	}
+	return nil
+}
+
+// MarshalJSON emits the named properties alongside anything held in
+// Extra.
+func (v CatalogLookupDetailProductOptionsItem) MarshalJSON() ([]byte, error) {
+	type CatalogLookupDetailProductOptionsItemAlias CatalogLookupDetailProductOptionsItem
+	named, err := json.Marshal(CatalogLookupDetailProductOptionsItemAlias(v))
+	if err != nil {
+		return nil, err
+	}
+	if len(v.Extra) == 0 {
+		return named, nil
+	}
+	var merged map[string]json.RawMessage
+	if err := json.Unmarshal(named, &merged); err != nil {
+		return nil, err
+	}
+	if merged == nil {
+		merged = map[string]json.RawMessage{}
+	}
+	for k, val := range v.Extra {
+		if _, named := merged[k]; !named {
+			merged[k] = val
+		}
+	}
+	return json.Marshal(merged)
+}
+
+// Validate reports the first constraint violation, or nil.
+func (v *CatalogLookupDetailProductOptionsItem) Validate() error {
+	if v.present != nil {
+		if !v.present["name"] {
+			return errors.New("name: required property is missing")
+		}
+		if !v.present["values"] {
+			return errors.New("values: required property is missing")
+		}
+	}
+	if len(v.Values) < 1 {
+		return errors.New("values: has fewer than minItems 1")
+	}
+	for i := range v.Values {
+		if err := v.Values[i].Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // CatalogLookupLookupResponseProductsItem is generated from shopping/catalog_lookup.json.
 type CatalogLookupLookupResponseProductsItem struct {
 	// Product categories with optional taxonomy identifiers.
@@ -899,7 +993,7 @@ type CatalogLookupLookupResponseProductsItem struct {
 	// Not enforced yet (phase 4): format.
 	URL *string `json:"url,omitzero"`
 	// Purchasable variants of this product. First item is the featured variant for listings.
-	Variants []types.Variant `json:"variants"`
+	Variants []CatalogLookupLookupVariant `json:"variants"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are

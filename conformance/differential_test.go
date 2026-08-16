@@ -37,6 +37,27 @@ func buildIndex(t testing.TB, files map[string]map[string]any) *emit.TypeIndex {
 	return idx
 }
 
+// target is one emitted Go type and the payloads to try against it.
+//
+// location and oracleID used to be the same string: a schema path both
+// named the type and, through the $id map, addressed the schema to compile.
+// A $def breaks that. It is located by path and def name — "rel#def", which
+// is how models keys it and how a failure should name it — but the oracle
+// knows it only as a JSON pointer into the containing document's $id.
+// Deriving one from the other at each use, in three places, would put the
+// same translation in three places to get wrong; carrying both is cheaper
+// and says which is which.
+//
+// models is keyed by exactly the location a failure names, so there is one
+// field rather than two identical ones. A second field claiming to be a
+// different identifier, while always holding the same string, would be a
+// distinction the code does not actually make.
+type target struct {
+	location string // what a failure names and models is keyed by: rel, or rel#def
+	oracleID string // URL to compile: the document $id, or $id#/$defs/<name>
+	cases    []payload
+}
+
 // TestDifferentialAgreement drives the same JSON bytes through the
 // generated models and through a real draft-2020-12 validator, and
 // requires the two to reach the same verdict.
@@ -57,15 +78,27 @@ func TestDifferentialAgreement(t *testing.T) {
 	files := loadGoldens(t)
 	idx := buildIndex(t, files)
 
-	// Decide what to exercise, and what to skip and why.
-	b := &builder{corpus: files}
-	type target struct {
-		rel   string
-		typ   emit.TypeRef
-		cases []payload
+	// The oracle is built first because a target now has to carry the URL it
+	// will be compiled by, and for a $def that URL is derived from the
+	// containing document's $id rather than from the schema path.
+	oracle, ids, err := newCorpusCompiler(files)
+	if err != nil {
+		t.Fatalf("register corpus with oracle: %v", err)
 	}
+
+	// Decide what to exercise, and what to skip and why.
+	//
+	// A target is one emitted Go type, not one schema file. Those used to be
+	// the same thing here, and that identification is what hid the $defs: the
+	// loop asked each file for its file-level type, and eight files — the
+	// whole capability model, ap2_mandate, discount, fulfillment among them —
+	// have none, because all their content lives in $defs. They were counted
+	// as "no file-level type" and dropped, taking every type their $defs emit
+	// out of the comparison.
+	b := &builder{corpus: files}
 	var targets []target
 	skipped := map[string]int{}
+	rootless := 0
 
 	rels := make([]string, 0, len(files))
 	for rel := range files {
@@ -73,25 +106,59 @@ func TestDifferentialAgreement(t *testing.T) {
 	}
 	sort.Strings(rels)
 
-	for _, rel := range rels {
-		schema := files[rel]
-		ref, ok := idx.Lookup(rel, "")
-		if !ok {
-			skipped["no file-level type"]++
-			continue
-		}
-		if kw := usesOutOfScope(schema, files, rel); kw != "" {
+	// consider turns one schema node into a target, or into a named skip.
+	// Both the file-level type and each $def go through it, so a skip reason
+	// means the same thing whichever produced it.
+	consider := func(rel, location, oracleID string, node map[string]any) {
+		if kw := usesOutOfScope(node, files, rel); kw != "" {
 			// Documented as unenforced, so the oracle may legitimately
 			// reject where we accept. Counted, never silent.
 			skipped["out-of-scope keyword: "+kw]++
-			continue
+			return
 		}
-		cases := b.mutations(schema, rel)
+		cases := b.mutations(node, rel)
 		if len(cases) == 0 {
 			skipped["no object instance"]++
+			return
+		}
+		targets = append(targets, target{
+			location: location, oracleID: oracleID, cases: cases,
+		})
+	}
+
+	for _, rel := range rels {
+		schema := files[rel]
+		id, ok := ids[rel]
+		if !ok {
+			t.Errorf("%s: schema has no $id to compile by", rel)
 			continue
 		}
-		targets = append(targets, target{rel: rel, typ: ref, cases: cases})
+		if _, ok := idx.Lookup(rel, ""); ok {
+			consider(rel, rel, id, schema)
+		} else {
+			// Not a gap and not a skip: the file is a $defs container, and
+			// the targets it contributes are the $defs below.
+			rootless++
+		}
+		defs, _ := schema["$defs"].(map[string]any)
+		names := make([]string, 0, len(defs))
+		for name := range defs {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			if _, ok := idx.Lookup(rel, name); !ok {
+				continue // a namespace grouping other schemas; no type emitted
+			}
+			node, ok := defs[name].(map[string]any)
+			if !ok {
+				continue
+			}
+			// The node is the $def, but rel stays the containing file: a
+			// $def's relative $refs resolve against the document it sits in,
+			// not against anything derived from its name.
+			consider(rel, rel+"#"+name, id+"#/$defs/"+name, node)
+		}
 	}
 
 	if len(targets) == 0 {
@@ -99,38 +166,40 @@ func TestDifferentialAgreement(t *testing.T) {
 	}
 
 	// Ask the oracle for its verdicts, and compare.
-	oracle, ids, err := newCorpusCompiler(files)
-	if err != nil {
-		t.Fatalf("register corpus with oracle: %v", err)
-	}
+	//
+	// comparedTypes counts the targets a verdict was actually reached on,
+	// not the targets built: a target the oracle cannot compile is already
+	// tallied as a skip, and counting it here as well would let the same
+	// target be reported as both exercised and skipped.
 	var mismatches []string
-	total := 0
+	total, comparedTypes, comparedFiles := 0, 0, 0
 	for _, tg := range targets {
-		id, ok := ids[tg.rel]
-		if !ok {
-			t.Errorf("%s: schema has no $id to compile by", tg.rel)
-			continue
-		}
-		compiled, err := oracle.Compile(id)
+		compiled, err := oracle.Compile(tg.oracleID)
 		if err != nil {
-			// capability.json refs "#/$defs/version" but defines no such
-			// $def, so anything reaching it is uncompilable. The goldens are
+			// capability.json, payment_handler.json and service.json each
+			// ref "#/$defs/version" but define no such $def, so anything
+			// reaching one of them is uncompilable. The goldens are
 			// byte-identical to the official python preprocessor's output,
 			// so this is inherited from upstream rather than introduced
 			// here — counted and named, not silently passed over.
-			skipped["oracle cannot compile: "+firstLine(err.Error())]++
+			skipped["oracle cannot compile: "+oracleSkipReason(err)]++
 			continue
+		}
+		comparedTypes++
+		if !strings.Contains(tg.location, "#") {
+			comparedFiles++
 		}
 		for _, c := range tg.cases {
 			total++
 			var inst any
 			if err := json.Unmarshal(c.json, &inst); err != nil {
-				t.Fatalf("%s/%s: generated payload is not JSON: %v", tg.rel, c.name, err)
+				t.Fatalf("%s/%s: generated payload is not JSON: %v", tg.location, c.name, err)
 			}
 			oracleOK := compiled.Validate(inst) == nil
-			make, ok := models[tg.rel]
+			make, ok := models[tg.location]
 			if !ok {
-				t.Fatalf("%s: no model registered; TestModelsCoverCorpus should have caught this", tg.rel)
+				t.Fatalf("%s: no model registered; TestModelsCoverCorpus or "+
+					"TestModelsCoverDefs should have caught this", tg.location)
 			}
 			v := make()
 			// A decode failure is a verdict too: the payload did not fit the
@@ -155,14 +224,18 @@ func TestDifferentialAgreement(t *testing.T) {
 				}
 				mismatches = append(mismatches, fmt.Sprintf(
 					"%s [%s]\n    payload: %s\n    oracle=%v sdk=%v (%s)",
-					tg.rel, c.name, c.json, oracleOK, sdkOK, why))
+					tg.location, c.name, c.json, oracleOK, sdkOK, why))
 			}
 		}
 	}
 
-	t.Logf("exercised %d payloads across %d schemas", total, len(targets))
+	// The denominator is types, not files, and saying "schemas" for a number
+	// that counts something else is the same dishonesty as an unnamed skip.
+	// Both figures stay visible so neither can drift unnoticed.
+	t.Logf("exercised %d payloads across %d types (%d schema files)", total, comparedTypes, comparedFiles)
+	t.Logf("%d schema files have no file-level type and contribute $defs targets only", rootless)
 	for _, reason := range sortedKeys(skipped) {
-		t.Logf("skipped %3d schemas: %s", skipped[reason], reason)
+		t.Logf("skipped %3d targets: %s", skipped[reason], reason)
 	}
 	if len(mismatches) > 0 {
 		sort.Strings(mismatches)
@@ -173,6 +246,35 @@ func TestDifferentialAgreement(t *testing.T) {
 		t.Errorf("%d of %d payloads disagree:\n%s",
 			len(mismatches), total, strings.Join(shown, "\n"))
 	}
+}
+
+// oracleSkipReason turns a compiler error into a tally key that does not
+// move between runs.
+//
+// The three files that ref a missing "#/$defs/version" are reached through
+// each other, and which of the three URLs a given target trips over first
+// depends on the compiler's internal map order. Keying the tally on the raw
+// message therefore split the same 71 targets across three lines
+// differently on every run: the total was stable, the attribution was
+// noise. A figure that moves while the code stands still is not evidence of
+// anything, so the resource half of the URL — the part that varies — is
+// dropped and the pointer that is actually missing is what the line names.
+func oracleSkipReason(err error) string {
+	msg := firstLine(err.Error())
+	open := strings.IndexByte(msg, '"')
+	if open < 0 {
+		return msg
+	}
+	rest := msg[open+1:]
+	closed := strings.IndexByte(rest, '"')
+	if closed < 0 {
+		return msg
+	}
+	url := rest[:closed]
+	if i := strings.IndexByte(url, '#'); i >= 0 {
+		url = url[i:]
+	}
+	return msg[:open+1] + url + rest[closed:]
 }
 
 // firstLine keeps a multi-line library error readable in a skip tally.

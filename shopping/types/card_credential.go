@@ -27,7 +27,7 @@ type CardCredential struct {
 	Name *string `json:"name,omitzero"`
 	// Card number.
 	Number *string `json:"number,omitzero"`
-	// The credential type discriminator. Specific schemas will constrain this to a constant value.
+	// The credential type identifier for card credentials.
 	Type string `json:"type"`
 
 	// Extra holds properties the schema does not name. The schema is
@@ -120,6 +120,9 @@ func (v *CardCredential) Validate() error {
 	}
 	if v.Cvc != nil && utf8.RuneCountInString(*v.Cvc) > 4 {
 		return errors.New("cvc: exceeds maxLength 4")
+	}
+	if v.Type != "card" {
+		return errors.New("type: must be \"card\"")
 	}
 	return nil
 }

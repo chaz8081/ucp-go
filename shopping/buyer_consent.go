@@ -96,9 +96,9 @@ func (v *BuyerConsentBuyer) Validate() error {
 // BuyerConsentCheckout Checkout extended with consent tracking via buyer object.
 type BuyerConsentCheckout struct {
 	Attribution *types.Attribution `json:"attribution,omitzero"`
-	// Representation of the buyer.
-	Buyer   *types.Buyer   `json:"buyer,omitzero"`
-	Context *types.Context `json:"context,omitzero"`
+	// Buyer with consent tracking.
+	Buyer   *BuyerConsentBuyer `json:"buyer,omitzero"`
+	Context *types.Context     `json:"context,omitzero"`
 	// URL for checkout handoff and session recovery. MUST be provided when status is requires_escalation. See specification for format and availability requirements.
 	//
 	// Not enforced yet (phase 4): format.

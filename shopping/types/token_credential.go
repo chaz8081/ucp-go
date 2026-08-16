@@ -12,7 +12,7 @@ import (
 type TokenCredential struct {
 	// The token value.
 	Token string `json:"token"`
-	// The credential type discriminator. Specific schemas will constrain this to a constant value.
+	// The specific type of token produced by the handler (e.g., 'stripe_token').
 	Type string `json:"type"`
 
 	// Extra holds properties the schema does not name. The schema is

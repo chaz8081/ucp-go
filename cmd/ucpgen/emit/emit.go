@@ -302,9 +302,11 @@ func mergeAllOfNode(node, doc map[string]any, at, relPath string, corpus map[str
 	// doc, not node: a "#/$defs/…" branch anywhere in the document is
 	// written against the document root, so a nested node still resolves its
 	// local refs there.
+	own := ownPropertyDefs(node)
 	if err := preprocess.MergeAllOf(node, doc); err != nil {
 		return locate(at, err)
 	}
+	restoreOwnProperties(node, own)
 	if err := checkResidualAllOf(node, at); err != nil {
 		return err
 	}
@@ -326,6 +328,89 @@ func mergeAllOfNode(node, doc map[string]any, at, relPath string, corpus map[str
 		}
 	}
 	return nil
+}
+
+// ownPropertyDefs snapshots a node's own property definitions before the
+// merge folds branch properties over them. See restoreOwnProperties.
+func ownPropertyDefs(node map[string]any) map[string]any {
+	props, _ := node["properties"].(map[string]any)
+	if len(props) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(props))
+	for k, v := range props {
+		out[k] = v
+	}
+	return out
+}
+
+// restoreOwnProperties puts a node's own definition of a property back on
+// top of the one it inherited.
+//
+// preprocess.MergeAllOf ends with the equivalent of python's
+// `node.setdefault("properties", {}).update(branch_props)`, so a branch
+// definition overwrites the node's own for any property both declare. That
+// is what card_payment_instrument's `type` — narrowed from the inherited
+// `{"type": "string"}` to `{"const": "card"}` — was losing: the constant
+// never reached the emitter, so no check was ever compiled for it, and the
+// differential harness caught the SDK accepting `{"type": "x"}` where the
+// schema does not.
+//
+// This runs emitter-side, on the emitter's own in-memory copy, *after* the
+// parity-critical stage. The invariant this repo holds is that our
+// preprocessor's output is byte-identical to preprocess_schemas.py's — not
+// that our generated Go resembles python's Pydantic models, which two
+// different languages would not produce anyway. `ucpgen preprocess`,
+// goldens/ and cmd/ucpgen/preprocess/ are all untouched by this; only what
+// the emitter reads afterwards changes. So this corrects the override
+// without weakening the parity guarantee.
+//
+// The caveat, for whoever reads this next. JSON Schema `allOf` is a
+// conjunction: the node's own schema and every branch all apply, and the
+// effective constraint is their intersection, not either one winning.
+// Preferring the node's own is correct exactly when the node's is the
+// narrower of the two — `const: "card"` against an inherited `type:
+// "string"` is a narrowing, and every overlapping redefinition in this
+// corpus is. It is not correct in general: an inherited definition narrower
+// than the node's own would be silently widened by this, and nothing here
+// detects that. What bounds the risk is the corpus rather than the logic —
+// the oracle, which implements the real intersection semantics, agrees with
+// the generated code on all 693 differential payloads. A corpus that grew a
+// widening redefinition would show up there as a disagreement, which is the
+// signal to replace this with a real intersection.
+//
+// Keys are merged rather than whole definitions swapped, so a node that
+// narrows one keyword keeps the description, format and type it inherited
+// for the rest. The merge is one level deep: where both sides define a
+// nested `properties`, the node's own map replaces the inherited one whole
+// rather than combining key by key. No node in this corpus does that — the
+// nested objects here are declared on one side only — and going deeper
+// would be building the general intersection this deliberately is not.
+func restoreOwnProperties(node, own map[string]any) {
+	if len(own) == 0 {
+		return
+	}
+	props, _ := node["properties"].(map[string]any)
+	if props == nil {
+		return
+	}
+	for name, ownDef := range own {
+		ownMap, ownIsObj := ownDef.(map[string]any)
+		inherited, inheritedIsObj := props[name].(map[string]any)
+		if !ownIsObj || !inheritedIsObj {
+			// Nothing to merge key-wise: the node's own definition stands.
+			props[name] = ownDef
+			continue
+		}
+		combined := make(map[string]any, len(inherited)+len(ownMap))
+		for k, v := range inherited {
+			combined[k] = v
+		}
+		for k, v := range ownMap {
+			combined[k] = v
+		}
+		props[name] = combined
+	}
 }
 
 // mergeAllOfChild descends through whatever containers stand between a
@@ -617,6 +702,14 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 		e.unenforced[typeName] = schema
 		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
 	}
+	if isRefAlias(schema, &c, underlying) {
+		// A Go type alias, not a defined type: this schema names an
+		// existing type rather than describing a new one, and `=` is the
+		// spelling that says so. See isRefAlias for what the defined form
+		// was silently dropping.
+		fmt.Fprintf(body, "type %s = %s\n\n", typeName, underlying)
+		return nil
+	}
 	fmt.Fprintf(body, "type %s %s\n\n", typeName, underlying)
 
 	// The decoder is this SDK's JSON type check, and null is the one input
@@ -642,6 +735,36 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	fmt.Fprintf(body, "// Validate reports the first constraint violation, or nil.\nfunc (v *%s) Validate() error {\n%s%s\treturn nil\n}\n\n",
 		typeName, c.checks.String(), c.nested.String())
 	return nil
+}
+
+// isRefAlias reports a schema whose entire content is a $ref to another
+// generated type.
+//
+// The defined form Go would otherwise get here — `type X types.Y` — copies
+// Y's fields and none of Y's methods, and that silence is the whole defect.
+// Y's UnmarshalJSON is what rejects a bare null and populates the presence
+// map that required-property checks read, so X decoded `null` and `{}` into
+// a zero value with an empty presence map; and X's own Validate is
+// generated from the $ref, which carries no constraints, so it was the
+// empty function. All five such types in the corpus — the $defs of
+// shopping/fulfillment.json — accepted every JSON object and a bare null
+// besides, and nothing else in the SDK enforced them, because the field
+// that holds one calls X.Validate rather than Y's.
+//
+// An alias has none of that to get wrong: X is Y, with Y's methods.
+//
+// The conditions are what keep the alias honest. A schema that adds a
+// keyword to its $ref compiles a check, and a check needs a method, which
+// an alias cannot carry; and a slice or map of a named type is a new type
+// however it is spelled, so only a plain named type qualifies.
+func isRefAlias(schema map[string]any, c *constraintSet, underlying string) bool {
+	if _, ok := schema["$ref"]; !ok {
+		return false
+	}
+	if c.vars.Len() > 0 || c.checks.Len() > 0 || c.nested.Len() > 0 {
+		return false
+	}
+	return underlying == elementType(underlying) && hasValidateMethod(underlying)
 }
 
 // aliasExpr reaches a named type's own value from its Validate receiver.

@@ -565,7 +565,15 @@
       "type": "CardPaymentInstrument",
       "package": "types",
       "file": "shopping/types/card_payment_instrument.go",
-      "fields": 6
+      "fields": 6,
+      "unenforced": {
+        "CardPaymentInstrumentDisplay.card_art": [
+          "format"
+        ],
+        "card_art": [
+          "format"
+        ]
+      }
     },
     "shopping/types/category.json": {
       "type": "Category",
