@@ -281,6 +281,14 @@ full JSON Schema implementation, the gap is specific:
   `shopping/types`. The deeper-to-shallower edge is broken and carried as
   raw JSON, with a comment on the field saying why.
 
+  **The consequence is a real gap, not just a typing inconvenience:**
+  `Validate` cannot see inside a `json.RawMessage`, so a malformed `ucp`
+  object on an error response is accepted. The differential harness reports
+  and counts it every run rather than absorbing it. `capability`'s `extends`
+  is raw for the unrelated reason above — a schema with no single Go shape —
+  and has the same consequence. Closing this needs the shared type moved
+  somewhere both packages can import; it is not fixable at the field.
+
 None of this is folklore. Every gap is recorded per schema under
 `unenforced` in `MANIFEST.json` — with keywords this dialect defines as
 annotations kept apart under `not_asserted`, so conformant behaviour is
@@ -382,9 +390,10 @@ Contributors never do, since the goldens are committed JSON.
 | `shopping/` | Cart, Checkout, Order, Payment, Fulfillment and their request variants |
 | `shopping/types/` | The shopping domain's component types |
 | `transports/` | Transport-level configuration |
-| `cmd/ucpgen/` | The generator: `preprocess` and `emit` subcommands |
+| `cmd/ucpgen/` | The generator: `preprocess`, `emit` and `canonicalize` subcommands |
 | `goldens/<version>/` | Committed preprocessed schemas, produced by the official python-sdk preprocessor |
-| `conformance/` | Separate module holding every dependency: the oracle, the differential harness, the fuzz targets, the goldens and drift guards |
+| `goldens/<version>.provenance.txt` | The spec commit **and** the python-sdk commit the goldens were built from. Goldens depend on the preprocessor as much as on the spec, and only the spec version used to be recoverable, so an upstream preprocessor change was indistinguishable from no change at all |
+| `conformance/` | Separate module holding every dependency: the oracle, the differential harness, the fuzz targets and the drift guards |
 | `MANIFEST.json` | Per-schema coverage record: emitted type, package, output path, field count, every unenforced keyword, and separately every keyword this dialect makes annotation-only |
 | `docs/specs/` | Design documents |
 
