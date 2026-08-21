@@ -99,7 +99,7 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**693 payloads across 157 generated types (128 of them schema-file roots),
+**1,024 payloads across 228 generated types (137 of them schema-file roots),
 zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
@@ -140,12 +140,26 @@ widening redefinition would surface here as a disagreement.
 Nothing is suppressed to reach zero. There is no skip list of known-failing
 payloads, and a disagreement fails the suite.
 
-Figures below the headline are equally literal. 71 targets cannot be
-compiled by the oracle at all: `capability.json`, `payment_handler.json` and
-`service.json` each `$ref` a `#/$defs/version` that no file defines, which
-is inherited from the upstream preprocessor rather than introduced here
-(python-sdk#72). They are reported as skips, not folded into the exercised
-count.
+Figures below the headline are equally literal. 3 targets are skipped, for a
+union alongside sibling `properties` that the harness does not model; they
+are reported as skips, not folded into the exercised count.
+
+This number used to be 71. Every one of those was a schema the oracle could
+not compile because of the dangling `#/$defs/version` references described
+below, now fixed upstream. Unblocking them roughly tripled what the harness
+actually compares — from 693 payloads across 157 types to 1,024 across
+228 — and the very first run of the wider corpus found a real gap, described
+next. The coverage figure had looked healthy the whole time.
+
+One payload disagrees and is reported rather than counted as agreement:
+`shopping/types/error_response.json`'s `ucp` property is carried as
+`json.RawMessage`, so `Validate` cannot see inside it and cannot reject a
+malformed value there. The harness proves that attribution instead of
+assuming it — every leaf of the oracle's rejection must fall inside a raw
+field, or the payload stays a mismatch — and prints the count every run
+(`TestRawFieldExplainsRejection` pins both directions). Two properties are
+carried this way: this one, to break an import cycle, and capability's
+`extends`, whose schema has no single Go shape.
 
 The oracle compiles `pattern` with **ECMA-262** semantics, via
 `dlclark/regexp2`, rather than the RE2 that Go's `regexp` and therefore the
@@ -267,38 +281,41 @@ Keywords that would change a schema's *shape* rather than merely constrain
 it — currently `patternProperties` — fail generation outright, because no
 correct Go type can be produced for them.
 
-### Known upstream limitation
+### Resolved upstream: dangling entity references
 
-The official preprocessor produces schemas with dangling references, and
-this SDK reproduces that behaviour deliberately.
+Reported as [python-sdk#72](https://github.com/Universal-Commerce-Protocol/python-sdk/issues/72) and **fixed** in python-sdk `d650f0b` ([PR #79](https://github.com/Universal-Commerce-Protocol/python-sdk/pull/79)). Recorded because the mechanism generalizes.
 
-`preprocess_schemas.py:245` (`flatten_entity_reference` in python-sdk)
-deep-copies `ucp.json#/$defs/entity` into `capability.json`,
-`payment_handler.json` and `service.json` without rebasing the entity's
-document-relative `$ref`s. The entity body contains
-`"version": {"$ref": "#/$defs/version"}`; once copied, that pointer resolves
-against its new host, which defines no such `$def`. The result is 24
-dangling references, and 9 of 145 schemas that no conforming JSON Schema
-validator can compile — the three hosts themselves plus everything
-transitively referencing them, including `ucp.json`.
+`flatten_entity_reference` deep-copied `ucp.json#/$defs/entity` into
+`capability.json`, `payment_handler.json` and `service.json`. The entity
+body contains `"version": {"$ref": "#/$defs/version"}` — a *document-relative*
+pointer. Copied into a host that defines no such `$def`, it resolved to
+nothing: 24 dangling references, and 9 of 145 schemas that no conforming
+validator could compile.
 
-The spec's source schemas are correct — the defect is introduced by
-preprocessing.
+The spec's source schemas were correct. The defect was introduced by
+preprocessing, one layer above where it showed.
 
-`ucp-go` mirrors it on purpose: `cmd/ucpgen/preprocess/document.go`'s
-`flattenEntityRef` is a faithful port, and byte-for-byte parity with the
-Python preprocessor is an enforced invariant (`TestPreprocessMatchesGoldens`).
-Diverging unilaterally would break the parity that makes the committed
-goldens trustworthy. The emitted models are unaffected: `ResolveRef` carries
-a narrow, documented fallback that resolves these references against
-`ucp.json`, which is where they were written.
+A dangling `$ref` does not fail loudly — a generator types the field as
+`Any`. python-sdk's released package therefore accepted any value for
+`version` on every model derived from the entity, where the spec requires
+`^\d{4}-\d{2}-\d{2}$`. The visible symptom was not a crash but a check
+that had silently stopped happening.
 
-The conformance harness skips the affected schemas by name and counts them,
-rather than passing over them silently. Its tally reports all nine. It used
-to report four: the other five were skipped a step earlier for conditional
-keywords, and only became visible once phase 6 implemented those — a small
-instance of the pattern this repository keeps running into, where one gap
-hides another and the count looks healthier than the coverage is.
+The fix resolves the entity's own local references **once, at extraction,
+while it still sits in `ucp.json`**, so every copy made afterwards is
+self-contained. `flatten_entity_reference` itself never changed. Rebasing
+the pointer to `ucp.json#/$defs/version` instead — the obvious repair —
+closes a cycle, because `ucp.json` already references into all three hosts;
+`datamodel-codegen` responds by collapsing the package into one private
+module and renaming every colliding class.
+
+`ucp-go` ports the fix as `preprocess.ResolveLocalRefs`, called from
+`Preprocess` at the same point. `ResolveRef` previously carried a narrow
+fallback that resolved these references against `ucp.json`, which is why the
+emitted models were never affected; the corpus now contains no unresolvable
+local reference at all, so that fallback is deleted rather than left to rot.
+`TestResolveRefDoesNotRescueDanglingLocalRefs` pins the stricter rule: a
+local `$ref` resolves in its own document or fails.
 
 ### Resolved upstream: the `ucp` metadata union
 
@@ -312,7 +329,7 @@ Upstream now synthesizes the union with `anyOf`, which is what it always meant: 
 
 **The emitter still guards the general case.** When a `oneOf`'s members are structurally identical, it stops enforcing exclusivity for that union and says so in the generated doc comment. Nothing in the current corpus trips it; `TestUnsatisfiableOneOfDegradesToAnyOf` keeps it honest.
 
-**How it was found, which is the part worth keeping.** Not by the differential harness — that could not have caught it. `ucp.json` is among the schemas the oracle cannot compile, for the dangling-reference reason above, so it is skipped before any verdict is compared. It surfaced when the example in this README was run and printed an error instead of a result. Pydantic's `Union` resolves to the first matching member rather than enforcing `oneOf`, which is why the Python SDK never saw it.
+**How it was found, which is the part worth keeping.** Not by the differential harness — at the time it could not have caught it. `ucp.json` was among the schemas the oracle could not compile, for the dangling-reference reason above, so it was skipped before any verdict was compared. One upstream defect hid the other from the tool built to find it. It surfaced when the example in this README was run and printed an error instead of a result. Pydantic's `Union` resolves to the first matching member rather than enforcing `oneOf`, which is why the Python SDK never saw it.
 
 ## Regenerating
 

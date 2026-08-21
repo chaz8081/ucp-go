@@ -6,6 +6,8 @@ package ucp
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
+	"sync"
 )
 
 // CapabilityBase is generated from capability.json.
@@ -25,7 +27,7 @@ type CapabilityBase struct {
 	// Not enforced yet (phase 4): format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -99,6 +101,8 @@ func (v CapabilityBase) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_CapabilityBase_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *CapabilityBase) Validate() error {
 	if v.present != nil {
@@ -106,8 +110,8 @@ func (v *CapabilityBase) Validate() error {
 			return errors.New("version: required property is missing")
 		}
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_CapabilityBase_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }
@@ -129,7 +133,7 @@ type CapabilityBusinessSchema struct {
 	// Not enforced yet (phase 4): format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -203,6 +207,8 @@ func (v CapabilityBusinessSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_CapabilityBusinessSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *CapabilityBusinessSchema) Validate() error {
 	if v.present != nil {
@@ -210,8 +216,8 @@ func (v *CapabilityBusinessSchema) Validate() error {
 			return errors.New("version: required property is missing")
 		}
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_CapabilityBusinessSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }
@@ -233,7 +239,7 @@ type CapabilityPlatformSchema struct {
 	// Not enforced yet (phase 4): format.
 	Spec string `json:"spec"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -307,6 +313,8 @@ func (v CapabilityPlatformSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_CapabilityPlatformSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *CapabilityPlatformSchema) Validate() error {
 	if v.present != nil {
@@ -320,8 +328,8 @@ func (v *CapabilityPlatformSchema) Validate() error {
 			return errors.New("version: required property is missing")
 		}
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_CapabilityPlatformSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }
@@ -343,7 +351,7 @@ type CapabilityResponseSchema struct {
 	// Not enforced yet (phase 4): format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -417,6 +425,8 @@ func (v CapabilityResponseSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_CapabilityResponseSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *CapabilityResponseSchema) Validate() error {
 	if v.present != nil {
@@ -424,8 +434,8 @@ func (v *CapabilityResponseSchema) Validate() error {
 			return errors.New("version: required property is missing")
 		}
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_CapabilityResponseSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }

@@ -37,8 +37,9 @@
           "type": "string"
         },
         "version": {
-          "$ref": "#/$defs/version",
-          "description": "Entity version in YYYY-MM-DD format."
+          "description": "Entity version in YYYY-MM-DD format.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
         }
       },
       "required": [
@@ -79,8 +80,9 @@
               "const": "rest"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -120,8 +122,9 @@
               "const": "mcp"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -161,8 +164,9 @@
               "const": "a2a"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -200,8 +204,9 @@
               "const": "embedded"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -248,8 +253,9 @@
           "type": "string"
         },
         "version": {
-          "$ref": "#/$defs/version",
-          "description": "Entity version in YYYY-MM-DD format."
+          "description": "Entity version in YYYY-MM-DD format.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
         }
       },
       "required": [
@@ -291,8 +297,9 @@
               "const": "rest"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -333,8 +340,9 @@
               "const": "mcp"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -375,8 +383,9 @@
               "const": "a2a"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -416,8 +425,9 @@
               "const": "embedded"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -466,8 +476,9 @@
           "type": "string"
         },
         "version": {
-          "$ref": "#/$defs/version",
-          "description": "Entity version in YYYY-MM-DD format."
+          "description": "Entity version in YYYY-MM-DD format.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
         }
       },
       "required": [
@@ -510,8 +521,9 @@
               "const": "rest"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -550,8 +562,9 @@
               "const": "mcp"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -590,8 +603,9 @@
               "const": "a2a"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -628,8 +642,9 @@
               "const": "embedded"
             },
             "version": {
-              "$ref": "#/$defs/version",
-              "description": "Entity version in YYYY-MM-DD format."
+              "description": "Entity version in YYYY-MM-DD format.",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
             }
           },
           "required": [
@@ -676,8 +691,9 @@
           "type": "string"
         },
         "version": {
-          "$ref": "#/$defs/version",
-          "description": "Entity version in YYYY-MM-DD format."
+          "description": "Entity version in YYYY-MM-DD format.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
         }
       },
       "required": [

@@ -6,6 +6,8 @@ package ucp
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
+	"sync"
 )
 
 // ServiceBase is generated from service.json.
@@ -29,7 +31,7 @@ type ServiceBase struct {
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -104,6 +106,8 @@ func (v ServiceBase) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_ServiceBase_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *ServiceBase) Validate() error {
 	if v.present != nil {
@@ -117,8 +121,8 @@ func (v *ServiceBase) Validate() error {
 	if v.Transport != "rest" && v.Transport != "mcp" && v.Transport != "a2a" && v.Transport != "embedded" {
 		return errors.New("transport: not one of the permitted values")
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_ServiceBase_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }
@@ -148,7 +152,7 @@ type ServiceBusinessSchema struct {
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -223,6 +227,8 @@ func (v ServiceBusinessSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_ServiceBusinessSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *ServiceBusinessSchema) Validate() error {
 	if v.present != nil {
@@ -236,8 +242,8 @@ func (v *ServiceBusinessSchema) Validate() error {
 	if v.Transport != "rest" && v.Transport != "mcp" && v.Transport != "a2a" && v.Transport != "embedded" {
 		return errors.New("transport: not one of the permitted values")
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_ServiceBusinessSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }
@@ -267,7 +273,7 @@ type ServicePlatformSchema struct {
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -342,6 +348,8 @@ func (v ServicePlatformSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_ServicePlatformSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *ServicePlatformSchema) Validate() error {
 	if v.present != nil {
@@ -358,8 +366,8 @@ func (v *ServicePlatformSchema) Validate() error {
 	if v.Transport != "rest" && v.Transport != "mcp" && v.Transport != "a2a" && v.Transport != "embedded" {
 		return errors.New("transport: not one of the permitted values")
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_ServicePlatformSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }
@@ -389,7 +397,7 @@ type ServiceResponseSchema struct {
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -464,6 +472,8 @@ func (v ServiceResponseSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_ServiceResponseSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *ServiceResponseSchema) Validate() error {
 	if v.present != nil {
@@ -477,8 +487,8 @@ func (v *ServiceResponseSchema) Validate() error {
 	if v.Transport != "rest" && v.Transport != "mcp" && v.Transport != "a2a" && v.Transport != "embedded" {
 		return errors.New("transport: not one of the permitted values")
 	}
-	if err := v.Version.Validate(); err != nil {
-		return err
+	if !pattern_ServiceResponseSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
 	}
 	return nil
 }
