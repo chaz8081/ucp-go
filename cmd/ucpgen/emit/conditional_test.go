@@ -428,7 +428,7 @@ func TestCompileConditionalReadsAllOfResidual(t *testing.T) {
 			t.Errorf("allOf branch %d: if/then not marked enforced on the branch", i)
 		}
 	}
-	if kws := e.unenforcedKeywords(schema); len(kws) != 0 {
+	if kws, _ := e.unenforcedKeywords(schema); len(kws) != 0 {
 		t.Errorf("unenforcedKeywords = %v, want none once both rules compile", kws)
 	}
 }
@@ -470,7 +470,7 @@ func TestCompileConditionalSkipsRuleOverDroppedProperties(t *testing.T) {
 	if e.enforced.has(branch, "if") || e.enforced.has(branch, "then") {
 		t.Error("if/then marked enforced though no check was emitted")
 	}
-	if kws := e.unenforcedKeywords(schema); len(kws) != 2 || kws[0] != "if" || kws[1] != "then" {
+	if kws, _ := e.unenforcedKeywords(schema); len(kws) != 2 || kws[0] != "if" || kws[1] != "then" {
 		t.Errorf("unenforcedKeywords = %v, want [if then] still reported as a gap", kws)
 	}
 }

@@ -32,7 +32,7 @@ type Order struct {
 	Messages []types.Message `json:"messages,omitzero"`
 	// Permalink to access the order on merchant site.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	PermalinkURL string `json:"permalink_url"`
 	// Different totals for the order.
 	Totals types.Totals    `json:"totals"`
@@ -180,7 +180,7 @@ func (v *Order) Validate() error {
 type OrderPlatformSchema struct {
 	// URL where merchant sends order lifecycle events (webhooks).
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	WebhookURL string `json:"webhook_url"`
 
 	// Extra holds properties the schema does not name. The schema is

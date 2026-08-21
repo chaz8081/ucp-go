@@ -16,13 +16,13 @@ type FulfillmentOption struct {
 	Description *string `json:"description,omitzero"`
 	// Earliest fulfillment date.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	EarliestFulfillmentTime *string `json:"earliest_fulfillment_time,omitzero"`
 	// Unique fulfillment option identifier.
 	ID string `json:"id"`
 	// Latest fulfillment date.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	LatestFulfillmentTime *string `json:"latest_fulfillment_time,omitzero"`
 	// Short label (e.g., 'Express Shipping', 'Curbside Pickup').
 	Title string `json:"title"`

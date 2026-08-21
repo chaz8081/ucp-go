@@ -16,17 +16,17 @@ type ServiceBase struct {
 	Config map[string]any `json:"config,omitzero"`
 	// Endpoint URL for this transport binding.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Endpoint *string `json:"endpoint,omitzero"`
 	// Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.
 	ID *string `json:"id,omitzero"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema *string `json:"schema,omitzero"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec *string `json:"spec,omitzero"`
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`
@@ -137,17 +137,17 @@ type ServiceBusinessSchema struct {
 	Config map[string]any `json:"config,omitzero"`
 	// Endpoint URL for this transport binding.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Endpoint *string `json:"endpoint,omitzero"`
 	// Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.
 	ID *string `json:"id,omitzero"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema *string `json:"schema,omitzero"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec *string `json:"spec,omitzero"`
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`
@@ -258,17 +258,17 @@ type ServicePlatformSchema struct {
 	Config map[string]any `json:"config,omitzero"`
 	// Endpoint URL for this transport binding.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Endpoint *string `json:"endpoint,omitzero"`
 	// Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.
 	ID *string `json:"id,omitzero"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema *string `json:"schema,omitzero"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec string `json:"spec"`
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`
@@ -382,17 +382,17 @@ type ServiceResponseSchema struct {
 	Config map[string]any `json:"config,omitzero"`
 	// Endpoint URL for this transport binding.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Endpoint *string `json:"endpoint,omitzero"`
 	// Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.
 	ID *string `json:"id,omitzero"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema *string `json:"schema,omitzero"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec *string `json:"spec,omitzero"`
 	// Transport protocol for this service binding.
 	Transport string `json:"transport"`

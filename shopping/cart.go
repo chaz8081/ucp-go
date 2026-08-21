@@ -19,13 +19,13 @@ type Cart struct {
 	Context *types.Context `json:"context,omitzero"`
 	// URL for cart handoff and session recovery. Enables sharing and human-in-the-loop flows.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	ContinueURL *string `json:"continue_url,omitzero"`
 	// ISO 4217 currency code. Determined by merchant based on context or geo-IP.
 	Currency string `json:"currency"`
 	// Cart expiry timestamp (RFC 3339). Optional.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	ExpiresAt *string `json:"expires_at,omitzero"`
 	// Unique cart identifier.
 	ID string `json:"id"`
@@ -192,13 +192,13 @@ type CartCheckout struct {
 	Context *types.Context `json:"context,omitzero"`
 	// URL for checkout handoff and session recovery. MUST be provided when status is requires_escalation. See specification for format and availability requirements.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	ContinueURL *string `json:"continue_url,omitzero"`
 	// ISO 4217 currency code reflecting the merchant's market determination. Derived from address, context, and geo IP—buyers provide signals, merchants determine currency.
 	Currency string `json:"currency"`
 	// RFC 3339 expiry timestamp. Default TTL is 6 hours from creation if not sent.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	ExpiresAt *string `json:"expires_at,omitzero"`
 	// Unique identifier of the checkout session.
 	ID string `json:"id"`

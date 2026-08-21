@@ -16,7 +16,7 @@ type Link struct {
 	Type string `json:"type"`
 	// The actual URL pointing to the content to be displayed.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL string `json:"url"`
 
 	// Extra holds properties the schema does not name. The schema is

@@ -36,10 +36,16 @@ type ManifestEntry struct {
 	// normal type.
 	Fields int `json:"fields"`
 	// Unenforced records validation-only JSON Schema keywords this schema
-	// declares that the generated code does not check, keyed by "Type" or
-	// "Type.field-path". It makes the phase 4 gap machine readable rather
-	// than only a comment in the generated source.
+	// declares that the generated code does not check but should, keyed by
+	// "Type" or "Type.field-path". It makes the coverage gap machine
+	// readable rather than only a comment in the generated source.
 	Unenforced map[string][]string `json:"unenforced,omitempty"`
+	// NotAsserted records keywords this schema declares that the corpus's
+	// dialect defines as ANNOTATIONS, so not checking them is conformant.
+	// Separate from Unenforced on purpose: merging the two would report
+	// correct behaviour as a shortfall, and `format` outnumbers the real
+	// gap by more than twenty to one.
+	NotAsserted map[string][]string `json:"not_asserted,omitempty"`
 }
 
 const modulePath = "github.com/chaz8081/ucp-go"
@@ -117,9 +123,10 @@ func run(schemaDir, outDir, specRef string) (*Manifest, error) {
 			// form: regenerating into a scratch dir and diffing the
 			// resulting MANIFEST.json against a committed one must not
 			// spuriously fail just because outDir's location differs.
-			File:       filepath.ToSlash(strings.TrimSuffix(rel, ".json") + ".go"),
-			Fields:     len(props),
-			Unenforced: emit.LastUnenforced(),
+			File:        filepath.ToSlash(strings.TrimSuffix(rel, ".json") + ".go"),
+			Fields:      len(props),
+			Unenforced:  emit.LastUnenforced(),
+			NotAsserted: emit.LastNotAsserted(),
 		}
 	}
 	// Fail closed: every loaded schema must have produced an entry. With

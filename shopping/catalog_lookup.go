@@ -67,7 +67,7 @@ type CatalogLookupDetailProduct struct {
 	Title string `json:"title"`
 	// Canonical product page URL.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL *string `json:"url,omitzero"`
 	// Purchasable variants of this product. First item is the featured variant for listings.
 	Variants []types.Variant `json:"variants"`
@@ -699,7 +699,7 @@ type CatalogLookupLookupVariant struct {
 	UnitPrice *CatalogLookupLookupVariantUnitPrice `json:"unit_price,omitzero"`
 	// Canonical variant page URL.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL *string `json:"url,omitzero"`
 
 	// Extra holds properties the schema does not name. The schema is
@@ -990,7 +990,7 @@ type CatalogLookupLookupResponseProductsItem struct {
 	Title string `json:"title"`
 	// Canonical product page URL.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL *string `json:"url,omitzero"`
 	// Purchasable variants of this product. First item is the featured variant for listings.
 	Variants []CatalogLookupLookupVariant `json:"variants"`
