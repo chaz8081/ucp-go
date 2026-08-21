@@ -295,17 +295,26 @@ func (e *fileEmitter) noteUnenforced(fieldPath string, node map[string]any) {
 	}
 }
 
-// Unenforced returns the validation-only keywords this file's types declare
-// but do not check, keyed by "Type.field-path". The manifest carries it so
-// the coverage gap is machine-readable, not only a comment in the source.
-func (e *fileEmitter) Unenforced() map[string][]string {
-	out := map[string][]string{}
+// Unenforced returns two maps keyed by "Type.field-path": keywords this
+// file's types declare but do not check and should, and keywords this
+// dialect defines as annotations, which are correctly not asserted.
+//
+// They are separate because merging them would misreport the SDK's own
+// coverage. `format` alone accounts for the large majority of occurrences,
+// and reading them as one number says there are 150 unmet obligations when
+// there are 6.
+func (e *fileEmitter) Unenforced() (unenforced, notAsserted map[string][]string) {
+	unenforced, notAsserted = map[string][]string{}, map[string][]string{}
 	for key, node := range e.unenforced {
-		if kws := e.unenforcedKeywords(node); len(kws) > 0 {
-			out[key] = kws
+		kws, ann := e.unenforcedKeywords(node)
+		if len(kws) > 0 {
+			unenforced[key] = kws
+		}
+		if len(ann) > 0 {
+			notAsserted[key] = ann
 		}
 	}
-	return out
+	return unenforced, notAsserted
 }
 
 // sameSchema reports whether two schema nodes are structurally identical,

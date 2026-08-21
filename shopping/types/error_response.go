@@ -12,7 +12,7 @@ import (
 type ErrorResponse struct {
 	// URL for buyer handoff or session recovery.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	ContinueURL *string `json:"continue_url,omitzero"`
 	// Array of messages describing why the operation failed.
 	Messages []Message `json:"messages"`

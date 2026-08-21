@@ -48,7 +48,7 @@ type Variant struct {
 	UnitPrice *VariantUnitPrice `json:"unit_price,omitzero"`
 	// Canonical variant page URL.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL *string `json:"url,omitzero"`
 
 	// Extra holds properties the schema does not name. The schema is

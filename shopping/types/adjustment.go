@@ -18,7 +18,7 @@ type Adjustment struct {
 	LineItems []AdjustmentLineItemsItem `json:"line_items,omitzero"`
 	// RFC 3339 timestamp when this adjustment occurred.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	OccurredAt string `json:"occurred_at"`
 	// Adjustment status.
 	Status string `json:"status"`

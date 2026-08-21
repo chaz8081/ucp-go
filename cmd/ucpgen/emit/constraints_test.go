@@ -304,7 +304,13 @@ func TestCompileConstraintsReportsWhatItEnforced(t *testing.T) {
 	if e.enforced.has(node, "format") {
 		t.Error("format is not checked and must not be recorded as enforced")
 	}
-	if got := e.unenforcedKeywords(node); len(got) != 1 || got[0] != "format" {
-		t.Errorf("unenforcedKeywords = %v, want [format]", got)
+	// format is reported, but as an annotation the dialect does not make
+	// assertable — never as an unmet obligation.
+	gap, ann := e.unenforcedKeywords(node)
+	if len(gap) != 0 {
+		t.Errorf("unenforced gap = %v, want none: format is not a gap", gap)
+	}
+	if len(ann) != 1 || ann[0] != "format" {
+		t.Errorf("notAsserted = %v, want [format]", ann)
 	}
 }

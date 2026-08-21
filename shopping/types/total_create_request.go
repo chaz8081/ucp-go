@@ -10,7 +10,7 @@ import (
 
 // TotalCreateRequest A cost breakdown entry with a category, amount, and optional display text.
 //
-// Not enforced yet (phase 4): if, then.
+// Not enforced yet: if, then.
 type TotalCreateRequest map[string]any
 
 // UnmarshalJSON rejects a bare null. encoding/json treats null as a

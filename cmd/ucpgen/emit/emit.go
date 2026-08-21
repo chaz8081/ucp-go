@@ -51,10 +51,29 @@ var validationOnlyKeywords = map[string]bool{
 	"not": true, "if": true, "then": true, "else": true,
 	"dependentRequired": true, "dependentSchemas": true,
 	"propertyNames": true,
-	// format is annotation-only in draft 2020-12 and the conformance oracle
-	// runs with assertFormat off, so not enforcing it is correct — but 104
-	// occurrences (94 uri, 10 date-time) disappearing without a trace is
-	// not. Reported like any other unenforced keyword.
+	// format is detected here so every occurrence is still reported, but
+	// annotationOnlyKeywords classifies how: not asserting it is correct,
+	// not a gap.
+	"format": true,
+}
+
+// annotationOnlyKeywords are keywords the corpus's dialect defines as
+// ANNOTATIONS rather than assertions, so declining to check them is
+// conformant behaviour and not a coverage gap.
+//
+// Every schema in the corpus declares plain
+// "https://json-schema.org/draft/2020-12/schema" and none declares a
+// $vocabulary, so the Format-Assertion vocabulary is not in effect and
+// `format` is annotation-only. The conformance oracle agrees by
+// construction: newCompiler never calls AssertFormat, so enforcing format
+// here would make the SDK STRICTER than the schema and produce
+// disagreements the differential harness would rightly fail on.
+//
+// They are still reported, because 144 occurrences vanishing without a
+// trace would be its own dishonesty — but reported as what they are. The
+// distinction matters to anyone reading the manifest to judge this SDK's
+// coverage: "not implemented" is a promise to fix, "not asserted" is not.
+var annotationOnlyKeywords = map[string]bool{
 	"format": true,
 }
 
@@ -96,7 +115,7 @@ func checkTypeAffectingKeywords(node map[string]any) string {
 // `if` branch or an unmodeled anyOf member does not. Subtracting per node,
 // rather than removing the keyword from the set outright, is what keeps
 // those positions visible instead of silently unenforced.
-func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
+func (e *fileEmitter) unenforcedKeywords(node map[string]any) (unimplemented, notAsserted []string) {
 	seen := map[string]bool{}
 	for k := range node {
 		if validationOnlyKeywords[k] && !e.enforced.has(node, k) {
@@ -125,12 +144,16 @@ func (e *fileEmitter) unenforcedKeywords(node map[string]any) []string {
 			}
 		}
 	}
-	out := make([]string, 0, len(seen))
 	for k := range seen {
-		out = append(out, k)
+		if annotationOnlyKeywords[k] {
+			notAsserted = append(notAsserted, k)
+			continue
+		}
+		unimplemented = append(unimplemented, k)
 	}
-	sort.Strings(out)
-	return out
+	sort.Strings(unimplemented)
+	sort.Strings(notAsserted)
+	return unimplemented, notAsserted
 }
 
 // GoName converts a schema identifier (snake_case, dotted, kebab-case, or
@@ -240,19 +263,25 @@ func EmitFileWithBreaks(idx *TypeIndex, modulePath, relPath string, schema map[s
 	if err != nil {
 		return "", err
 	}
-	lastUnenforced = e.Unenforced()
+	lastUnenforced, lastNotAsserted = e.Unenforced()
 	return src, nil
 }
 
-// lastUnenforced carries the unenforced-keyword map from the most recent
-// EmitFileWithBreaks call, so the caller can record it in the manifest
-// without threading a second return value through every call site.
-var lastUnenforced map[string][]string
+// lastUnenforced and lastNotAsserted carry the two coverage maps from the
+// most recent EmitFileWithBreaks call, so the caller can record them in the
+// manifest without threading extra return values through every call site.
+var lastUnenforced, lastNotAsserted map[string][]string
 
 // LastUnenforced returns the validation-only keywords the most recently
-// emitted file declares but does not check, keyed by "Type" or
-// "Type.field-path".
+// emitted file declares but does not check and SHOULD, keyed by "Type" or
+// "Type.field-path". This is the real coverage gap.
 func LastUnenforced() map[string][]string { return lastUnenforced }
+
+// LastNotAsserted returns the keywords the most recently emitted file
+// declares that this dialect defines as annotations, so not checking them
+// is correct. Kept separate from LastUnenforced so the manifest does not
+// report conformant behaviour as a shortfall.
+func LastNotAsserted() map[string][]string { return lastNotAsserted }
 
 // instanceValuedKeywords hold example JSON values rather than subschemas.
 // Whatever is nested under them is data the schema talks ABOUT, so an
@@ -698,9 +727,14 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 	// ReverseDomainName is a string whose whole purpose is its pattern — so
 	// an unenforced constraint here is the most misleading place to omit
 	// the note.
-	if kws := e.unenforcedKeywords(schema); len(kws) > 0 {
+	if kws, ann := e.unenforcedKeywords(schema); len(kws) > 0 || len(ann) > 0 {
 		e.unenforced[typeName] = schema
-		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
+		if len(kws) > 0 {
+			fmt.Fprintf(body, "//\n// Not enforced yet: %s.\n", strings.Join(kws, ", "))
+		}
+		if len(ann) > 0 {
+			fmt.Fprintf(body, "//\n// Annotation only in draft 2020-12, so not asserted: %s.\n", strings.Join(ann, ", "))
+		}
 	}
 	if isRefAlias(schema, &c, underlying) {
 		// A Go type alias, not a defined type: this schema names an
@@ -1122,9 +1156,14 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	if keyword, members := unionMembers(schema); len(members) > 0 {
 		fmt.Fprintf(body, "//\n// The schema also declares %d %s variants that narrow or replace\n// these fields; they are not modeled as distinct types yet (phase 4),\n// so this type reflects only the shared base.\n", len(members), keyword)
 	}
-	if kws := e.unenforcedKeywords(schema); len(kws) > 0 {
+	if kws, ann := e.unenforcedKeywords(schema); len(kws) > 0 || len(ann) > 0 {
 		e.unenforced[typeName] = schema
-		fmt.Fprintf(body, "//\n// Not enforced yet (phase 4) on the object itself: %s.\n", strings.Join(kws, ", "))
+		if len(kws) > 0 {
+			fmt.Fprintf(body, "//\n// Not enforced yet on the object itself: %s.\n", strings.Join(kws, ", "))
+		}
+		if len(ann) > 0 {
+			fmt.Fprintf(body, "//\n// Annotation only in draft 2020-12, so not asserted on the object\n// itself: %s.\n", strings.Join(ann, ", "))
+		}
 	}
 	// A rule that quietly does nothing for a whole class of values is worse
 	// than one that is absent, because the caller cannot tell the two
@@ -1139,9 +1178,14 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		if desc, _ := prop["description"].(string); desc != "" {
 			fmt.Fprintf(body, "\t// %s\n", strings.ReplaceAll(desc, "\n", "\n\t// "))
 		}
-		if kws := e.unenforcedKeywords(prop); len(kws) > 0 {
+		if kws, ann := e.unenforcedKeywords(prop); len(kws) > 0 || len(ann) > 0 {
 			e.unenforced[name] = prop
-			fmt.Fprintf(body, "\t//\n\t// Not enforced yet (phase 4): %s.\n", strings.Join(kws, ", "))
+			if len(kws) > 0 {
+				fmt.Fprintf(body, "\t//\n\t// Not enforced yet: %s.\n", strings.Join(kws, ", "))
+			}
+			if len(ann) > 0 {
+				fmt.Fprintf(body, "\t//\n\t// Annotation only in draft 2020-12, so not asserted: %s.\n", strings.Join(ann, ", "))
+			}
 		}
 		if ref, hasRef := prop["$ref"].(string); hasRef {
 			if was, degraded := e.degradedRefs[ref]; degraded {

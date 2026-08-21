@@ -36,7 +36,7 @@ type Product struct {
 	Title string `json:"title"`
 	// Canonical product page URL.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL *string `json:"url,omitzero"`
 	// Purchasable variants of this product. First item is the featured variant for listings.
 	Variants []Variant `json:"variants"`

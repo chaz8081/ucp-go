@@ -18,7 +18,7 @@ type Media struct {
 	Type string `json:"type"`
 	// URL to the media resource.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL string `json:"url"`
 	// Width in pixels (for images/video).
 	Width *int64 `json:"width,omitzero"`

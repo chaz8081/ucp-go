@@ -21,11 +21,11 @@ type PaymentHandlerBase struct {
 	ID string `json:"id"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema *string `json:"schema,omitzero"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
 	Version string `json:"version"`
@@ -138,11 +138,11 @@ type PaymentHandlerBusinessSchema struct {
 	ID string `json:"id"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema *string `json:"schema,omitzero"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
 	Version string `json:"version"`
@@ -255,11 +255,11 @@ type PaymentHandlerPlatformSchema struct {
 	ID string `json:"id"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema string `json:"schema"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec string `json:"spec"`
 	// Entity version in YYYY-MM-DD format.
 	Version string `json:"version"`
@@ -378,11 +378,11 @@ type PaymentHandlerResponseSchema struct {
 	ID string `json:"id"`
 	// URL to JSON Schema defining this entity's structure and payloads.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Schema *string `json:"schema,omitzero"`
 	// URL to human-readable specification document.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
 	Version string `json:"version"`

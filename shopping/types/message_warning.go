@@ -17,7 +17,7 @@ type MessageWarning struct {
 	ContentType *string `json:"content_type,omitzero"`
 	// URL to a required visual element (e.g., warning symbol, energy class label).
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	ImageURL *string `json:"image_url,omitzero"`
 	// JSONPath (RFC 9535) to related field (e.g., $.line_items[0]).
 	Path *string `json:"path,omitzero"`
@@ -27,7 +27,7 @@ type MessageWarning struct {
 	Type string `json:"type"`
 	// Reference URL for more information (e.g., regulatory site, registry entry, policy page).
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	URL *string `json:"url,omitzero"`
 
 	// Extra holds properties the schema does not name. The schema is

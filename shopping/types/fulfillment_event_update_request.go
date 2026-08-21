@@ -20,13 +20,13 @@ type FulfillmentEventUpdateRequest struct {
 	LineItems []FulfillmentEventUpdateRequestLineItemsItem `json:"line_items"`
 	// RFC 3339 timestamp when this fulfillment event occurred.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	OccurredAt string `json:"occurred_at"`
 	// Carrier tracking number (required if type != processing).
 	TrackingNumber *string `json:"tracking_number,omitzero"`
 	// URL to track this shipment (required if type != processing).
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	TrackingURL *string `json:"tracking_url,omitzero"`
 	// Fulfillment event type. Common values include: processing (preparing to ship), shipped (handed to carrier), in_transit (in delivery network), delivered (received by buyer), failed_attempt (delivery attempt failed), canceled (fulfillment canceled), undeliverable (cannot be delivered), returned_to_sender (returned to merchant).
 	Type string `json:"type"`

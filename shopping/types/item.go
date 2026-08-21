@@ -14,7 +14,7 @@ type Item struct {
 	ID string `json:"id"`
 	// Product image URI.
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	ImageURL *string `json:"image_url,omitzero"`
 	// Unit price in ISO 4217 minor units.
 	Price Amount `json:"price"`

@@ -132,7 +132,7 @@ func (v *CardPaymentInstrument) Validate() error {
 type CardPaymentInstrumentAvailableCardPaymentInstrument struct {
 	// Constraints on this instrument type. Structure depends on instrument type and active capabilities.
 	//
-	// Not enforced yet (phase 4): minProperties.
+	// Not enforced yet: minProperties.
 	Constraints *CardPaymentInstrumentAvailableCardPaymentInstrumentConstraints `json:"constraints,omitzero"`
 	// The instrument type identifier (e.g., 'card', 'gift_card'). References an instrument schema's type constant.
 	Type string `json:"type"`
@@ -229,7 +229,7 @@ type CardPaymentInstrumentDisplay struct {
 	Brand *string `json:"brand,omitzero"`
 	// An optional URI to a rich image representing the card (e.g., card art provided by the issuer).
 	//
-	// Not enforced yet (phase 4): format.
+	// Annotation only in draft 2020-12, so not asserted: format.
 	CardArt *string `json:"card_art,omitzero"`
 	// An optional rich text description of the card to display to the user (e.g., 'Visa ending in 1234, expires 12/2025').
 	Description *string `json:"description,omitzero"`

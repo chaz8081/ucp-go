@@ -230,10 +230,22 @@ full JSON Schema implementation, the gap is specific:
   outright. An optional property may still be `null` or absent, which
   `encoding/json` handles at the pointer before the type's decoder is
   reached.
-- **`format` is not asserted** (142 occurrences). In draft 2020-12 `format`
-  is an annotation, not an assertion, unless a validator opts in. The oracle
-  runs with format assertions off as well, so this is agreement with the
-  spec's own default rather than a gap between the two implementations.
+- **`format` is not asserted** (144 occurrences). In draft 2020-12 `format`
+  is an annotation, not an assertion, unless a validator opts in. Every
+  schema in the corpus declares plain `draft/2020-12/schema` and none
+  declares a `$vocabulary`, so the Format-Assertion vocabulary is not in
+  effect; the oracle runs with format assertions off as well. Asserting it
+  would make this SDK *stricter* than the schemas require and put it in
+  disagreement with the oracle.
+
+  `MANIFEST.json` therefore records these under `not_asserted`, separate
+  from `unenforced`. The two used to share a key, which made the manifest
+  report 150 unmet obligations where there are **6** — `format` outnumbers
+  the real gap by twenty-four to one, so merging them buried it. Both
+  numbers stay visible; neither is a summary of the other.
+  `TestCorpusUsesAnnotationOnlyFormat` fails the build if a future spec
+  release opts into the assertion vocabulary, which would turn every
+  `not_asserted` entry into an understatement.
 - **`if`/`then` and the `contains` family are enforced.** A condition
   compiles to a Go `if` guarding the consequent's checks; `contains`
   compiles to a count of the elements matching its subschema. Two
@@ -270,7 +282,9 @@ full JSON Schema implementation, the gap is specific:
   raw JSON, with a comment on the field saying why.
 
 None of this is folklore. Every gap is recorded per schema under
-`unenforced` in `MANIFEST.json`, and carried as a doc comment on the affected
+`unenforced` in `MANIFEST.json` — with keywords this dialect defines as
+annotations kept apart under `not_asserted`, so conformant behaviour is
+never counted as a shortfall — and carried as a doc comment on the affected
 type or field wherever there is a declaration to attach one to — so the
 coverage boundary is machine-readable and reviewable rather than something
 you have to reconstruct by reading the emitter. (Two `enum` gaps, both on
@@ -371,7 +385,7 @@ Contributors never do, since the goldens are committed JSON.
 | `cmd/ucpgen/` | The generator: `preprocess` and `emit` subcommands |
 | `goldens/<version>/` | Committed preprocessed schemas, produced by the official python-sdk preprocessor |
 | `conformance/` | Separate module holding every dependency: the oracle, the differential harness, the fuzz targets, the goldens and drift guards |
-| `MANIFEST.json` | Per-schema coverage record: emitted type, package, output path, field count, and every unenforced keyword |
+| `MANIFEST.json` | Per-schema coverage record: emitted type, package, output path, field count, every unenforced keyword, and separately every keyword this dialect makes annotation-only |
 | `docs/specs/` | Design documents |
 
 Generation is fail-closed: a schema file that produces no manifest entry is
