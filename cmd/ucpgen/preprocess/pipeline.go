@@ -31,6 +31,12 @@ func Preprocess(set *SchemaSet) error {
 	if len(entityDef) == 0 {
 		return fmt.Errorf("entity definition not found: ucp.json must define $defs.entity")
 	}
+	// Resolve the entity's own same-document refs once, here, while it is
+	// still in ucp.json and they still mean what they say. Every copy made
+	// below is then self-contained. Deep-copied first so ucp.json's own
+	// $defs.entity keeps its refs (preprocess_schemas.py, python-sdk#72).
+	entityDef = CopyTree(entityDef).(map[string]any)
+	ResolveLocalRefs(entityDef, ucp, nil)
 
 	renames := map[string]map[string]string{}
 	for _, rel := range set.Paths() {

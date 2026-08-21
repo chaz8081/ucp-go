@@ -2,11 +2,15 @@ package conformance
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/chaz8081/ucp-go/cmd/ucpgen/emit"
 	"github.com/chaz8081/ucp-go/cmd/ucpgen/preprocess"
@@ -172,6 +176,7 @@ func TestDifferentialAgreement(t *testing.T) {
 	// tallied as a skip, and counting it here as well would let the same
 	// target be reported as both exercised and skipped.
 	var mismatches []string
+	rawGaps := map[string]int{}
 	total, comparedTypes, comparedFiles := 0, 0, 0
 	for _, tg := range targets {
 		compiled, err := oracle.Compile(tg.oracleID)
@@ -218,6 +223,22 @@ func TestDifferentialAgreement(t *testing.T) {
 			}
 			sdkOK := sdkErr == nil
 			if oracleOK != sdkOK {
+				// A field the emitter had to carry as json.RawMessage is
+				// opaque to Validate, so the SDK cannot reject a payload
+				// that is invalid only inside such a field. That is a real
+				// gap, but a known one with a named cause, and it must not
+				// be confused with a wrong or missing check.
+				//
+				// Attribution is proved rather than assumed: drop the raw
+				// fields from the payload and ask the oracle again. Only if
+				// it then accepts was the raw field the whole reason for
+				// the disagreement. Anything else stays a mismatch.
+				if !oracleOK && sdkOK {
+					if f, ok := rawFieldExplainsRejection(compiled, v, inst); ok {
+						rawGaps[tg.location+"."+f]++
+						continue
+					}
+				}
 				why := "accepted it"
 				if sdkErr != nil {
 					why = sdkErr.Error()
@@ -236,6 +257,12 @@ func TestDifferentialAgreement(t *testing.T) {
 	t.Logf("%d schema files have no file-level type and contribute $defs targets only", rootless)
 	for _, reason := range sortedKeys(skipped) {
 		t.Logf("skipped %3d targets: %s", skipped[reason], reason)
+	}
+	// Reported every run, never silently absorbed: these are payloads the
+	// oracle rejects and the SDK cannot, because the offending field is
+	// carried as raw JSON. The count is the size of the gap.
+	for _, loc := range sortedKeys(rawGaps) {
+		t.Logf("unvalidated %3d payloads: %s is raw JSON, so its contents are never checked", rawGaps[loc], loc)
 	}
 	if len(mismatches) > 0 {
 		sort.Strings(mismatches)
@@ -372,4 +399,85 @@ func FuzzReverseDomainNameAgreement(f *testing.F) {
 			t.Errorf("verdict drift on %s: oracle=%v sdk=%v", payload, oracleOK, sdkOK)
 		}
 	})
+}
+
+// rawFieldExplainsRejection reports whether every reason the oracle
+// rejected inst lies inside a field that model carries as json.RawMessage.
+//
+// The emitter falls back to raw JSON in two situations: a property whose
+// type would create an import cycle (shopping/types.ErrorResponseBase.UCP
+// would have to name the root package, which already imports this one), and
+// a property whose schema has no single Go shape (capability's `extends` is
+// a string or an array of strings). In both cases Validate has nothing to
+// look at, so a payload invalid only inside that field is accepted.
+//
+// Attribution is read off the oracle's own error locations rather than
+// guessed. Deleting the field and revalidating does not work: these
+// properties are required, so removing one trades the real complaint for a
+// missing-property complaint and every disagreement would look explained.
+// Instead every leaf cause must point inside a raw field. A single leaf
+// anywhere else means the SDK missed something it could have caught, and
+// the payload stays a mismatch.
+func rawFieldExplainsRejection(compiled *jsonschema.Schema, model any, inst any) (string, bool) {
+	raw := rawJSONProperties(model)
+	if len(raw) == 0 {
+		return "", false
+	}
+	var verr *jsonschema.ValidationError
+	if err := compiled.Validate(inst); !errors.As(err, &verr) {
+		return "", false
+	}
+	hit := map[string]bool{}
+	var walk func(*jsonschema.ValidationError) bool
+	walk = func(e *jsonschema.ValidationError) bool {
+		if len(e.Causes) > 0 {
+			for _, c := range e.Causes {
+				if !walk(c) {
+					return false
+				}
+			}
+			return true
+		}
+		// A leaf at the document root blames the instance as a whole, not
+		// any one property, so it is never attributable to a raw field.
+		if len(e.InstanceLocation) == 0 || !raw[e.InstanceLocation[0]] {
+			return false
+		}
+		hit[e.InstanceLocation[0]] = true
+		return true
+	}
+	if !walk(verr) || len(hit) == 0 {
+		return "", false
+	}
+	names := sortedKeys(hit)
+	return strings.Join(names, "+"), true
+}
+
+// rawJSONProperties returns the JSON names of a model's json.RawMessage
+// fields. The open-object catch-all (Extra map[string]json.RawMessage, tagged
+// "-") is not one of them: it holds properties the schema never named, and
+// the oracle judges those under additionalProperties, which the SDK does
+// enforce.
+func rawJSONProperties(model any) map[string]bool {
+	t := reflect.TypeOf(model)
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil || t.Kind() != reflect.Struct {
+		return nil
+	}
+	rawType := reflect.TypeOf(json.RawMessage(nil))
+	out := map[string]bool{}
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type != rawType {
+			continue
+		}
+		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if name == "" || name == "-" {
+			continue
+		}
+		out[name] = true
+	}
+	return out
 }

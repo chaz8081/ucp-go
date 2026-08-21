@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/chaz8081/ucp-go/shopping/types"
+	"regexp"
+	"sync"
 )
 
 // PaymentHandlerBase is generated from payment_handler.json.
@@ -26,7 +28,7 @@ type PaymentHandlerBase struct {
 	// Not enforced yet (phase 4): format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -100,6 +102,8 @@ func (v PaymentHandlerBase) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_PaymentHandlerBase_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *PaymentHandlerBase) Validate() error {
 	if v.present != nil {
@@ -113,13 +117,13 @@ func (v *PaymentHandlerBase) Validate() error {
 	if v.AvailableInstruments != nil && len(v.AvailableInstruments) < 1 {
 		return errors.New("available_instruments: has fewer than minItems 1")
 	}
+	if !pattern_PaymentHandlerBase_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
+	}
 	for i := range v.AvailableInstruments {
 		if err := v.AvailableInstruments[i].Validate(); err != nil {
 			return err
 		}
-	}
-	if err := v.Version.Validate(); err != nil {
-		return err
 	}
 	return nil
 }
@@ -141,7 +145,7 @@ type PaymentHandlerBusinessSchema struct {
 	// Not enforced yet (phase 4): format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -215,6 +219,8 @@ func (v PaymentHandlerBusinessSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_PaymentHandlerBusinessSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *PaymentHandlerBusinessSchema) Validate() error {
 	if v.present != nil {
@@ -228,13 +234,13 @@ func (v *PaymentHandlerBusinessSchema) Validate() error {
 	if v.AvailableInstruments != nil && len(v.AvailableInstruments) < 1 {
 		return errors.New("available_instruments: has fewer than minItems 1")
 	}
+	if !pattern_PaymentHandlerBusinessSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
+	}
 	for i := range v.AvailableInstruments {
 		if err := v.AvailableInstruments[i].Validate(); err != nil {
 			return err
 		}
-	}
-	if err := v.Version.Validate(); err != nil {
-		return err
 	}
 	return nil
 }
@@ -256,7 +262,7 @@ type PaymentHandlerPlatformSchema struct {
 	// Not enforced yet (phase 4): format.
 	Spec string `json:"spec"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -330,6 +336,8 @@ func (v PaymentHandlerPlatformSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_PaymentHandlerPlatformSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *PaymentHandlerPlatformSchema) Validate() error {
 	if v.present != nil {
@@ -349,13 +357,13 @@ func (v *PaymentHandlerPlatformSchema) Validate() error {
 	if v.AvailableInstruments != nil && len(v.AvailableInstruments) < 1 {
 		return errors.New("available_instruments: has fewer than minItems 1")
 	}
+	if !pattern_PaymentHandlerPlatformSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
+	}
 	for i := range v.AvailableInstruments {
 		if err := v.AvailableInstruments[i].Validate(); err != nil {
 			return err
 		}
-	}
-	if err := v.Version.Validate(); err != nil {
-		return err
 	}
 	return nil
 }
@@ -377,7 +385,7 @@ type PaymentHandlerResponseSchema struct {
 	// Not enforced yet (phase 4): format.
 	Spec *string `json:"spec,omitzero"`
 	// Entity version in YYYY-MM-DD format.
-	Version UCPVersion `json:"version"`
+	Version string `json:"version"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -451,6 +459,8 @@ func (v PaymentHandlerResponseSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_PaymentHandlerResponseSchema_Version = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *PaymentHandlerResponseSchema) Validate() error {
 	if v.present != nil {
@@ -464,13 +474,13 @@ func (v *PaymentHandlerResponseSchema) Validate() error {
 	if v.AvailableInstruments != nil && len(v.AvailableInstruments) < 1 {
 		return errors.New("available_instruments: has fewer than minItems 1")
 	}
+	if !pattern_PaymentHandlerResponseSchema_Version().MatchString(v.Version) {
+		return errors.New("version: does not match pattern")
+	}
 	for i := range v.AvailableInstruments {
 		if err := v.AvailableInstruments[i].Validate(); err != nil {
 			return err
 		}
-	}
-	if err := v.Version.Validate(); err != nil {
-		return err
 	}
 	return nil
 }

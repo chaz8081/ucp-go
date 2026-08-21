@@ -59,10 +59,17 @@ func TestResolveRefUnknownTarget(t *testing.T) {
 	}
 }
 
-func TestResolveRefEntityInliningFallback(t *testing.T) {
-	// Inlining ucp.json#/$defs/entity copies refs the entity wrote relative
-	// to ucp.json, so they dangle in the destination document. Corpus-wide
-	// this is exactly "#/$defs/version" in three files.
+func TestResolveRefDoesNotRescueDanglingLocalRefs(t *testing.T) {
+	// python-sdk#72: inlining ucp.json#/$defs/entity used to copy refs the
+	// entity had written relative to ucp.json, leaving 24 of them dangling
+	// in capability.json, payment_handler.json and service.json. We carried
+	// a narrow fallback that resolved those against ucp.json.
+	//
+	// python-sdk d650f0b (PR #79) resolves the entity's own local refs
+	// before inlining it, so the corpus no longer contains a single
+	// unresolvable local ref and the fallback is gone. This pins that: a
+	// local ref must resolve in its OWN document or fail. Silently reaching
+	// into ucp.json would resolve a name the document never declared.
 	idx, err := BuildTypeIndex(map[string]map[string]any{
 		"ucp.json": {
 			"title": "UCP Metadata",
@@ -76,15 +83,15 @@ func TestResolveRefEntityInliningFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := ResolveRef(idx, "capability.json", "#/$defs/version")
+	if _, err := ResolveRef(idx, "capability.json", "#/$defs/version"); err == nil {
+		t.Error("a local ref absent from its own document must error, not resolve against ucp.json")
+	}
+	// The same name still resolves in the document that actually declares it.
+	got, err := ResolveRef(idx, "ucp.json", "#/$defs/version")
 	if err != nil {
-		t.Fatalf("dangling local ref should fall back to ucp.json: %v", err)
+		t.Fatalf("ucp.json declares version: %v", err)
 	}
 	if got.Name != "UCPVersion" {
 		t.Errorf("resolved to %q, want UCPVersion", got.Name)
-	}
-	// The fallback must not mask a genuinely unknown name.
-	if _, err := ResolveRef(idx, "capability.json", "#/$defs/nonexistent"); err == nil {
-		t.Error("a name absent from both documents must still error")
 	}
 }

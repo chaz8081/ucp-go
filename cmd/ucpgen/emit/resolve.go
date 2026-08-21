@@ -8,9 +8,6 @@ import (
 
 const defsFragmentPrefix = "/$defs/"
 
-// ucpRootSchema is the document that owns the shared entity definition.
-const ucpRootSchema = "ucp.json"
-
 // ResolveRef maps a $ref appearing in schema `from` to the Go type it
 // denotes. Three forms occur in the normalized spec: a bare cross-file path
 // ("types/line_item.json"), a cross-file path with a $defs fragment
@@ -42,22 +39,6 @@ func ResolveRef(idx *TypeIndex, from, ref string) (TypeRef, error) {
 	}
 
 	got, ok := idx.Lookup(target, def)
-
-	// A purely local ref that does not resolve in its own document is an
-	// entity-inlining artifact: flattening ucp.json#/$defs/entity into a
-	// schema copies the entity's body, including refs it wrote relative to
-	// ucp.json, which then dangle in their new home. Across the whole
-	// corpus this is exactly `#/$defs/version` in capability.json,
-	// payment_handler.json and service.json, all resolvable in ucp.json.
-	// The python generator resolves them the same way. The fallback is
-	// deliberately narrow: local refs only, and only after the in-document
-	// lookup has already failed.
-	if !ok && filePart == "" && def != "" && target != ucpRootSchema {
-		if fromUCP, okUCP := idx.Lookup(ucpRootSchema, def); okUCP {
-			return fromUCP, nil
-		}
-	}
-
 	if !ok {
 		where := target
 		if def != "" {

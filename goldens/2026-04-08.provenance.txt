@@ -1,3 +1,3 @@
 spec:       release/2026-04-08 @ a2d8bf0b8f5a6fc790f677899c2c7da0684fe33d
-python-sdk: 35af25c884376b519b9fb1181b281b04444c957b
-generated:  2026-08-15T04:12:59Z
+python-sdk: d650f0b7018d8fdf72d7a86daae8869943f43a64
+generated:  2026-08-21T00:57:29Z

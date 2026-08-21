@@ -53,3 +53,65 @@ func ResolveLocalRef(ref string, root map[string]any) (map[string]any, error) {
 	}
 	return obj, nil
 }
+
+// ResolveLocalRefs recursively inlines same-document ("#/…") $refs inside
+// fragment, in place, resolving each against root. It is the port of
+// python-sdk's resolve_local_refs (d650f0b, PR #79, fixing python-sdk#72).
+//
+// It exists because entity inlining copies a definition's body into other
+// documents. Any "#/…" ref inside that body is resolved against whatever
+// document it currently sits in, so copying it silently re-points it —
+// upstream left 24 refs to "#/$defs/version" dangling in capability.json,
+// payment_handler.json and service.json. Resolving the body's own refs
+// once, while it still sits in ucp.json, makes it self-contained and safe
+// to copy anywhere.
+//
+// Three details are faithful to python rather than to Go taste, because
+// goldens are byte-compared against that implementation's output:
+//
+//   - Keys alongside the $ref override the resolved target's keys, so a
+//     local "description" survives inlining.
+//   - An unresolvable ref is left untouched, not an error. python's
+//     resolve_local_ref returns None there and the caller skips it.
+//   - After substitution the walk continues into the new contents with the
+//     CALLER's seen set, not the extended one. That is python's control
+//     flow. It means a ref blocked as cyclic on the way down can be
+//     resolved again on the way out, so a genuinely cyclic local ref would
+//     recurse without bound — in python too. The entity body has no cycles,
+//     and a cycle would hang the upstream preprocessor first, so mirroring
+//     the behaviour keeps parity rather than quietly diverging from it.
+func ResolveLocalRefs(fragment any, root map[string]any, seen map[string]bool) {
+	switch t := fragment.(type) {
+	case map[string]any:
+		if ref, ok := t["$ref"].(string); ok && strings.HasPrefix(ref, "#/") && !seen[ref] {
+			// ErrRefNotObject is skipped along with ErrRefNotFound: python
+			// would deep-copy the non-object and then fail assigning into
+			// it, so no corpus can rely on that path succeeding.
+			if target, err := ResolveLocalRef(ref, root); err == nil {
+				resolved := CopyTree(target).(map[string]any)
+				next := make(map[string]bool, len(seen)+1)
+				for k := range seen {
+					next[k] = true
+				}
+				next[ref] = true
+				ResolveLocalRefs(resolved, root, next)
+				for k, v := range t {
+					if k != "$ref" {
+						resolved[k] = v
+					}
+				}
+				clear(t)
+				for k, v := range resolved {
+					t[k] = v
+				}
+			}
+		}
+		for _, v := range t {
+			ResolveLocalRefs(v, root, seen)
+		}
+	case []any:
+		for _, item := range t {
+			ResolveLocalRefs(item, root, seen)
+		}
+	}
+}
