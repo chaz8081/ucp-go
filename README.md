@@ -303,6 +303,52 @@ Keywords that would change a schema's *shape* rather than merely constrain
 it — currently `patternProperties` — fail generation outright, because no
 correct Go type can be produced for them.
 
+### Known upstream, unfixed: request variants wrap response types
+
+Reported upstream as [python-sdk#34](https://github.com/Universal-Commerce-Protocol/python-sdk/issues/34) in April 2026, still open. **This one affects consumers today**, so it is listed here rather than only in the history below.
+
+Variant generation rewrites external `$ref`s only inside `properties`. A schema whose alternatives live in a top-level `oneOf`/`anyOf`/`allOf` keeps its refs pointing at the base response files, so the generated *request* variant wraps *response* types:
+
+```go
+type FulfillmentDestinationCreateRequest struct {
+	RetailLocation      *RetailLocation      `json:"-"`  // want RetailLocationCreateRequest
+	ShippingDestination *ShippingDestination `json:"-"`  // want ShippingDestinationCreateRequest
+}
+```
+
+`ShippingDestination` requires `id`; its request variant does not, because a client creating a destination has no server-assigned id yet. So a spec-valid create request is rejected:
+
+    validate: id: required property is missing
+
+The honest count is smaller than the raw one, and worth stating precisely.
+Twelve refs in variant files point at a base schema. Six of those are
+correct — `message_error`, `message_info` and `message_warning` have no
+request variants, so pointing at the base is the only option. Of the
+remaining six, four carry a behavioural consequence: `postal_address`'s
+variant is identical to its base in both properties and required, so the
+two `shipping_destination_*_request` → `postal_address.json` refs are wrong
+without being harmful. The four that matter are the `fulfillment_destination`
+create and update variants.
+
+`ucp-go` reproduces this deliberately. Preprocessor parity is byte-for-byte,
+so upstream's preprocessing defects are ours until upstream fixes them, and
+diverging unilaterally would break the parity that makes the committed
+goldens trustworthy — the same reasoning applied to the dangling-`$ref`
+defect below before it was fixed.
+
+**The differential harness cannot catch this class, by construction.**
+`Validate` and the oracle both read the same preprocessed schema, so both
+are wrong in the same way and agree. "Zero disagreements" is true here and
+tells you nothing. Only a comparison against the *source* spec sees it —
+which is what preprocessor parity is, and parity reports a match because the
+defect is faithfully reproduced. It is the clearest example in this
+repository of why agreement between two implementations is evidence about
+enforcement and not about meaning.
+
+`TestVariantUnionRefsStillPointAtBaseSchemas` pins the exact set, so
+upstream's fix arrives as a build failure that says to re-pin and port,
+rather than as something noticed on the next manual sweep.
+
 ### Resolved upstream: dangling entity references
 
 Reported as [python-sdk#72](https://github.com/Universal-Commerce-Protocol/python-sdk/issues/72) and **fixed** in python-sdk `d650f0b` ([PR #79](https://github.com/Universal-Commerce-Protocol/python-sdk/pull/79)). Recorded because the mechanism generalizes.
