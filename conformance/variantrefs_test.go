@@ -32,9 +32,17 @@ import (
 func TestVariantUnionRefsStillPointAtBaseSchemas(t *testing.T) {
 	// file -> keyword -> refs, for variant schemas whose top-level union
 	// branches reference a base file that HAS a request variant of its own.
-	// A ref to a base with no variant is correct and is not listed: the six
-	// message_* refs resolve that way, since message_error/info/warning
-	// have no request variants.
+	//
+	// The six message_* refs are absent from this set because
+	// message_error/info/warning have no request variants to point at — but
+	// that is a consequence of the same defect, not an exemption from it.
+	// Variant need is propagated by scanning for external refs, and that
+	// scan skips top-level composition keywords, so nothing ever marks those
+	// three as needing a variant. Upstream's fix creates them (fourteen new
+	// schemas in all), at which point the os.Stat check below starts
+	// matching and this test reports message_create_request and
+	// message_update_request as newly affected. That failure is the signal,
+	// not a false alarm.
 	want := map[string][]string{
 		"shopping/types/fulfillment_destination_create_request.json": {
 			"oneOf retail_location.json", "oneOf shipping_destination.json",
