@@ -320,15 +320,29 @@ type FulfillmentDestinationCreateRequest struct {
 
     validate: id: required property is missing
 
-The honest count is smaller than the raw one, and worth stating precisely.
-Twelve refs in variant files point at a base schema. Six of those are
-correct — `message_error`, `message_info` and `message_warning` have no
-request variants, so pointing at the base is the only option. Of the
-remaining six, four carry a behavioural consequence: `postal_address`'s
-variant is identical to its base in both properties and required, so the
-two `shipping_destination_*_request` → `postal_address.json` refs are wrong
-without being harmful. The four that matter are the `fulfillment_destination`
-create and update variants.
+Twelve refs in variant files point at a base schema. Four carry a
+behavioural consequence today — the `fulfillment_destination` create and
+update variants, whose members drop a required `id` in their request form.
+Two more are wrong but inert: `postal_address`'s variant is identical to
+its base in both `properties` and `required`, so the
+`shipping_destination_*_request` → `postal_address.json` refs point
+somewhere wrong that happens to be equivalent.
+
+The remaining six — `message_create_request` and `message_update_request`
+pointing at `message_error`, `message_info` and `message_warning` — look
+correct, because those three have no request variants to point at. That
+reasoning is circular, and worth spelling out rather than resting on: they
+have no request variants **because of this same defect**. Variant need is
+propagated by scanning a schema for external refs, and the scan skips
+top-level composition keywords for exactly the reason above, so nothing
+ever marks those three as needing a variant. The missing files are a
+symptom, not an independent fact.
+
+Upstream's fix therefore does more than rewrite refs. It creates fourteen
+new schemas — `error_code`, `info_code`, `warning_code`, `message_error`,
+`message_info`, `message_warning` and `signed_amount`, each in create and
+update form — taking the corpus from 145 files to 159. Every count in this
+README that ends in 145 moves when it lands.
 
 `ucp-go` reproduces this deliberately. Preprocessor parity is byte-for-byte,
 so upstream's preprocessing defects are ours until upstream fixes them, and
@@ -347,7 +361,13 @@ enforcement and not about meaning.
 
 `TestVariantUnionRefsStillPointAtBaseSchemas` pins the exact set, so
 upstream's fix arrives as a build failure that says to re-pin and port,
-rather than as something noticed on the next manual sweep.
+rather than as something noticed on the next manual sweep. It fails in
+both directions, which is what makes it useful here: the six `message_*`
+refs are excluded today only because the variants they should point at do
+not exist, so the moment upstream creates them the same test reports those
+two files as newly affected.
+
+The fix is in flight as [python-sdk#83](https://github.com/Universal-Commerce-Protocol/python-sdk/pull/83), a maintainer's version carrying the preprocessor change, the downstream codegen fix it requires, and the regenerated models. It supersedes the original community PR [#35](https://github.com/Universal-Commerce-Protocol/python-sdk/pull/35).
 
 ### Resolved upstream: dangling entity references
 
