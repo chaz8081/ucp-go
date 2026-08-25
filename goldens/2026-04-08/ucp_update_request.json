@@ -12,7 +12,7 @@
           },
           "description": "Capability registry keyed by reverse-domain name.",
           "propertyNames": {
-            "$ref": "shopping/types/reverse_domain_name.json"
+            "$ref": "shopping/types/reverse_domain_name_update_request.json"
           },
           "type": "object"
         },
@@ -25,7 +25,7 @@
           },
           "description": "Payment handler registry keyed by reverse-domain name.",
           "propertyNames": {
-            "$ref": "shopping/types/reverse_domain_name.json"
+            "$ref": "shopping/types/reverse_domain_name_update_request.json"
           },
           "type": "object"
         },
@@ -38,7 +38,7 @@
           },
           "description": "Service registry keyed by reverse-domain name.",
           "propertyNames": {
-            "$ref": "shopping/types/reverse_domain_name.json"
+            "$ref": "shopping/types/reverse_domain_name_update_request.json"
           },
           "type": "object"
         },
@@ -207,7 +207,7 @@
           },
           "description": "Required capability versions, keyed by capability name. Keys must be a subset of the extension's $defs keys.",
           "propertyNames": {
-            "$ref": "shopping/types/reverse_domain_name.json"
+            "$ref": "shopping/types/reverse_domain_name_update_request.json"
           },
           "type": "object"
         },

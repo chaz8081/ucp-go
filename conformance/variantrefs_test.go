@@ -9,56 +9,26 @@ import (
 	"testing"
 )
 
-// Upstream python-sdk#34: variant generation rewrites external $refs only
-// inside `properties`, so a schema whose alternatives sit in a top-level
-// oneOf/anyOf/allOf keeps refs pointing at the base (response) files. The
-// generated request variant then wraps response types.
+// Upstream python-sdk#34, fixed in python-sdk 51bf73c (PR #83) and ported
+// here: variant generation used to rewrite external $refs only inside
+// `properties`, so a schema whose alternatives sit in a top-level
+// oneOf/anyOf/allOf kept refs pointing at the base (response) files and the
+// generated request variant wrapped response types.
 //
-// ucp-go reproduces this exactly, and deliberately: preprocessor parity is
-// byte-for-byte, so upstream's preprocessing bugs are ours until upstream
-// fixes them. Diverging unilaterally would break the parity that makes the
-// committed goldens trustworthy.
+// This test used to pin the broken set so the fix would arrive as a build
+// failure. It did exactly that, and now guards the other direction: no
+// variant may reference a base schema that has a request variant of its
+// own. A regression in ref rewriting, or a new schema shaped like
+// fulfillment_destination, fails here.
 //
-// **The differential harness cannot catch this class.** Validate and the
-// oracle both read the same preprocessed schema, so both are wrong the same
-// way and agree. Zero disagreements is true here and says nothing. Only a
-// comparison against the SOURCE spec — which is what preprocessor parity
-// is — can see it, and parity reports a match because we faithfully
-// reproduce the defect.
-//
-// So this test is the notification mechanism. It pins the exact set, which
-// makes upstream's fix arrive as a build failure telling us to port, rather
-// than as something we notice on the next manual sweep.
-func TestVariantUnionRefsStillPointAtBaseSchemas(t *testing.T) {
-	// file -> keyword -> refs, for variant schemas whose top-level union
-	// branches reference a base file that HAS a request variant of its own.
-	//
-	// The six message_* refs are absent from this set because
-	// message_error/info/warning have no request variants to point at — but
-	// that is a consequence of the same defect, not an exemption from it.
-	// Variant need is propagated by scanning for external refs, and that
-	// scan skips top-level composition keywords, so nothing ever marks those
-	// three as needing a variant. Upstream's fix creates them (fourteen new
-	// schemas in all), at which point the os.Stat check below starts
-	// matching and this test reports message_create_request and
-	// message_update_request as newly affected. That failure is the signal,
-	// not a false alarm.
-	want := map[string][]string{
-		"shopping/types/fulfillment_destination_create_request.json": {
-			"oneOf retail_location.json", "oneOf shipping_destination.json",
-		},
-		"shopping/types/fulfillment_destination_update_request.json": {
-			"oneOf retail_location.json", "oneOf shipping_destination.json",
-		},
-		"shopping/types/shipping_destination_create_request.json": {
-			"allOf postal_address.json",
-		},
-		"shopping/types/shipping_destination_update_request.json": {
-			"allOf postal_address.json",
-		},
-	}
-
-	got := map[string][]string{}
+// **The differential harness cannot cover this.** Validate and the oracle
+// read the same preprocessed schema, so a wrong ref makes both wrong
+// identically and they agree. Zero disagreements says nothing about it.
+// Only comparison against the source spec — preprocessor parity — sees it,
+// and parity reports a match whenever we faithfully reproduce upstream,
+// defect and all. That is why this check is written out separately.
+func TestVariantRefsPointAtRequestVariants(t *testing.T) {
+	var offenders []string
 	root := filepath.Join("..", "goldens", goldenVersion)
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, "_request.json") {
@@ -91,13 +61,13 @@ func TestVariantUnionRefsStillPointAtBaseSchemas(t *testing.T) {
 				if !strings.HasSuffix(ref, ".json") || strings.Contains(ref, "_request.json") {
 					continue
 				}
-				// Only a defect if the referenced base actually has the
-				// corresponding variant to point at.
+				// Pointing at a base is only wrong when the matching
+				// variant exists to be pointed at.
 				variant := strings.TrimSuffix(ref, ".json") + "_" + op + "_request.json"
 				if _, err := os.Stat(filepath.Join(filepath.Dir(path), variant)); err != nil {
 					continue
 				}
-				got[filepath.ToSlash(rel)] = append(got[filepath.ToSlash(rel)], kw+" "+ref)
+				offenders = append(offenders, filepath.ToSlash(rel)+": "+kw+" -> "+ref+" (want "+variant+")")
 			}
 		}
 		return nil
@@ -105,30 +75,10 @@ func TestVariantUnionRefsStillPointAtBaseSchemas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	for k := range got {
-		sort.Strings(got[k])
-	}
-	for k := range want {
-		sort.Strings(want[k])
-	}
-
-	for file, refs := range want {
-		if _, ok := got[file]; !ok {
-			t.Errorf("%s no longer carries base-pointing refs.\n"+
-				"If python-sdk#34 has been fixed upstream, re-pin the goldens and "+
-				"port it: the generated request variants will start wrapping "+
-				"request types, which is a breaking change worth a release note.", file)
-			continue
-		}
-		if strings.Join(got[file], ",") != strings.Join(refs, ",") {
-			t.Errorf("%s: refs changed\n  got  %v\n  want %v", file, got[file], refs)
-		}
-		delete(got, file)
-	}
-	for file, refs := range got {
-		t.Errorf("%s: base-pointing refs appeared in a file not previously affected: %v\n"+
-			"Either the corpus grew a new case of python-sdk#34, or variant "+
-			"generation regressed.", file, refs)
+	sort.Strings(offenders)
+	for _, o := range offenders {
+		t.Errorf("request variant references a base schema that has its own variant:\n  %s\n"+
+			"This is python-sdk#34 recurring. A request variant wrapping a response type "+
+			"forces callers to supply server-assigned fields the request form drops.", o)
 	}
 }

@@ -6,7 +6,6 @@ package shopping
 import (
 	"encoding/json"
 	"errors"
-	"github.com/chaz8081/ucp-go"
 	"github.com/chaz8081/ucp-go/shopping/types"
 )
 
@@ -129,39 +128,16 @@ func (v *CartCreateRequest) Validate() error {
 
 // CartCreateRequestCheckout Checkout extended with cart capability. Adds cart_id to create_checkout for cart-to-checkout conversion.
 type CartCreateRequestCheckout struct {
-	Attribution *types.Attribution `json:"attribution,omitzero"`
+	Attribution *types.AttributionCreateRequest `json:"attribution,omitzero"`
 	// Representation of the buyer.
-	Buyer *types.Buyer `json:"buyer,omitzero"`
+	Buyer *types.BuyerCreateRequest `json:"buyer,omitzero"`
 	// Cart ID to convert to checkout. Business MUST use cart contents (line_items, context, buyer) and MUST ignore overlapping fields in checkout payload.
-	CartID  *string        `json:"cart_id,omitzero"`
-	Context *types.Context `json:"context,omitzero"`
-	// URL for checkout handoff and session recovery. MUST be provided when status is requires_escalation. See specification for format and availability requirements.
-	//
-	// Annotation only in draft 2020-12, so not asserted: format.
-	ContinueURL *string `json:"continue_url,omitzero"`
-	// ISO 4217 currency code reflecting the merchant's market determination. Derived from address, context, and geo IP—buyers provide signals, merchants determine currency.
-	Currency string `json:"currency"`
-	// RFC 3339 expiry timestamp. Default TTL is 6 hours from creation if not sent.
-	//
-	// Annotation only in draft 2020-12, so not asserted: format.
-	ExpiresAt *string `json:"expires_at,omitzero"`
-	// Unique identifier of the checkout session.
-	ID string `json:"id"`
+	CartID  *string                     `json:"cart_id,omitzero"`
+	Context *types.ContextCreateRequest `json:"context,omitzero"`
 	// List of line items being checked out.
-	LineItems []types.LineItem `json:"line_items"`
-	// Links to be displayed by the platform (Privacy Policy, TOS). Mandatory for legal compliance.
-	Links []types.Link `json:"links"`
-	// List of messages with error and info about the checkout session state.
-	Messages []types.Message `json:"messages,omitzero"`
-	// Details about an order created for this checkout session.
-	Order   *types.OrderConfirmation `json:"order,omitzero"`
-	Payment *Payment                 `json:"payment,omitzero"`
-	Signals *types.Signals           `json:"signals,omitzero"`
-	// Checkout state indicating the current phase and required action. See Checkout Status lifecycle documentation for state transition details.
-	Status string `json:"status"`
-	// Different cart totals.
-	Totals types.Totals    `json:"totals"`
-	UCP    ucp.UCPMetadata `json:"ucp"`
+	LineItems []types.LineItemCreateRequest `json:"line_items"`
+	Payment   *PaymentCreateRequest         `json:"payment,omitzero"`
+	Signals   *types.SignalsCreateRequest   `json:"signals,omitzero"`
 
 	// Extra holds properties the schema does not name. The schema is
 	// open (additionalProperties is not false), so extension keys are
@@ -191,8 +167,8 @@ func (v *CartCreateRequestCheckout) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
-	v.present = make(map[string]bool, 7)
-	for _, name := range []string{"currency", "id", "line_items", "links", "status", "totals", "ucp"} {
+	v.present = make(map[string]bool, 1)
+	for _, name := range []string{"line_items"} {
 		if _, ok := all[name]; ok {
 			v.present[name] = true
 		}
@@ -201,19 +177,9 @@ func (v *CartCreateRequestCheckout) UnmarshalJSON(data []byte) error {
 	delete(all, "buyer")
 	delete(all, "cart_id")
 	delete(all, "context")
-	delete(all, "continue_url")
-	delete(all, "currency")
-	delete(all, "expires_at")
-	delete(all, "id")
 	delete(all, "line_items")
-	delete(all, "links")
-	delete(all, "messages")
-	delete(all, "order")
 	delete(all, "payment")
 	delete(all, "signals")
-	delete(all, "status")
-	delete(all, "totals")
-	delete(all, "ucp")
 	if len(all) > 0 {
 		v.Extra = all
 	}
@@ -249,30 +215,9 @@ func (v CartCreateRequestCheckout) MarshalJSON() ([]byte, error) {
 // Validate reports the first constraint violation, or nil.
 func (v *CartCreateRequestCheckout) Validate() error {
 	if v.present != nil {
-		if !v.present["currency"] {
-			return errors.New("currency: required property is missing")
-		}
-		if !v.present["id"] {
-			return errors.New("id: required property is missing")
-		}
 		if !v.present["line_items"] {
 			return errors.New("line_items: required property is missing")
 		}
-		if !v.present["links"] {
-			return errors.New("links: required property is missing")
-		}
-		if !v.present["status"] {
-			return errors.New("status: required property is missing")
-		}
-		if !v.present["totals"] {
-			return errors.New("totals: required property is missing")
-		}
-		if !v.present["ucp"] {
-			return errors.New("ucp: required property is missing")
-		}
-	}
-	if v.Status != "incomplete" && v.Status != "requires_escalation" && v.Status != "ready_for_complete" && v.Status != "complete_in_progress" && v.Status != "completed" && v.Status != "canceled" {
-		return errors.New("status: not one of the permitted values")
 	}
 	if v.Attribution != nil {
 		if err := v.Attribution.Validate(); err != nil {
@@ -294,21 +239,6 @@ func (v *CartCreateRequestCheckout) Validate() error {
 			return err
 		}
 	}
-	for i := range v.Links {
-		if err := v.Links[i].Validate(); err != nil {
-			return err
-		}
-	}
-	for i := range v.Messages {
-		if err := v.Messages[i].Validate(); err != nil {
-			return err
-		}
-	}
-	if v.Order != nil {
-		if err := v.Order.Validate(); err != nil {
-			return err
-		}
-	}
 	if v.Payment != nil {
 		if err := v.Payment.Validate(); err != nil {
 			return err
@@ -318,12 +248,6 @@ func (v *CartCreateRequestCheckout) Validate() error {
 		if err := v.Signals.Validate(); err != nil {
 			return err
 		}
-	}
-	if err := v.Totals.Validate(); err != nil {
-		return err
-	}
-	if err := v.UCP.Validate(); err != nil {
-		return err
 	}
 	return nil
 }

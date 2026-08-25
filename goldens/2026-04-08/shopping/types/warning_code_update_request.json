@@ -1,0 +1,13 @@
+{
+  "$id": "https://ucp.dev/schemas/shopping/types/warning_code_update_request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Warning code identifying the type of warning. Standard codes are defined in capability specs (see examples), and have standardized semantics; freeform codes are permitted.",
+  "examples": [
+    "final_sale",
+    "prop65",
+    "fulfillment_changed",
+    "age_restricted"
+  ],
+  "title": "Warning Code Update Request",
+  "type": "string"
+}

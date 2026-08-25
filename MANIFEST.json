@@ -206,41 +206,13 @@
       "type": "CartCreateRequest",
       "package": "shopping",
       "file": "shopping/cart_create_request.go",
-      "fields": 5,
-      "not_asserted": {
-        "CartCreateRequestCheckout.continue_url": [
-          "format"
-        ],
-        "CartCreateRequestCheckout.expires_at": [
-          "format"
-        ],
-        "continue_url": [
-          "format"
-        ],
-        "expires_at": [
-          "format"
-        ]
-      }
+      "fields": 5
     },
     "shopping/cart_update_request.json": {
       "type": "CartUpdateRequest",
       "package": "shopping",
       "file": "shopping/cart_update_request.go",
-      "fields": 6,
-      "not_asserted": {
-        "CartUpdateRequestCheckout.continue_url": [
-          "format"
-        ],
-        "CartUpdateRequestCheckout.expires_at": [
-          "format"
-        ],
-        "continue_url": [
-          "format"
-        ],
-        "expires_at": [
-          "format"
-        ]
-      }
+      "fields": 6
     },
     "shopping/catalog_lookup.json": {
       "type": "CatalogLookup",
@@ -617,6 +589,18 @@
       "file": "shopping/types/error_code.go",
       "fields": 0
     },
+    "shopping/types/error_code_create_request.json": {
+      "type": "ErrorCodeCreateRequest",
+      "package": "types",
+      "file": "shopping/types/error_code_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/error_code_update_request.json": {
+      "type": "ErrorCodeUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/error_code_update_request.go",
+      "fields": 0
+    },
     "shopping/types/error_response.json": {
       "type": "ErrorResponse",
       "package": "types",
@@ -837,6 +821,18 @@
       "file": "shopping/types/info_code.go",
       "fields": 0
     },
+    "shopping/types/info_code_create_request.json": {
+      "type": "InfoCodeCreateRequest",
+      "package": "types",
+      "file": "shopping/types/info_code_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/info_code_update_request.json": {
+      "type": "InfoCodeUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/info_code_update_request.go",
+      "fields": 0
+    },
     "shopping/types/input_correlation.json": {
       "type": "InputCorrelation",
       "package": "types",
@@ -944,10 +940,34 @@
       "file": "shopping/types/message_error.go",
       "fields": 6
     },
+    "shopping/types/message_error_create_request.json": {
+      "type": "MessageErrorCreateRequest",
+      "package": "types",
+      "file": "shopping/types/message_error_create_request.go",
+      "fields": 6
+    },
+    "shopping/types/message_error_update_request.json": {
+      "type": "MessageErrorUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/message_error_update_request.go",
+      "fields": 6
+    },
     "shopping/types/message_info.json": {
       "type": "MessageInfo",
       "package": "types",
       "file": "shopping/types/message_info.go",
+      "fields": 5
+    },
+    "shopping/types/message_info_create_request.json": {
+      "type": "MessageInfoCreateRequest",
+      "package": "types",
+      "file": "shopping/types/message_info_create_request.go",
+      "fields": 5
+    },
+    "shopping/types/message_info_update_request.json": {
+      "type": "MessageInfoUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/message_info_update_request.go",
       "fields": 5
     },
     "shopping/types/message_update_request.json": {
@@ -966,6 +986,46 @@
           "format"
         ],
         "MessageWarning.url": [
+          "format"
+        ],
+        "image_url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/message_warning_create_request.json": {
+      "type": "MessageWarningCreateRequest",
+      "package": "types",
+      "file": "shopping/types/message_warning_create_request.go",
+      "fields": 8,
+      "not_asserted": {
+        "MessageWarningCreateRequest.image_url": [
+          "format"
+        ],
+        "MessageWarningCreateRequest.url": [
+          "format"
+        ],
+        "image_url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "shopping/types/message_warning_update_request.json": {
+      "type": "MessageWarningUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/message_warning_update_request.go",
+      "fields": 8,
+      "not_asserted": {
+        "MessageWarningUpdateRequest.image_url": [
+          "format"
+        ],
+        "MessageWarningUpdateRequest.url": [
           "format"
         ],
         "image_url": [
@@ -1244,6 +1304,18 @@
       "file": "shopping/types/signed_amount.go",
       "fields": 0
     },
+    "shopping/types/signed_amount_create_request.json": {
+      "type": "SignedAmountCreateRequest",
+      "package": "types",
+      "file": "shopping/types/signed_amount_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/signed_amount_update_request.json": {
+      "type": "SignedAmountUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/signed_amount_update_request.go",
+      "fields": 0
+    },
     "shopping/types/token_credential.json": {
       "type": "TokenCredential",
       "package": "types",
@@ -1290,13 +1362,35 @@
       "type": "TotalsCreateRequest",
       "package": "types",
       "file": "shopping/types/totals_create_request.go",
-      "fields": 0
+      "fields": 0,
+      "unenforced": {
+        "TotalsCreateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsCreateRequest.TotalsCreateRequest_item": [
+          "if",
+          "then"
+        ]
+      }
     },
     "shopping/types/totals_update_request.json": {
       "type": "TotalsUpdateRequest",
       "package": "types",
       "file": "shopping/types/totals_update_request.go",
-      "fields": 0
+      "fields": 0,
+      "unenforced": {
+        "TotalsUpdateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsUpdateRequest.TotalsUpdateRequest_item": [
+          "if",
+          "then"
+        ]
+      }
     },
     "shopping/types/variant.json": {
       "type": "Variant",
@@ -1316,6 +1410,18 @@
       "type": "WarningCode",
       "package": "types",
       "file": "shopping/types/warning_code.go",
+      "fields": 0
+    },
+    "shopping/types/warning_code_create_request.json": {
+      "type": "WarningCodeCreateRequest",
+      "package": "types",
+      "file": "shopping/types/warning_code_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/warning_code_update_request.json": {
+      "type": "WarningCodeUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/warning_code_update_request.go",
       "fields": 0
     },
     "transports/embedded_config.json": {

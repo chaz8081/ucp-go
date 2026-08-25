@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"path"
@@ -618,6 +619,12 @@ func compileContains(e *fileEmitter, c *constraintSet, t target, node map[string
 			t.typeName, subjectOf(t.label))
 	}
 	elemType, err := elementTypeName(e, t, node)
+	if errors.Is(err, errUntypedContainsElement) {
+		// Leave contains/minContains/maxContains unmarked so the standing
+		// accounting reports them as gaps on this node. Returning nil here
+		// emits no check and claims none.
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -667,6 +674,24 @@ func compileContains(e *fileEmitter, c *constraintSet, t target, node map[string
 	return nil
 }
 
+// errUntypedContainsElement marks a `contains` rule whose array element has
+// no named Go type to test — an object schema with no declared properties
+// emits map[string]any, and a predicate cannot be compiled against that.
+//
+// It is a degrade signal, not a generation failure. `contains` is
+// validation-only: it constrains values without changing the Go type, and
+// the standing rule for that class is that an unenforceable occurrence is
+// REPORTED, in the doc comment and MANIFEST.json, rather than approximated
+// or made fatal. Only type-affecting keywords stop generation, because for
+// those no correct type exists at all.
+//
+// The distinction started mattering with python-sdk 51bf73c: rewriting
+// variant refs pointed totals_create_request's items at
+// total_create_request.json, whose properties are all omitted for the
+// create op, so the element type became map[string]any. Failing there would
+// have blocked the whole corpus over one rule the SDK simply cannot check.
+var errUntypedContainsElement = errors.New("contains element has no named type")
+
 // elementTypeName reports the Go type goTypeExpr gives an array's element,
 // stripped of its slice and pointer decoration. fieldsFor needs it both to
 // name the type in an error and to namespace anything nested under it, and
@@ -679,7 +704,8 @@ func elementTypeName(e *fileEmitter, t target, node map[string]any) (string, err
 	}
 	base := strings.TrimPrefix(strings.TrimPrefix(typ, "[]"), "*")
 	if base == "" || strings.HasPrefix(base, "[]") || strings.Contains(base, "map[") {
-		return "", fmt.Errorf("%s: %s has contains over element type %q, which is not an object (phase 6)",
+		return "", fmt.Errorf("%w: %s: %s has contains over element type %q, which is not an object",
+			errUntypedContainsElement,
 			t.typeName, subjectOf(t.label), typ)
 	}
 	return base, nil

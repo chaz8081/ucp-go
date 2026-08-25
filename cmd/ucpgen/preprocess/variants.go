@@ -100,16 +100,10 @@ func DiscoverVariantNeeds(set *SchemaSet) map[string]map[string]bool {
 // externalPropertyRefs finds (propertyName, targetPath) pairs for every
 // relative external file ref under a schema's properties
 // (preprocess_schemas.py:584-598).
-func externalPropertyRefs(rel string, schema map[string]any) [][2]string {
+func externalRefs(rel string, schema map[string]any) [][2]string {
 	var out [][2]string
-	props, _ := schema["properties"].(map[string]any)
-	names := make([]string, 0, len(props))
-	for name := range props {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		for _, n := range IterNodes(props[name]) {
+	scan := func(name string, data any) {
+		for _, n := range IterNodes(data) {
 			m, ok := n.(map[string]any)
 			if !ok {
 				continue
@@ -125,6 +119,36 @@ func externalPropertyRefs(rel string, schema map[string]any) [][2]string {
 				}
 			}
 		}
+	}
+
+	props, _ := schema["properties"].(map[string]any)
+	names := make([]string, 0, len(props))
+	for name := range props {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		scan(name, props[name])
+	}
+
+	// Top-level composition keywords and items, added by python-sdk 51bf73c
+	// (PR #83, fixing python-sdk#34). Scanning only `properties` left a
+	// schema whose alternatives live in a root oneOf/anyOf/allOf with no
+	// discovered dependencies at all, so nothing propagated a variant need
+	// onto its members and nothing rewrote its refs. The members then had no
+	// request variants to point at, which made the un-rewritten refs look
+	// correct — the defect concealing its own evidence.
+	//
+	// The keyword itself is passed as the "property name". No such property
+	// exists, so the inclusion test below sees a nil node and falls back to
+	// its default, which is what python does with props.get("oneOf") == None.
+	for _, key := range []string{"oneOf", "anyOf", "allOf"} {
+		if v, ok := schema[key]; ok {
+			scan(key, v)
+		}
+	}
+	if v, ok := schema["items"]; ok {
+		scan("items", v)
 	}
 	return out
 }
@@ -142,7 +166,7 @@ func PropagateNeeds(set *SchemaSet, needs map[string]map[string]bool) {
 		if strings.Contains(rel, "ucp.json") || strings.Contains(rel, "_request.json") {
 			continue
 		}
-		refs[rel] = externalPropertyRefs(rel, set.Files[rel])
+		refs[rel] = externalRefs(rel, set.Files[rel])
 	}
 	for changed := true; changed; {
 		changed = false
@@ -232,6 +256,11 @@ func GenerateVariants(set *SchemaSet, needs map[string]map[string]bool) {
 			} else if _, hasProps := variant["properties"]; hasProps || variant["type"] == "object" {
 				applyRequestRules(variant, op, rel, needs)
 			}
+			// Rewrite every external ref in the variant, not just those the
+			// request rules walked past: top-level oneOf/anyOf/allOf branches
+			// and array items reach members that now have variants of their
+			// own (python-sdk 51bf73c).
+			rewriteRefsToVariants(variant, op, rel, needs)
 			out := strings.TrimSuffix(rel, ".json") + "_" + op + "_request.json"
 			set.Files[out] = variant
 		}

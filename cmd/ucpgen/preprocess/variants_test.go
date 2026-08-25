@@ -329,7 +329,7 @@ func TestVariantStageReentrant(t *testing.T) {
 	}
 }
 
-func TestExternalPropertyRefsIncludesFragmentRefs(t *testing.T) {
+func TestExternalRefsIncludesFragmentRefs(t *testing.T) {
 	// Upstream python-sdk (f8b714b) changed extract_external_refs to split
 	// the fragment off and depend on the FILE part, so a ref like
 	// "types/payment_instrument.json#/$defs/selected_payment_instrument"
@@ -344,7 +344,7 @@ func TestExternalPropertyRefsIncludesFragmentRefs(t *testing.T) {
 			"plain": map[string]any{"$ref": "types/buyer.json"},
 		},
 	}
-	got := externalPropertyRefs("shopping/payment.json", schema)
+	got := externalRefs("shopping/payment.json", schema)
 	want := map[string]string{
 		"instruments": "shopping/types/payment_instrument.json",
 		"plain":       "shopping/types/buyer.json",
@@ -376,5 +376,55 @@ func TestRewriteRefsToVariantsPreservesFragment(t *testing.T) {
 	}
 	if got := data["local"].(map[string]any)["$ref"]; got != "#/$defs/untouched" {
 		t.Errorf("pure local ref must not be rewritten: %v", got)
+	}
+}
+
+func TestExternalRefsScansTopLevelComposition(t *testing.T) {
+	// python-sdk 51bf73c (PR #83, fixing python-sdk#34). Scanning only
+	// `properties` left a schema whose alternatives live in a root
+	// oneOf/anyOf/allOf looking dependency-free, so no variant need
+	// propagated onto its members, no variants were generated for them, and
+	// the refs that should have been rewritten had nothing to point at.
+	//
+	// The bug therefore erased its own evidence: the un-rewritten refs
+	// looked correct precisely because the missing variants were missing.
+	schema := map[string]any{
+		"type": "object",
+		"oneOf": []any{
+			map[string]any{"$ref": "shipping_destination.json"},
+			map[string]any{"$ref": "retail_location.json"},
+		},
+	}
+	got := externalRefs("shopping/types/fulfillment_destination.json", schema)
+	want := map[string]bool{
+		"shopping/types/shipping_destination.json": true,
+		"shopping/types/retail_location.json":      true,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("refs = %v, want the two oneOf members", got)
+	}
+	for _, pair := range got {
+		if !want[pair[1]] {
+			t.Errorf("unexpected ref %q", pair[1])
+		}
+		// The keyword stands in for the property name, matching python
+		// passing the key itself. No such property exists, so inclusion
+		// falls back to its default.
+		if pair[0] != "oneOf" {
+			t.Errorf("ref %q reported under name %q, want \"oneOf\"", pair[1], pair[0])
+		}
+	}
+}
+
+func TestExternalRefsScansItems(t *testing.T) {
+	// The same change also scans a root-level `items`, which is how
+	// totals.json reaches total.json.
+	schema := map[string]any{
+		"type":  "array",
+		"items": map[string]any{"$ref": "total.json"},
+	}
+	got := externalRefs("shopping/types/totals.json", schema)
+	if len(got) != 1 || got[0][1] != "shopping/types/total.json" || got[0][0] != "items" {
+		t.Fatalf("refs = %v, want one items -> shopping/types/total.json", got)
 	}
 }

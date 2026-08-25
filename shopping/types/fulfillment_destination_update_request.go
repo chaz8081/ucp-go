@@ -14,8 +14,8 @@ import (
 // alternative the input matched. The schema requires that exactly one
 // alternative match.
 type FulfillmentDestinationUpdateRequest struct {
-	RetailLocation      *RetailLocation      `json:"-"`
-	ShippingDestination *ShippingDestination `json:"-"`
+	RetailLocationUpdateRequest      *RetailLocationUpdateRequest      `json:"-"`
+	ShippingDestinationUpdateRequest *ShippingDestinationUpdateRequest `json:"-"`
 
 	// matched counts the alternatives the decoded input satisfied.
 	// oneOf permits exactly one, so more than one is a violation that
@@ -33,28 +33,28 @@ func (v *FulfillmentDestinationUpdateRequest) UnmarshalJSON(data []byte) error {
 	var matched, fallback FulfillmentDestinationUpdateRequest
 	matches := 0
 	parsed := false
-	var asRetailLocation RetailLocation
-	if err := json.Unmarshal(data, &asRetailLocation); err == nil {
-		if asRetailLocation.Validate() == nil {
+	var asRetailLocationUpdateRequest RetailLocationUpdateRequest
+	if err := json.Unmarshal(data, &asRetailLocationUpdateRequest); err == nil {
+		if asRetailLocationUpdateRequest.Validate() == nil {
 			if matches == 0 {
-				matched = FulfillmentDestinationUpdateRequest{RetailLocation: &asRetailLocation}
+				matched = FulfillmentDestinationUpdateRequest{RetailLocationUpdateRequest: &asRetailLocationUpdateRequest}
 			}
 			matches++
 		}
 		if !parsed {
-			fallback, parsed = FulfillmentDestinationUpdateRequest{RetailLocation: &asRetailLocation}, true
+			fallback, parsed = FulfillmentDestinationUpdateRequest{RetailLocationUpdateRequest: &asRetailLocationUpdateRequest}, true
 		}
 	}
-	var asShippingDestination ShippingDestination
-	if err := json.Unmarshal(data, &asShippingDestination); err == nil {
-		if asShippingDestination.Validate() == nil {
+	var asShippingDestinationUpdateRequest ShippingDestinationUpdateRequest
+	if err := json.Unmarshal(data, &asShippingDestinationUpdateRequest); err == nil {
+		if asShippingDestinationUpdateRequest.Validate() == nil {
 			if matches == 0 {
-				matched = FulfillmentDestinationUpdateRequest{ShippingDestination: &asShippingDestination}
+				matched = FulfillmentDestinationUpdateRequest{ShippingDestinationUpdateRequest: &asShippingDestinationUpdateRequest}
 			}
 			matches++
 		}
 		if !parsed {
-			fallback, parsed = FulfillmentDestinationUpdateRequest{ShippingDestination: &asShippingDestination}, true
+			fallback, parsed = FulfillmentDestinationUpdateRequest{ShippingDestinationUpdateRequest: &asShippingDestinationUpdateRequest}, true
 		}
 	}
 	if matches > 0 {
@@ -72,11 +72,11 @@ func (v *FulfillmentDestinationUpdateRequest) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON encodes whichever union member is set.
 func (v FulfillmentDestinationUpdateRequest) MarshalJSON() ([]byte, error) {
-	if v.RetailLocation != nil {
-		return json.Marshal(v.RetailLocation)
+	if v.RetailLocationUpdateRequest != nil {
+		return json.Marshal(v.RetailLocationUpdateRequest)
 	}
-	if v.ShippingDestination != nil {
-		return json.Marshal(v.ShippingDestination)
+	if v.ShippingDestinationUpdateRequest != nil {
+		return json.Marshal(v.ShippingDestinationUpdateRequest)
 	}
 	return nil, errors.New("FulfillmentDestinationUpdateRequest: no union member is set")
 }
@@ -86,11 +86,11 @@ func (v *FulfillmentDestinationUpdateRequest) Validate() error {
 	if v.matched > 1 {
 		return errors.New("FulfillmentDestinationUpdateRequest: input satisfies more than one alternative, and oneOf permits exactly one")
 	}
-	if v.RetailLocation != nil {
-		return v.RetailLocation.Validate()
+	if v.RetailLocationUpdateRequest != nil {
+		return v.RetailLocationUpdateRequest.Validate()
 	}
-	if v.ShippingDestination != nil {
-		return v.ShippingDestination.Validate()
+	if v.ShippingDestinationUpdateRequest != nil {
+		return v.ShippingDestinationUpdateRequest.Validate()
 	}
 	return nil
 }
