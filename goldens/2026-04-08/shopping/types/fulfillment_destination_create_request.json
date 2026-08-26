@@ -4,10 +4,10 @@
   "description": "A destination for fulfillment.",
   "oneOf": [
     {
-      "$ref": "retail_location.json"
+      "$ref": "retail_location_create_request.json"
     },
     {
-      "$ref": "shipping_destination.json"
+      "$ref": "shipping_destination_create_request.json"
     }
   ],
   "properties": {},

@@ -15,7 +15,7 @@
   "items": {
     "allOf": [
       {
-        "$ref": "total.json"
+        "$ref": "total_update_request.json"
       },
       {
         "if": {

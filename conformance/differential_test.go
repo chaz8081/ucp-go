@@ -113,7 +113,20 @@ func TestDifferentialAgreement(t *testing.T) {
 	// consider turns one schema node into a target, or into a named skip.
 	// Both the file-level type and each $def go through it, so a skip reason
 	// means the same thing whichever produced it.
+	recorded, err := recordedUnenforced()
+	if err != nil {
+		t.Fatalf("read MANIFEST.json: %v", err)
+	}
+
 	consider := func(rel, location, oracleID string, node map[string]any) {
+		// A keyword the emitter implements in general but could not compile
+		// at THIS node. The manifest already publishes it as a gap and the
+		// generated doc comment repeats it, so the oracle may legitimately
+		// reject where we accept. Named and counted like any other skip.
+		if kw := unenforcedOnNode(rel, node, recorded); kw != "" {
+			skipped["recorded unenforced for this type: "+kw]++
+			return
+		}
 		if kw := usesOutOfScope(node, files, rel); kw != "" {
 			// Documented as unenforced, so the oracle may legitimately
 			// reject where we accept. Counted, never silent.

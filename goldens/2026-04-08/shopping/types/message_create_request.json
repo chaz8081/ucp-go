@@ -4,13 +4,13 @@
   "description": "Container for error, warning, or info messages.",
   "oneOf": [
     {
-      "$ref": "message_error.json"
+      "$ref": "message_error_create_request.json"
     },
     {
-      "$ref": "message_info.json"
+      "$ref": "message_info_create_request.json"
     },
     {
-      "$ref": "message_warning.json"
+      "$ref": "message_warning_create_request.json"
     }
   ],
   "properties": {},

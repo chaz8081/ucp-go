@@ -3,7 +3,7 @@
     "checkout": {
       "allOf": [
         {
-          "$ref": "checkout.json"
+          "$ref": "checkout_create_request.json"
         }
       ],
       "description": "Checkout extended with cart capability. Adds cart_id to create_checkout for cart-to-checkout conversion.",

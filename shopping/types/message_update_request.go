@@ -14,9 +14,9 @@ import (
 // alternative the input matched. The schema requires that exactly one
 // alternative match.
 type MessageUpdateRequest struct {
-	MessageError   *MessageError   `json:"-"`
-	MessageInfo    *MessageInfo    `json:"-"`
-	MessageWarning *MessageWarning `json:"-"`
+	MessageErrorUpdateRequest   *MessageErrorUpdateRequest   `json:"-"`
+	MessageInfoUpdateRequest    *MessageInfoUpdateRequest    `json:"-"`
+	MessageWarningUpdateRequest *MessageWarningUpdateRequest `json:"-"`
 
 	// matched counts the alternatives the decoded input satisfied.
 	// oneOf permits exactly one, so more than one is a violation that
@@ -34,40 +34,40 @@ func (v *MessageUpdateRequest) UnmarshalJSON(data []byte) error {
 	var matched, fallback MessageUpdateRequest
 	matches := 0
 	parsed := false
-	var asMessageError MessageError
-	if err := json.Unmarshal(data, &asMessageError); err == nil {
-		if asMessageError.Validate() == nil {
+	var asMessageErrorUpdateRequest MessageErrorUpdateRequest
+	if err := json.Unmarshal(data, &asMessageErrorUpdateRequest); err == nil {
+		if asMessageErrorUpdateRequest.Validate() == nil {
 			if matches == 0 {
-				matched = MessageUpdateRequest{MessageError: &asMessageError}
+				matched = MessageUpdateRequest{MessageErrorUpdateRequest: &asMessageErrorUpdateRequest}
 			}
 			matches++
 		}
 		if !parsed {
-			fallback, parsed = MessageUpdateRequest{MessageError: &asMessageError}, true
+			fallback, parsed = MessageUpdateRequest{MessageErrorUpdateRequest: &asMessageErrorUpdateRequest}, true
 		}
 	}
-	var asMessageInfo MessageInfo
-	if err := json.Unmarshal(data, &asMessageInfo); err == nil {
-		if asMessageInfo.Validate() == nil {
+	var asMessageInfoUpdateRequest MessageInfoUpdateRequest
+	if err := json.Unmarshal(data, &asMessageInfoUpdateRequest); err == nil {
+		if asMessageInfoUpdateRequest.Validate() == nil {
 			if matches == 0 {
-				matched = MessageUpdateRequest{MessageInfo: &asMessageInfo}
+				matched = MessageUpdateRequest{MessageInfoUpdateRequest: &asMessageInfoUpdateRequest}
 			}
 			matches++
 		}
 		if !parsed {
-			fallback, parsed = MessageUpdateRequest{MessageInfo: &asMessageInfo}, true
+			fallback, parsed = MessageUpdateRequest{MessageInfoUpdateRequest: &asMessageInfoUpdateRequest}, true
 		}
 	}
-	var asMessageWarning MessageWarning
-	if err := json.Unmarshal(data, &asMessageWarning); err == nil {
-		if asMessageWarning.Validate() == nil {
+	var asMessageWarningUpdateRequest MessageWarningUpdateRequest
+	if err := json.Unmarshal(data, &asMessageWarningUpdateRequest); err == nil {
+		if asMessageWarningUpdateRequest.Validate() == nil {
 			if matches == 0 {
-				matched = MessageUpdateRequest{MessageWarning: &asMessageWarning}
+				matched = MessageUpdateRequest{MessageWarningUpdateRequest: &asMessageWarningUpdateRequest}
 			}
 			matches++
 		}
 		if !parsed {
-			fallback, parsed = MessageUpdateRequest{MessageWarning: &asMessageWarning}, true
+			fallback, parsed = MessageUpdateRequest{MessageWarningUpdateRequest: &asMessageWarningUpdateRequest}, true
 		}
 	}
 	if matches > 0 {
@@ -85,14 +85,14 @@ func (v *MessageUpdateRequest) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON encodes whichever union member is set.
 func (v MessageUpdateRequest) MarshalJSON() ([]byte, error) {
-	if v.MessageError != nil {
-		return json.Marshal(v.MessageError)
+	if v.MessageErrorUpdateRequest != nil {
+		return json.Marshal(v.MessageErrorUpdateRequest)
 	}
-	if v.MessageInfo != nil {
-		return json.Marshal(v.MessageInfo)
+	if v.MessageInfoUpdateRequest != nil {
+		return json.Marshal(v.MessageInfoUpdateRequest)
 	}
-	if v.MessageWarning != nil {
-		return json.Marshal(v.MessageWarning)
+	if v.MessageWarningUpdateRequest != nil {
+		return json.Marshal(v.MessageWarningUpdateRequest)
 	}
 	return nil, errors.New("MessageUpdateRequest: no union member is set")
 }
@@ -102,14 +102,14 @@ func (v *MessageUpdateRequest) Validate() error {
 	if v.matched > 1 {
 		return errors.New("MessageUpdateRequest: input satisfies more than one alternative, and oneOf permits exactly one")
 	}
-	if v.MessageError != nil {
-		return v.MessageError.Validate()
+	if v.MessageErrorUpdateRequest != nil {
+		return v.MessageErrorUpdateRequest.Validate()
 	}
-	if v.MessageInfo != nil {
-		return v.MessageInfo.Validate()
+	if v.MessageInfoUpdateRequest != nil {
+		return v.MessageInfoUpdateRequest.Validate()
 	}
-	if v.MessageWarning != nil {
-		return v.MessageWarning.Validate()
+	if v.MessageWarningUpdateRequest != nil {
+		return v.MessageWarningUpdateRequest.Validate()
 	}
 	return nil
 }

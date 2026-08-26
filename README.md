@@ -7,7 +7,7 @@ mirroring the architecture of the official
 [python-sdk](https://github.com/Universal-Commerce-Protocol/python-sdk) and
 [js-sdk](https://github.com/Universal-Commerce-Protocol/js-sdk).
 
-Targets spec version `2026-04-08`: 145 preprocessed schemas emit 145 Go files
+Targets spec version `2026-04-08`: 159 preprocessed schemas emit 159 Go files
 across five packages, with no runtime dependencies.
 
 ## Status
@@ -84,8 +84,8 @@ Three layers. Each exists because the others cannot see the class of defect
 it catches.
 
 **1. Preprocessor parity.** `ucpgen preprocess` reproduces the output of the
-official python-sdk preprocessor **byte-for-byte** on all 145 files (78
-source schemas, plus 67 request variants generated from `ucp_request`
+official python-sdk preprocessor **byte-for-byte** on all 159 files (78
+source schemas, plus 81 request variants generated from `ucp_request`
 markers). The committed goldens in `goldens/2026-04-08/` *are* the Python
 preprocessor's output, re-encoded through this repo's canonical JSON encoder
 so that any difference is a difference in content rather than formatting.
@@ -99,7 +99,7 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**1,024 payloads across 228 generated types (137 of them schema-file roots),
+**1,082 payloads across 240 generated types (149 of them schema-file roots),
 zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
@@ -109,7 +109,7 @@ implementation does.
 
 The denominator counts **emitted Go types**, which is a different quantity
 from the schema **files** it used to count, and larger: the emitter produces
-231 types from 145 files, because a file's `$defs` become types of their
+245 types from 159 files, because a file's `$defs` become types of their
 own. Iterating files reached only each file's root type, so every `$defs`
 type went unchecked — and eight files, holding the whole capability model
 along with ap2_mandate, buyer_consent, discount, fulfillment and
@@ -140,16 +140,22 @@ widening redefinition would surface here as a disagreement.
 Nothing is suppressed to reach zero. There is no skip list of known-failing
 payloads, and a disagreement fails the suite.
 
-Figures below the headline are equally literal. 3 targets are skipped, for a
-union alongside sibling `properties` that the harness does not model; they
-are reported as skips, not folded into the exercised count.
+Figures below the headline are equally literal. 5 targets are skipped. Three
+are a union alongside sibling `properties`, which the harness does not
+model. Two are `totals_create_request` and `totals_update_request`, whose
+`contains` rule the emitter reports as unenforced — every property of
+`total.json` is dropped for a request, so the element type is
+`map[string]any` and there is no field for a predicate to test. That skip is
+taken from `MANIFEST.json` itself rather than a list kept in the harness, so
+it can only excuse a gap the project has already published. All five are
+reported as skips, never folded into the exercised count.
 
-This number used to be 71. Every one of those was a schema the oracle could
-not compile because of the dangling `#/$defs/version` references described
-below, now fixed upstream. Unblocking them roughly tripled what the harness
-actually compares — from 693 payloads across 157 types to 1,024 across
-228 — and the very first run of the wider corpus found a real gap, described
-next. The coverage figure had looked healthy the whole time.
+The skip count used to be 71. Every one of those was a schema the oracle
+could not compile because of the dangling `#/$defs/version` references
+described below, now fixed upstream. Unblocking them roughly tripled what
+the harness actually compares — from 693 payloads across 157 types to 1,024
+across 228 — and the very first run of the wider corpus found a real gap,
+described next. The coverage figure had looked healthy the whole time.
 
 One payload disagrees and is reported rather than counted as agreement:
 `shopping/types/error_response.json`'s `ucp` property is carried as
@@ -240,9 +246,9 @@ full JSON Schema implementation, the gap is specific:
 
   `MANIFEST.json` therefore records these under `not_asserted`, separate
   from `unenforced`. The two used to share a key, which made the manifest
-  report 150 unmet obligations where there are **6** — `format` outnumbers
-  the real gap by twenty-four to one, so merging them buried it. Both
-  numbers stay visible; neither is a summary of the other.
+  report every occurrence as an unmet obligation when the real gap is
+  **16** — `format` outnumbers it nine to one, so merging them buried it.
+  Both numbers stay visible; neither is a summary of the other.
   `TestCorpusUsesAnnotationOnlyFormat` fails the build if a future spec
   release opts into the assertion vocabulary, which would turn every
   `not_asserted` entry into an understatement.
@@ -260,8 +266,9 @@ full JSON Schema implementation, the gap is specific:
   phase later — at which point it agreed. The coverage figure above was
   accurate throughout and still did not cover this; a number counts what it
   counts, and the thing worth stating is which schemas were behind it.
-- **Two `if`/`then` pairs remain unenforced**, on `TotalCreateRequest` and
-  `TotalUpdateRequest`. A request variant is a projection that drops every
+- **Four `if`/`then` pairs remain unenforced**, on `TotalCreateRequest`,
+  `TotalUpdateRequest` and the element types of `TotalsCreateRequest` and
+  `TotalsUpdateRequest`. A request variant is a projection that drops every
   property marked `ucp_request:omit` while keeping the rules, so those two
   arrive carrying rules about properties the Go struct no longer has. There
   is nothing to bind them to and no rewriting recovers them, so they are
@@ -303,71 +310,23 @@ Keywords that would change a schema's *shape* rather than merely constrain
 it — currently `patternProperties` — fail generation outright, because no
 correct Go type can be produced for them.
 
-### Known upstream, unfixed: request variants wrap response types
+### Resolved upstream: request variants wrapped response types
 
-Reported upstream as [python-sdk#34](https://github.com/Universal-Commerce-Protocol/python-sdk/issues/34) in April 2026, still open. **This one affects consumers today**, so it is listed here rather than only in the history below.
+Reported by a community contributor as [python-sdk#34](https://github.com/Universal-Commerce-Protocol/python-sdk/issues/34) in April 2026 and **fixed** in python-sdk `51bf73c` ([PR #83](https://github.com/Universal-Commerce-Protocol/python-sdk/pull/83)), ported here. Recorded because the shape of the defect is instructive.
 
-Variant generation rewrites external `$ref`s only inside `properties`. A schema whose alternatives live in a top-level `oneOf`/`anyOf`/`allOf` keeps its refs pointing at the base response files, so the generated *request* variant wraps *response* types:
+Variant generation rewrote external `$ref`s only inside `properties`. A schema whose alternatives live in a top-level `oneOf`/`anyOf`/`allOf` kept its refs pointing at the base response files, so the generated *request* variant wrapped *response* types. `ShippingDestination` requires `id`; its request variant does not, because a client creating a destination has no server-assigned id yet — so a spec-valid create request was rejected with `id: required property is missing`.
 
-```go
-type FulfillmentDestinationCreateRequest struct {
-	RetailLocation      *RetailLocation      `json:"-"`  // want RetailLocationCreateRequest
-	ShippingDestination *ShippingDestination `json:"-"`  // want ShippingDestinationCreateRequest
-}
-```
+**The defect concealed its own evidence.** Twelve refs in variant files pointed at a base schema, and six of them looked correct because the members they should have pointed at — `message_error`, `message_info`, `message_warning` — had no request variants at all. They had none *because of this same defect*: variant need is propagated by scanning a schema for external refs, and that scan skipped exactly the composition keywords whose refs went un-rewritten. Nothing ever marked those three as needing a variant, so the missing files read as evidence that the refs were fine.
 
-`ShippingDestination` requires `id`; its request variant does not, because a client creating a destination has no server-assigned id yet. So a spec-valid create request is rejected:
+That is why the fix is larger than a rewrite. Resolving it created fourteen new schemas — `error_code`, `info_code`, `warning_code`, `message_error`, `message_info`, `message_warning` and `signed_amount`, each in create and update form — taking the corpus from 145 files to 159, and every count in this README with it.
 
-    validate: id: required property is missing
+`ucp-go` ports the fix in `externalRefs` (scan top-level `oneOf`/`anyOf`/`allOf` and `items`, not just `properties`) and `GenerateVariants` (rewrite refs on every generated variant). Until upstream fixed it, this SDK reproduced the defect deliberately: preprocessor parity is byte-for-byte, and diverging unilaterally would break the parity that makes the committed goldens trustworthy.
 
-Twelve refs in variant files point at a base schema. Four carry a
-behavioural consequence today — the `fulfillment_destination` create and
-update variants, whose members drop a required `id` in their request form.
-Two more are wrong but inert: `postal_address`'s variant is identical to
-its base in both `properties` and `required`, so the
-`shipping_destination_*_request` → `postal_address.json` refs point
-somewhere wrong that happens to be equivalent.
+**The differential harness could not catch this class, by construction.** `Validate` and the oracle both read the same preprocessed schema, so both were wrong in the same way and agreed. "Zero disagreements" was true throughout and said nothing about it. Only a comparison against the *source* spec sees this, which is what preprocessor parity is — and parity reported a match, because the defect was faithfully reproduced. It is the clearest example in this repository of why agreement between two implementations is evidence about *enforcement* and not about *meaning*, and why parity is layer 1 rather than a nicety.
 
-The remaining six — `message_create_request` and `message_update_request`
-pointing at `message_error`, `message_info` and `message_warning` — look
-correct, because those three have no request variants to point at. That
-reasoning is circular, and worth spelling out rather than resting on: they
-have no request variants **because of this same defect**. Variant need is
-propagated by scanning a schema for external refs, and the scan skips
-top-level composition keywords for exactly the reason above, so nothing
-ever marks those three as needing a variant. The missing files are a
-symptom, not an independent fact.
+`TestVariantRefsPointAtRequestVariants` now guards the other direction: no variant may reference a base schema that has a request variant of its own. In its earlier form it pinned the broken set so the fix would arrive as a build failure, which is how the port was triggered rather than noticed.
 
-Upstream's fix therefore does more than rewrite refs. It creates fourteen
-new schemas — `error_code`, `info_code`, `warning_code`, `message_error`,
-`message_info`, `message_warning` and `signed_amount`, each in create and
-update form — taking the corpus from 145 files to 159. Every count in this
-README that ends in 145 moves when it lands.
-
-`ucp-go` reproduces this deliberately. Preprocessor parity is byte-for-byte,
-so upstream's preprocessing defects are ours until upstream fixes them, and
-diverging unilaterally would break the parity that makes the committed
-goldens trustworthy — the same reasoning applied to the dangling-`$ref`
-defect below before it was fixed.
-
-**The differential harness cannot catch this class, by construction.**
-`Validate` and the oracle both read the same preprocessed schema, so both
-are wrong in the same way and agree. "Zero disagreements" is true here and
-tells you nothing. Only a comparison against the *source* spec sees it —
-which is what preprocessor parity is, and parity reports a match because the
-defect is faithfully reproduced. It is the clearest example in this
-repository of why agreement between two implementations is evidence about
-enforcement and not about meaning.
-
-`TestVariantUnionRefsStillPointAtBaseSchemas` pins the exact set, so
-upstream's fix arrives as a build failure that says to re-pin and port,
-rather than as something noticed on the next manual sweep. It fails in
-both directions, which is what makes it useful here: the six `message_*`
-refs are excluded today only because the variants they should point at do
-not exist, so the moment upstream creates them the same test reports those
-two files as newly affected.
-
-The fix is in flight as [python-sdk#83](https://github.com/Universal-Commerce-Protocol/python-sdk/pull/83), a maintainer's version carrying the preprocessor change, the downstream codegen fix it requires, and the regenerated models. It supersedes the original community PR [#35](https://github.com/Universal-Commerce-Protocol/python-sdk/pull/35).
+**One consequence worth naming.** Rewriting `totals_*_request`'s items onto `total_create_request.json` — whose properties are all dropped for a request — made the element type `map[string]any`, leaving the `contains` rule nothing to test. The emitter now reports `contains`/`minContains`/`maxContains` as unenforced there rather than failing generation: `contains` is validation-only, and the standing rule for that class is that an unenforceable occurrence is reported, not approximated and not fatal. Only type-affecting keywords stop a build, because for those no correct Go type exists at all.
 
 ### Resolved upstream: dangling entity references
 
