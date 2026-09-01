@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/merchant_fulfillment_config.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Merchant's fulfillment configuration.",
   "properties": {

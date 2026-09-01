@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/option_value.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "A selectable value for a product option.",
   "properties": {

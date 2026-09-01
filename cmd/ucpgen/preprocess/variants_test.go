@@ -96,6 +96,12 @@ func TestGenerateVariantsEndToEnd(t *testing.T) {
 	if v["title"] != "Checkout Create Request" {
 		t.Errorf("variant title = %v", v["title"])
 	}
+	// python-sdk 3e1aace strips $id in PreprocessDocument, which runs before
+	// variants are generated, so on the real corpus a variant is copied from
+	// a document that has none and this branch never fires. It is kept
+	// because upstream kept theirs — parity is defined by output, not by
+	// which branches execute — and exercised here so it cannot rot silently
+	// while unreachable.
 	if v["$id"] != "https://ucp.dev/schemas/shopping/checkout_create_request.json" {
 		t.Errorf("variant $id = %v", v["$id"])
 	}

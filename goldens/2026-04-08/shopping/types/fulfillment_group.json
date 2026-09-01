@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/fulfillment_group.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
   "description": "A merchant-generated package/group of line items with fulfillment options.",

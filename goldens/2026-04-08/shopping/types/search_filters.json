@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/search_filters.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
   "description": "Filter criteria to narrow search results. All specified filters combine with AND logic.",

@@ -90,7 +90,6 @@
       "type": "string"
     }
   },
-  "$id": "https://ucp.dev/schemas/shopping/ap2_mandate.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Extends Checkout with cryptographic mandate support for non-repudiable authorization per the AP2 protocol. Uses embedded signature model with ap2 namespace.",
   "name": "dev.ucp.shopping.ap2_mandate",
