@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/rating.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Product rating aggregate.",
   "properties": {

@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/input_correlation.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Maps a request identifier to the variant it resolved to, with match semantics.",
   "properties": {

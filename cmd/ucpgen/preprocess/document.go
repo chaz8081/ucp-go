@@ -154,6 +154,21 @@ func flattenEntityRef(node map[string]any, entityDef map[string]any) error {
 // entity base — python's `if entity_def:` treats an empty dict the same
 // as None, so len(entityDef) == 0 no-ops the pre-pass either way.
 func PreprocessDocument(schema map[string]any, entityDef map[string]any) error {
+	// python-sdk 3e1aace drops $id here, with the reason given at the call
+	// site upstream: "Remove $id so datamodel-code-generator resolves
+	// relative $refs strictly via the local filesystem rather than
+	// attempting remote HTTP fetching." The spec's schemas identify
+	// themselves by https://ucp.dev URLs, and a generator that honours the
+	// $id resolves their sibling refs against that base — i.e. over the
+	// network — instead of against the directory it was handed.
+	//
+	// Ordering matters and mirrors python: this runs before variants are
+	// generated, so a variant is copied from a document that no longer has
+	// an $id. applyVariantIdentity's $id rewrite is therefore unreachable on
+	// this corpus. It is kept because upstream kept theirs, and parity is
+	// defined by output, not by which branches happen to execute.
+	delete(schema, "$id")
+
 	nodes := IterNodes(schema)
 	if len(entityDef) > 0 {
 		for _, n := range nodes {

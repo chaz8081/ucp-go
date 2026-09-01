@@ -54,7 +54,6 @@
       "type": "object"
     }
   },
-  "$id": "https://ucp.dev/schemas/shopping/catalog_search.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Product catalog search capability.",
   "name": "dev.ucp.shopping.catalog.search",

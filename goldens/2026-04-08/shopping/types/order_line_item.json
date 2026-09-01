@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/order_line_item.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "id": {

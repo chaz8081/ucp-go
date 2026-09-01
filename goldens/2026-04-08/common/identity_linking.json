@@ -65,7 +65,6 @@
       "type": "string"
     }
   },
-  "$id": "https://ucp.dev/schemas/common/identity_linking.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Capability schema for identity linking. Businesses declare the user-authenticated scopes they offer in a flat 'scopes' map. Each key is the OAuth scope string as it appears on the wire ('{capability}:{scope}', e.g. 'dev.ucp.shopping.order:read'). Scope presence implies that the corresponding operations require user authentication. Operations not gated by any listed scope operate at whatever access level the business permits; UCP does not prescribe a default.",
   "name": "dev.ucp.common.identity_linking",

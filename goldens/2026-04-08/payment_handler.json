@@ -173,7 +173,6 @@
       "type": "object"
     }
   },
-  "$id": "https://ucp.dev/schemas/payment_handler.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Schema for UCP payment handlers. Handlers define how payment instruments are processed.",
   "title": "Payment Handler"

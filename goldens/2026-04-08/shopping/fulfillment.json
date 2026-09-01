@@ -69,7 +69,6 @@
       "$ref": "types/fulfillment_option.json"
     }
   },
-  "$id": "https://ucp.dev/schemas/shopping/fulfillment.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Extends Checkout with fulfillment support using methods, destinations, and groups.",
   "embedded": {

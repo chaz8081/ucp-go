@@ -60,7 +60,6 @@
       "type": "object"
     }
   },
-  "$id": "https://ucp.dev/schemas/shopping/buyer_consent.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Extends Checkout with buyer consent tracking for privacy compliance via the buyer object.",
   "name": "dev.ucp.shopping.buyer_consent",

@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/media.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Product media item (image, video, etc.).",
   "properties": {

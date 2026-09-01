@@ -4,6 +4,7 @@ package conformance
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/dlclark/regexp2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -63,9 +64,17 @@ func newCorpusCompiler(corpus map[string]map[string]any) (*jsonschema.Compiler, 
 	c := newCompiler()
 	ids := make(map[string]string, len(corpus))
 	for rel, doc := range corpus {
-		id, _ := doc["$id"].(string)
-		if id == "" {
-			continue
+		id := schemaBaseURI + filepath.ToSlash(rel)
+		// python-sdk 3e1aace strips $id from preprocessed output so its own
+		// generator resolves relative refs from disk instead of fetching
+		// ucp.dev. Three files keep one (ucp.json and its two request
+		// variants, which the pipeline skips), and where it survives it must
+		// agree with the path — a mismatch would mean the corpus is laid out
+		// differently than this derivation assumes, and every relative $ref
+		// would then resolve against the wrong base.
+		if embedded, ok := doc["$id"].(string); ok && embedded != id {
+			return nil, nil, fmt.Errorf("%s: declares $id %q, want %q: the corpus layout no longer "+
+				"matches how base URIs are derived, so relative refs would resolve wrongly", rel, embedded, id)
 		}
 		if err := c.AddResource(id, doc); err != nil {
 			return nil, nil, fmt.Errorf("%s: add resource: %w", rel, err)
@@ -74,3 +83,9 @@ func newCorpusCompiler(corpus map[string]map[string]any) (*jsonschema.Compiler, 
 	}
 	return c, ids, nil
 }
+
+// schemaBaseURI is the identity the spec gives its schemas. Registering
+// every document under it keeps the compiler resolving relative refs inside
+// the corpus rather than over the network, which is what the embedded $id
+// used to do before upstream removed it.
+const schemaBaseURI = "https://ucp.dev/schemas/"

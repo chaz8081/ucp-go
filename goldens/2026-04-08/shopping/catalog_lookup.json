@@ -193,7 +193,6 @@
       ]
     }
   },
-  "$id": "https://ucp.dev/schemas/shopping/catalog_lookup.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Product/variant lookup by identifier. Supports batch retrieval (lookup_catalog) and single-product detail (get_product).",
   "name": "dev.ucp.shopping.catalog.lookup",

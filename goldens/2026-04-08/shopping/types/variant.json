@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/variant.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "A purchasable variant of a product with specific option selections.",
   "properties": {

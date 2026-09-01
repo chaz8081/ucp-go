@@ -1,5 +1,4 @@
 {
-  "$id": "https://ucp.dev/schemas/shopping/types/binding.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Binds a token to a specific checkout session and participant. Prevents token reuse across different checkouts or participants.",
   "properties": {
