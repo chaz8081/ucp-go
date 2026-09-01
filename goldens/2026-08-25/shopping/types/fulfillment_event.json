@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Append-only fulfillment event representing an actual shipment. References line items by ID.",
+  "properties": {
+    "carrier": {
+      "description": "Carrier name (e.g., 'FedEx', 'USPS').",
+      "type": "string"
+    },
+    "description": {
+      "description": "Human-readable description of the shipment status or delivery information (e.g., 'Delivered to front door', 'Out for delivery').",
+      "type": "string"
+    },
+    "id": {
+      "description": "Fulfillment event identifier.",
+      "type": "string"
+    },
+    "line_items": {
+      "description": "Which line items and quantities are fulfilled in this event.",
+      "items": {
+        "properties": {
+          "id": {
+            "description": "Line item ID reference.",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Integer count of steps of the referenced line item's `quantity_unit` (`10^-scale` × `unit`); when `quantity_unit` is absent, it counts whole items (`each`).",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "quantity"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "occurred_at": {
+      "description": "RFC 3339 timestamp when this fulfillment event occurred.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "tracking_number": {
+      "description": "Carrier tracking number (required if type != processing).",
+      "type": "string"
+    },
+    "tracking_url": {
+      "description": "URL to track this shipment (required if type != processing).",
+      "format": "uri",
+      "type": "string"
+    },
+    "type": {
+      "description": "Fulfillment event type. Common values include: processing (preparing to ship), shipped (handed to carrier), in_transit (in delivery network), delivered (received by buyer), failed_attempt (delivery attempt failed), canceled (fulfillment canceled), undeliverable (cannot be delivered), returned_to_sender (returned to merchant).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "line_items",
+    "occurred_at",
+    "type"
+  ],
+  "title": "Fulfillment Event",
+  "type": "object"
+}

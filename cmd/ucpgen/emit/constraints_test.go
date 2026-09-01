@@ -14,8 +14,8 @@ func TestCompileConstraintsStringChecks(t *testing.T) {
 	}
 	got := c.checks.String()
 	for _, want := range []string{
-		"utf8.RuneCountInString(v.Name) > 8",
-		"pattern_Thing_Name().MatchString(v.Name)",
+		"utf8.RuneCountInString(string(v.Name)) > 8",
+		"pattern_Thing_Name().MatchString(string(v.Name))",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -140,7 +140,7 @@ func TestCompileConstraintsRejectsFractionalIntegerBound(t *testing.T) {
 func TestCompileConstraintsStringLength(t *testing.T) {
 	wants(t, compile(t, map[string]any{
 		"type": "string", "minLength": float64(2),
-	}, "v.Field", accessValue), `utf8.RuneCountInString(v.Field) < 2`)
+	}, "v.Field", accessValue), `utf8.RuneCountInString(string(v.Field)) < 2`)
 }
 
 func TestCompileConstraintsArrayChecks(t *testing.T) {

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Identity of a participant for token binding. The access_token uniquely identifies the participant whom tokens should be issued to.",
+  "properties": {
+    "access_token": {
+      "description": "Unique identifier for this participant, obtained during onboarding with the tokenizer.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "access_token"
+  ],
+  "title": "Payment Identity",
+  "type": "object"
+}

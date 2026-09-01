@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "WGS 84 geographic coordinates in decimal degrees.",
+  "properties": {
+    "latitude": {
+      "description": "WGS 84 latitude in decimal degrees.",
+      "maximum": 90,
+      "minimum": -90,
+      "type": "number"
+    },
+    "longitude": {
+      "description": "WGS 84 longitude in decimal degrees.",
+      "maximum": 180,
+      "minimum": -180,
+      "type": "number"
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude"
+  ],
+  "title": "Geo",
+  "type": "object"
+}

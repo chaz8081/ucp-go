@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "time_interval_create_request.json"
+    }
+  ],
+  "description": "A regular weekly operating interval. Its `day`, `opens`, and `closes` are recurring local civil values interpreted in the containing Location's `timezone`. Multiple entries for the same day support split shifts.",
+  "properties": {},
+  "required": [],
+  "title": "Daily Hour Create Request",
+  "type": "object"
+}

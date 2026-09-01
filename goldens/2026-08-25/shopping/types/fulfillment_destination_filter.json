@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "$ref": "../../common/types/locality.json"
+    }
+  ],
+  "description": "A specific destination, named by value or by reference: a coarse locality (`address_country` / `address_region` / `postal_code`), or a `location` id. Platforms SHOULD provide one or the other, not both; if both are present, a business SHOULD use the more specific — typically `location`.",
+  "properties": {
+    "location": {
+      "description": "A reference to the destination (e.g. store, pickup location, saved address).",
+      "type": "string"
+    }
+  },
+  "title": "Fulfillment Destination Filter",
+  "type": "object"
+}

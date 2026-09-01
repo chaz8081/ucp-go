@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Payment configuration containing handlers.",
+  "properties": {
+    "instruments": {
+      "description": "The payment instruments available for this payment. Each instrument is associated with a specific handler via the handler_id field. Handlers can extend the base payment_instrument schema to add handler-specific fields.",
+      "items": {
+        "$ref": "payment_instrument.json#/$defs/selected_payment_instrument"
+      },
+      "type": "array"
+    }
+  },
+  "title": "Payment",
+  "type": "object"
+}

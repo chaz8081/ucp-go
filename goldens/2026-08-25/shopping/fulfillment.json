@@ -1,0 +1,408 @@
+{
+  "$defs": {
+    "catalog_fulfillment": {
+      "additionalProperties": true,
+      "description": "How a catalog variant can be fulfilled. Mirrors checkout `fulfillment`.",
+      "properties": {
+        "methods": {
+          "description": "Fulfillment methods for this variant.",
+          "items": {
+            "$ref": "#/$defs/catalog_fulfillment_method"
+          },
+          "type": "array"
+        }
+      },
+      "title": "Catalog Fulfillment",
+      "type": "object"
+    },
+    "catalog_fulfillment_method": {
+      "additionalProperties": true,
+      "description": "A fulfillment method on a catalog variant: how the variant can be fulfilled, and its availability.",
+      "properties": {
+        "availability": {
+          "$ref": "types/availability.json",
+          "description": "Availability of this variant via this method at the specified or inferred location."
+        },
+        "description": {
+          "$ref": "../common/types/description.json",
+          "description": "Short buyer-facing summary (e.g. 'Ships in 2–4 business days')."
+        },
+        "location": {
+          "description": "Stable, opaque identifier for the Business Location resolved for this place-based fulfillment method. The Business recognizes the same ID when submitted as `selected_destination_id` for that method; recognition does not reserve inventory or guarantee eligibility, and current terms are revalidated.",
+          "type": "string"
+        },
+        "options": {
+          "description": "Representative fulfillment options for this method (e.g. Standard, Express). Without a destination or full cart, a Business SHOULD preview meaningful boundary options (e.g. cheapest, fastest); more specific options are negotiated in Checkout once line items and destination are known.",
+          "items": {
+            "$ref": "types/fulfillment_option_base.json"
+          },
+          "type": "array"
+        },
+        "type": {
+          "description": "Fulfillment method type. Well-known values: `shipping`, `pickup`. Businesses MAY use additional values.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Catalog Fulfillment Method",
+      "type": "object"
+    },
+    "checkout": {
+      "allOf": [
+        {
+          "$ref": "checkout.json"
+        }
+      ],
+      "description": "Checkout extended with hierarchical fulfillment.",
+      "properties": {
+        "fulfillment": {
+          "$ref": "#/$defs/fulfillment",
+          "description": "Fulfillment details.",
+          "ucp_request": {
+            "complete": "omit",
+            "create": "optional",
+            "update": "optional"
+          }
+        }
+      },
+      "title": "Checkout with Fulfillment",
+      "type": "object"
+    },
+    "dev_ucp_shopping_fulfillment": {
+      "business_schema": {
+        "allOf": [
+          {
+            "$ref": "../capability.json#/$defs/business_schema"
+          }
+        ],
+        "description": "Business-level fulfillment capability configuration",
+        "properties": {
+          "config": {
+            "$ref": "types/business_fulfillment_config.json",
+            "description": "Business fulfillment configuration"
+          }
+        },
+        "title": "Fulfillment Capability (Business)"
+      },
+      "platform_schema": {
+        "allOf": [
+          {
+            "$ref": "../capability.json#/$defs/platform_schema"
+          }
+        ],
+        "description": "Platform-level fulfillment capability configuration",
+        "properties": {
+          "config": {
+            "$ref": "types/platform_fulfillment_config.json",
+            "description": "Platform fulfillment configuration"
+          }
+        },
+        "title": "Fulfillment Capability (Platform)"
+      }
+    },
+    "fulfillment": {
+      "$ref": "types/fulfillment.json"
+    },
+    "fulfillment_available_method": {
+      "$ref": "types/fulfillment_available_method.json"
+    },
+    "fulfillment_detail_product": {
+      "allOf": [
+        {
+          "$ref": "catalog_lookup.json#/$defs/detail_product"
+        }
+      ],
+      "description": "A get_product detail product (carrying selected/options availability signals) whose variants are fulfillment-enriched. Used by get_product.",
+      "properties": {
+        "variants": {
+          "items": {
+            "$ref": "#/$defs/fulfillment_variant"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_get_product_request": {
+      "allOf": [
+        {
+          "$ref": "catalog_lookup.json#/$defs/get_product_request"
+        }
+      ],
+      "properties": {
+        "filters": {
+          "$ref": "#/$defs/fulfillment_search_filters"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_get_product_response": {
+      "allOf": [
+        {
+          "$ref": "catalog_lookup.json#/$defs/get_product_response"
+        }
+      ],
+      "properties": {
+        "product": {
+          "$ref": "#/$defs/fulfillment_detail_product"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_group": {
+      "$ref": "types/fulfillment_group.json"
+    },
+    "fulfillment_lookup_product": {
+      "allOf": [
+        {
+          "$ref": "types/product.json"
+        }
+      ],
+      "description": "A lookup product whose variants are fulfillment-enriched, preserving input correlation. Used by lookup.",
+      "properties": {
+        "variants": {
+          "items": {
+            "$ref": "#/$defs/fulfillment_lookup_variant"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_lookup_request": {
+      "allOf": [
+        {
+          "$ref": "catalog_lookup.json#/$defs/lookup_request"
+        }
+      ],
+      "properties": {
+        "filters": {
+          "$ref": "#/$defs/fulfillment_search_filters"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_lookup_response": {
+      "allOf": [
+        {
+          "$ref": "catalog_lookup.json#/$defs/lookup_response"
+        }
+      ],
+      "properties": {
+        "products": {
+          "items": {
+            "$ref": "#/$defs/fulfillment_lookup_product"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_lookup_variant": {
+      "allOf": [
+        {
+          "$ref": "catalog_lookup.json#/$defs/lookup_variant"
+        }
+      ],
+      "description": "A lookup variant (carrying input correlation) enriched with fulfillment.",
+      "properties": {
+        "fulfillment": {
+          "$ref": "#/$defs/catalog_fulfillment"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_method": {
+      "$ref": "types/fulfillment_method.json"
+    },
+    "fulfillment_option": {
+      "$ref": "types/fulfillment_option.json"
+    },
+    "fulfillment_product": {
+      "allOf": [
+        {
+          "$ref": "types/product.json"
+        }
+      ],
+      "description": "A catalog product whose variants are fulfillment-enriched. Used by search.",
+      "properties": {
+        "variants": {
+          "items": {
+            "$ref": "#/$defs/fulfillment_variant"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_search_filters": {
+      "allOf": [
+        {
+          "$ref": "types/search_filters.json"
+        }
+      ],
+      "description": "Catalog filters extended with a fulfillment destination filter and a method-type filter.",
+      "properties": {
+        "fulfills_to": {
+          "$ref": "types/fulfillment_destination_filter.json",
+          "description": "Explicit destination where items are fulfilled. It may differ from the locality or Business Location supplied in `context` (e.g. a gift delivered directly to the recipient). The filter restricts results to what can be fulfilled there and seeds method `availability`. It supersedes `context` only for fulfillment destination and availability resolution."
+        },
+        "methods": {
+          "description": "Restrict results to these fulfillment method types (e.g. [\"pickup\"]). Well-known values: `shipping`, `pickup`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_search_request": {
+      "allOf": [
+        {
+          "$ref": "catalog_search.json#/$defs/search_request"
+        }
+      ],
+      "properties": {
+        "filters": {
+          "$ref": "#/$defs/fulfillment_search_filters"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_search_response": {
+      "allOf": [
+        {
+          "$ref": "catalog_search.json#/$defs/search_response"
+        }
+      ],
+      "properties": {
+        "products": {
+          "items": {
+            "$ref": "#/$defs/fulfillment_product"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "fulfillment_variant": {
+      "allOf": [
+        {
+          "$ref": "types/variant.json"
+        }
+      ],
+      "description": "A catalog variant with fulfillment.",
+      "properties": {
+        "fulfillment": {
+          "$ref": "#/$defs/catalog_fulfillment"
+        }
+      },
+      "type": "object"
+    },
+    "lookup": {
+      "$defs": {
+        "get_product_request": {
+          "$ref": "#/$defs/fulfillment_get_product_request"
+        },
+        "get_product_response": {
+          "$ref": "#/$defs/fulfillment_get_product_response"
+        },
+        "lookup_request": {
+          "$ref": "#/$defs/fulfillment_lookup_request"
+        },
+        "lookup_response": {
+          "$ref": "#/$defs/fulfillment_lookup_response"
+        }
+      },
+      "description": "Catalog lookup composition with fulfillment (extends dev.ucp.shopping.catalog.lookup)."
+    },
+    "search": {
+      "$defs": {
+        "search_request": {
+          "$ref": "#/$defs/fulfillment_search_request"
+        },
+        "search_response": {
+          "$ref": "#/$defs/fulfillment_search_response"
+        }
+      },
+      "description": "Catalog search composition with fulfillment (extends dev.ucp.shopping.catalog.search)."
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Extends Catalog with fulfillment discovery and Checkout with hierarchical fulfillment.",
+  "embedded": {
+    "delegations": [
+      "fulfillment.address_change"
+    ],
+    "methods": {
+      "ec.fulfillment.address_change_request": {
+        "description": "Merchant requests host to present address selection UI for a shipping fulfillment method.",
+        "name": "ec.fulfillment.address_change_request",
+        "params": [
+          {
+            "name": "checkout",
+            "required": true,
+            "schema": {
+              "$ref": "checkout.json",
+              "description": "Current checkout state with fulfillment details."
+            }
+          }
+        ],
+        "result": {
+          "name": "addressChangeResult",
+          "schema": {
+            "oneOf": [
+              {
+                "description": "Checkout state after address selection.",
+                "properties": {
+                  "checkout": {
+                    "description": "Partial checkout update with fulfillment address selection.",
+                    "properties": {
+                      "fulfillment": {
+                        "$ref": "types/fulfillment.json",
+                        "description": "Updated fulfillment with new selected destination and destinations."
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "ucp": {
+                    "$ref": "../ucp.json#/$defs/success"
+                  }
+                },
+                "required": [
+                  "checkout",
+                  "ucp"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "../common/types/error_response.json"
+              }
+            ]
+          }
+        },
+        "summary": "Request address change"
+      },
+      "ec.fulfillment.change": {
+        "description": "Merchant notifies host that checkout.fulfillment has changed (shipping method selected, delivery options updated).",
+        "name": "ec.fulfillment.change",
+        "params": [
+          {
+            "name": "checkout",
+            "required": true,
+            "schema": {
+              "$ref": "checkout.json",
+              "description": "Current checkout state with updated fulfillment."
+            }
+          }
+        ],
+        "summary": "Fulfillment details changed"
+      }
+    }
+  },
+  "name": "dev.ucp.shopping.fulfillment",
+  "title": "Fulfillment Extension"
+}

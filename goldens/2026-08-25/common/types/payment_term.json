@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "A way of paying for the checkout: one or more payment schedules that together cover its total.",
+  "properties": {
+    "description": {
+      "$ref": "description.json",
+      "description": "Supplementary context for the title (e.g. 'Save 5% by paying today'). Directly renderable; MUST NOT repeat the title."
+    },
+    "id": {
+      "description": "Unique identifier for this payment term within the checkout. Referenced by `payment.selected_term_id`.",
+      "type": "string"
+    },
+    "schedules": {
+      "description": "Payment schedules that settle this checkout under this term, in the order they come due.",
+      "items": {
+        "$ref": "payment_schedule.json"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "title": {
+      "description": "Short label that distinguishes this term from its siblings (e.g. 'Pay now', 'Pay in 4', 'Deposit + balance at check-in').",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "schedules",
+    "title"
+  ],
+  "title": "Payment Term",
+  "type": "object"
+}

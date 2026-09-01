@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "checkout": {
+      "allOf": [
+        {
+          "$ref": "../shopping/checkout.json"
+        }
+      ],
+      "properties": {
+        "actions": {
+          "properties": {
+            "dev.ucp.common.payment.device_data_collection": {
+              "description": "A 3DS device data collection Action.",
+              "items": {
+                "properties": {
+                  "config": {
+                    "properties": {
+                      "payment_instrument_id": {
+                        "description": "ID of the payment instrument in the containing Checkout associated with this device data collection Action.",
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "url": {
+                        "description": "URL for the invisible device data collection surface.",
+                        "format": "uri",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "payment_instrument_id",
+                      "url"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "config"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "dev.ucp.common.payment.three_ds_challenge": {
+              "description": "A 3DS challenge Action.",
+              "items": {
+                "properties": {
+                  "config": {
+                    "properties": {
+                      "payment_instrument_id": {
+                        "description": "ID of the payment instrument in the containing Checkout associated with this 3DS challenge Action.",
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "url": {
+                        "description": "URL for the buyer-facing 3DS challenge surface.",
+                        "format": "uri",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "payment_instrument_id",
+                      "url"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "config"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object",
+          "ucp_request": "omit"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Extends capabilities (e.g., checkout in retail shopping) with standard device data collection and 3DS challenge Action types used during payment authentication.",
+  "name": "dev.ucp.common.payment.authentication",
+  "title": "Payment Authentication Extension"
+}

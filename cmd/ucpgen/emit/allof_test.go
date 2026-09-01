@@ -287,3 +287,62 @@ func TestResolveCrossFileAllOfLeavesNonConditionalResidual(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveCrossFileAllOfRebasesThroughNestedInheritance(t *testing.T) {
+	// A borrowed schema that itself borrows across files, from a different
+	// directory than the borrower. spec 2026-08-25 is the first corpus to
+	// contain one: common/location_lookup.json inherits
+	// common/types/location.json, which in turn inherits
+	// location_summary.json relative to its OWN directory.
+	//
+	// The inlined body's refs are rebased onto the borrowing file, so the
+	// recursion has to resolve them against the borrower too. Recursing with
+	// the borrowed file's path instead shifts them a second time —
+	// "location_summary.json" becomes "types/location_summary.json" and is
+	// then read against common/types/, looking for
+	// common/types/types/location_summary.json.
+	//
+	// Latent until now only because every previous nesting happened to be
+	// same-directory, which makes the rebase a no-op and the two paths
+	// indistinguishable. Same failure mode as python-sdk#72: a relative
+	// reference does not survive being copied, and a copy that is rebased
+	// once must not be rebased again.
+	corpus := map[string]map[string]any{
+		"common/location_lookup.json": {"type": "object"},
+		"common/types/location.json": {
+			"type":  "object",
+			"allOf": []any{map[string]any{"$ref": "location_summary.json"}},
+			"properties": map[string]any{
+				"id": map[string]any{"type": "string"},
+			},
+		},
+		"common/types/location_summary.json": {
+			"type": "object",
+			"properties": map[string]any{
+				"name": map[string]any{"type": "string"},
+			},
+		},
+	}
+	node := map[string]any{
+		"type":  "object",
+		"allOf": []any{map[string]any{"$ref": "types/location.json"}},
+	}
+	if err := resolveCrossFileAllOf(node, "common/location_lookup.json", corpus, map[string]bool{}); err != nil {
+		t.Fatalf("nested cross-file inheritance should resolve: %v", err)
+	}
+
+	// The grandparent's fields must actually arrive, not merely fail to error.
+	branch := node["allOf"].([]any)[0].(map[string]any)
+	inner, ok := branch["allOf"].([]any)
+	if !ok || len(inner) == 0 {
+		t.Fatalf("borrowed schema kept no allOf: %v", branch)
+	}
+	grand, ok := inner[0].(map[string]any)
+	if !ok {
+		t.Fatalf("grandparent branch is not an object: %v", inner[0])
+	}
+	props, _ := grand["properties"].(map[string]any)
+	if _, has := props["name"]; !has {
+		t.Errorf("grandparent properties not inlined, got %v", grand)
+	}
+}

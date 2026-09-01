@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Buyer-facing fulfillment expectation representing logical groupings of items (e.g., 'package'). Can be split, merged, or adjusted post-order to set buyer expectations for when/how items arrive.",
+  "properties": {
+    "description": {
+      "description": "Human-readable delivery description (e.g., 'Arrives in 5-8 business days').",
+      "type": "string"
+    },
+    "destination": {
+      "$ref": "../../common/types/postal_address_update_request.json",
+      "description": "Delivery destination address."
+    },
+    "fulfillable_on": {
+      "description": "When this expectation can be fulfilled: 'now' or ISO 8601 timestamp for future date (backorder, pre-order).",
+      "type": "string"
+    },
+    "id": {
+      "description": "Expectation identifier.",
+      "type": "string"
+    },
+    "line_items": {
+      "description": "Which line items and quantities are in this expectation.",
+      "items": {
+        "properties": {
+          "id": {
+            "description": "Line item ID reference.",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Integer count of steps of the referenced line item's `quantity_unit` (`10^-scale` × `unit`); when `quantity_unit` is absent, it counts whole items (`each`).",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "quantity"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "method_type": {
+      "description": "Delivery method type. Well-known values: `shipping`, `pickup`, `digital`; additional values MAY be used.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "destination",
+    "id",
+    "line_items",
+    "method_type"
+  ],
+  "title": "Expectation Update Request",
+  "type": "object"
+}

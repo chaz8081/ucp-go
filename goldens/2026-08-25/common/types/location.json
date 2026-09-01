@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "amenity": {
+      "additionalProperties": true,
+      "description": "Buyer-facing presentation metadata for one amenity identifier. The containing map key, not this metadata, defines amenity identity and filter matching.",
+      "properties": {
+        "description": {
+          "description": "Short, plain-text, buyer-facing label or phrase for the amenity, suitable for direct use in a compact list (e.g., 'Curbside pickup'). The Business SHOULD localize it for the request when possible. This content does not participate in amenity identity or filter matching.",
+          "minLength": 1,
+          "type": "string",
+          "ucp_request": "omit"
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "title": "Amenity",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "$ref": "location_summary.json"
+    }
+  ],
+  "description": "The full, rich representation of a physical business location. Builds on the Location Summary schema with discovery-centric details such as geographic coordinates, operating hours, timezone, and amenities.",
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "hours"
+        ]
+      },
+      {
+        "required": [
+          "exception_hours"
+        ]
+      }
+    ]
+  },
+  "properties": {
+    "amenities": {
+      "additionalProperties": {
+        "$ref": "#/$defs/amenity"
+      },
+      "description": "Static features, services, or capabilities of the Location, keyed by reverse-domain amenity identifier. Each value provides a buyer-facing description; the key alone defines amenity identity and filter matching.",
+      "propertyNames": {
+        "$ref": "amenity_type.json"
+      },
+      "type": "object",
+      "ucp_request": "omit"
+    },
+    "exception_hours": {
+      "description": "Date-specific operating-hour exceptions, including full closures, whose date and time values use this Location's canonical local civil-time frame.",
+      "items": {
+        "$ref": "exception_hour.json"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    },
+    "geo": {
+      "$ref": "geo.json",
+      "description": "Geographic coordinates for the location.",
+      "ucp_request": "omit"
+    },
+    "hours": {
+      "description": "Regular weekly operating hours whose day and time values use this Location's canonical local civil-time frame. Multiple entries for the same day support split shifts. An omitted day has no regular interval beginning that day; an interval beginning on the preceding day can carry into it. Omission of the entire `hours` property means the regular schedule is unknown.",
+      "items": {
+        "$ref": "daily_hour.json"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    },
+    "timezone": {
+      "description": "The Business-owned IANA Time Zone Database identifier (e.g., 'America/New_York') defining this Location's canonical local civil-time frame for all returned schedule day, time, and date fields. The Business does not vary this canonical framing by the requesting Platform's or Buyer's timezone. Required when hours or exception_hours is present.",
+      "type": "string",
+      "ucp_request": "omit"
+    }
+  },
+  "then": {
+    "required": [
+      "timezone"
+    ]
+  },
+  "title": "Location",
+  "type": "object"
+}

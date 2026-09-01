@@ -1,0 +1,125 @@
+{
+  "$defs": {
+    "checkout": {
+      "allOf": [
+        {
+          "$ref": "checkout.json"
+        }
+      ],
+      "description": "Checkout extended with cart capability. Adds cart_id to create_checkout for cart-to-checkout conversion.",
+      "properties": {
+        "cart_id": {
+          "description": "Cart ID to convert to checkout. Business MUST use cart contents (line_items, context, buyer) and MUST ignore overlapping fields in checkout payload.",
+          "type": "string",
+          "ucp_request": {
+            "create": "optional",
+            "update": "omit"
+          }
+        }
+      },
+      "title": "Checkout with Cart",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Shopping cart with estimated pricing before checkout. Lightweight pre-purchase exploration with no payment info or complex status states.",
+  "name": "dev.ucp.shopping.cart",
+  "properties": {
+    "actions": {
+      "$ref": "../common/types/actions.json",
+      "description": "Outstanding extension-defined Actions for this cart.",
+      "ucp_request": "omit"
+    },
+    "attribution": {
+      "$ref": "types/attribution.json",
+      "ucp_request": "optional"
+    },
+    "buyer": {
+      "$ref": "types/buyer.json",
+      "description": "Optional buyer information for personalized estimates.",
+      "ucp_request": "optional"
+    },
+    "context": {
+      "$ref": "../common/types/context.json",
+      "description": "Buyer signals for localization (country, region, postal_code). Merchant uses for pricing, availability, currency. Falls back to geo-IP if omitted.",
+      "ucp_request": "optional"
+    },
+    "continue_url": {
+      "description": "URL for cart handoff and session recovery. Enables sharing and human-in-the-loop flows.",
+      "format": "uri",
+      "type": "string",
+      "ucp_request": "omit"
+    },
+    "currency": {
+      "description": "ISO 4217 currency code. Determined by merchant based on context or geo-IP.",
+      "type": "string",
+      "ucp_request": "omit"
+    },
+    "expires_at": {
+      "description": "Cart expiry timestamp (RFC 3339). Optional.",
+      "format": "date-time",
+      "type": "string",
+      "ucp_request": "omit"
+    },
+    "id": {
+      "description": "Unique cart identifier.",
+      "type": "string",
+      "ucp_request": "omit"
+    },
+    "line_items": {
+      "description": "Cart line items. Same structure as checkout. Full replacement on update.",
+      "items": {
+        "$ref": "types/line_item.json"
+      },
+      "type": "array",
+      "ucp_request": "required"
+    },
+    "links": {
+      "description": "Optional merchant links (policies, FAQs).",
+      "items": {
+        "$ref": "../common/types/link.json"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    },
+    "messages": {
+      "description": "Validation messages, warnings, or informational notices.",
+      "items": {
+        "$ref": "../common/types/message.json"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    },
+    "policies": {
+      "description": "Policies (e.g., return/refund terms) that apply to the items in this cart. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
+      "items": {
+        "$ref": "../common/types/policy.json"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    },
+    "signals": {
+      "$ref": "../common/types/signals.json",
+      "ucp_request": "optional"
+    },
+    "totals": {
+      "$ref": "../common/types/totals.json",
+      "description": "Estimated cost breakdown. May be partial if shipping/tax not yet calculable.",
+      "ucp_request": "omit"
+    },
+    "ucp": {
+      "$ref": "../ucp.json",
+      "ucp_request": "omit"
+    }
+  },
+  "required": [
+    "currency",
+    "id",
+    "line_items",
+    "totals",
+    "ucp"
+  ],
+  "title": "Cart",
+  "type": "object"
+}

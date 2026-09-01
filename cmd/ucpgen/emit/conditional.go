@@ -35,7 +35,7 @@ var predicateKeywords = map[string]bool{
 func predicate(e *fileEmitter, typeName, recv string, node map[string]any, fields []structField) (string, error) {
 	for k := range node {
 		if !predicateKeywords[k] {
-			return "", fmt.Errorf("%s: conditional subschema declares %q, which is not supported (phase 6)", typeName, k)
+			return "", unsupported("%s: conditional subschema declares %q, which is not supported", typeName, k)
 		}
 	}
 
@@ -62,7 +62,7 @@ func predicate(e *fileEmitter, typeName, recv string, node map[string]any, field
 			names = append(names, n)
 		}
 		sort.Strings(names)
-		return "", fmt.Errorf("%s: conditional subschema tests %d properties (%s); only a single-property discriminator is supported (phase 6)",
+		return "", unsupported("%s: conditional subschema tests %d properties (%s); only a single-property discriminator is supported",
 			typeName, len(props), strings.Join(names, ", "))
 	}
 
@@ -75,7 +75,7 @@ func predicate(e *fileEmitter, typeName, recv string, node map[string]any, field
 		}
 		f, known := byJSON[name]
 		if !known {
-			return "", fmt.Errorf("%s: conditional tests property %q, which this type does not declare (phase 6)", typeName, name)
+			return "", unsupported("%s: conditional tests property %q, which this type does not declare", typeName, name)
 		}
 		// `properties` constrains a property only when it is there: a
 		// subschema with no `required` also matches a value that omits the
@@ -86,7 +86,7 @@ func predicate(e *fileEmitter, typeName, recv string, node map[string]any, field
 		// subschema's own `required` or by the outer schema — for the test
 		// to mean what the schema means.
 		if !required[name] && !f.required {
-			return "", fmt.Errorf("%s: conditional tests property %q without requiring it; a properties test with no required also matches a value where %q is absent, which is not modeled (phase 6)", typeName, name, name)
+			return "", unsupported("%s: conditional tests property %q without requiring it; a properties test with no required also matches a value where %q is absent, which is not modeled", typeName, name, name)
 		}
 		term, needsPresence, err := valueTest(typeName, recv, f, sub)
 		if err != nil {
@@ -97,10 +97,10 @@ func predicate(e *fileEmitter, typeName, recv string, node map[string]any, field
 			// decoder never saw would match. Only a decoded value carries
 			// the record that distinguishes them.
 			if recv != "v" {
-				return "", fmt.Errorf("%s: conditional on %q needs the presence record, which is only reachable on the receiver (phase 6)", typeName, name)
+				return "", unsupported("%s: conditional on %q needs the presence record, which is only reachable on the receiver", typeName, name)
 			}
 			if !f.required {
-				return "", fmt.Errorf("%s: conditional on optional property %q needs a presence record that is not tracked for it (phase 6)", typeName, name)
+				return "", unsupported("%s: conditional on optional property %q needs a presence record that is not tracked for it", typeName, name)
 			}
 			terms = append(terms, fmt.Sprintf("%s.present != nil", recv), fmt.Sprintf("%s.present[%q]", recv, name))
 		}
@@ -118,7 +118,7 @@ func predicate(e *fileEmitter, typeName, recv string, node map[string]any, field
 	for _, name := range names {
 		f, known := byJSON[name]
 		if !known {
-			return "", fmt.Errorf("%s: conditional requires property %q, which this type does not declare (phase 6)", typeName, name)
+			return "", unsupported("%s: conditional requires property %q, which this type does not declare", typeName, name)
 		}
 		switch accessFor(f.goType, f.required) {
 		case accessPointer, accessNilable:
@@ -133,7 +133,7 @@ func predicate(e *fileEmitter, typeName, recv string, node map[string]any, field
 	}
 
 	if len(terms) == 0 {
-		return "", fmt.Errorf("%s: conditional subschema asserts nothing (phase 6)", typeName)
+		return "", unsupported("%s: conditional subschema asserts nothing", typeName)
 	}
 	return strings.Join(terms, " && "), nil
 }
@@ -152,7 +152,7 @@ func valueTest(typeName, recv string, f structField, sub map[string]any) (expr s
 
 	if raw, ok := sub["const"]; ok {
 		if len(sub) != 1 {
-			return "", false, fmt.Errorf("%s: conditional on %q combines const with other keywords (phase 6)", typeName, f.jsonName)
+			return "", false, unsupported("%s: conditional on %q combines const with other keywords", typeName, f.jsonName)
 		}
 		lit, err := conditionalLiteral(typeName, f, raw)
 		if err != nil {
@@ -163,18 +163,18 @@ func valueTest(typeName, recv string, f structField, sub map[string]any) (expr s
 
 	if raw, ok := sub["enum"].([]any); ok {
 		if len(sub) != 1 {
-			return "", false, fmt.Errorf("%s: conditional on %q combines enum with other keywords (phase 6)", typeName, f.jsonName)
+			return "", false, unsupported("%s: conditional on %q combines enum with other keywords", typeName, f.jsonName)
 		}
 		return enumTest(typeName, f, prefix, value, raw, false)
 	}
 
 	if raw, ok := sub["not"].(map[string]any); ok {
 		if len(sub) != 1 {
-			return "", false, fmt.Errorf("%s: conditional on %q combines not with other keywords (phase 6)", typeName, f.jsonName)
+			return "", false, unsupported("%s: conditional on %q combines not with other keywords", typeName, f.jsonName)
 		}
 		members, ok := raw["enum"].([]any)
 		if !ok || len(raw) != 1 {
-			return "", false, fmt.Errorf("%s: conditional on %q negates something other than an enum, which is not supported (phase 6)", typeName, f.jsonName)
+			return "", false, unsupported("%s: conditional on %q negates something other than an enum, which is not supported", typeName, f.jsonName)
 		}
 		expr, _, err := enumTest(typeName, f, prefix, value, members, true)
 		// The Go zero value is outside any excluded set, so an unset field
@@ -187,7 +187,7 @@ func valueTest(typeName, recv string, f structField, sub map[string]any) (expr s
 		kws = append(kws, k)
 	}
 	sort.Strings(kws)
-	return "", false, fmt.Errorf("%s: conditional on %q tests %v, which is not a supported discriminator (phase 6)",
+	return "", false, unsupported("%s: conditional on %q tests %v, which is not a supported discriminator",
 		typeName, f.jsonName, kws)
 }
 
@@ -195,7 +195,7 @@ func valueTest(typeName, recv string, f structField, sub map[string]any) (expr s
 // inequalities when negated.
 func enumTest(typeName string, f structField, prefix, value string, members []any, negated bool) (string, bool, error) {
 	if len(members) == 0 {
-		return "", false, fmt.Errorf("%s: conditional on %q has an empty enum (phase 6)", typeName, f.jsonName)
+		return "", false, unsupported("%s: conditional on %q has an empty enum", typeName, f.jsonName)
 	}
 	op, join := " == ", " || "
 	if negated {
@@ -224,12 +224,12 @@ func conditionalLiteral(typeName string, f structField, v any) (string, error) {
 	switch t := v.(type) {
 	case string:
 		if base != "string" {
-			return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against a string (phase 6)", typeName, f.jsonName, f.goType)
+			return "", unsupported("%s: conditional compares %q (Go type %s) against a string", typeName, f.jsonName, f.goType)
 		}
 		return fmt.Sprintf("%q", t), nil
 	case bool:
 		if base != "bool" {
-			return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against a bool (phase 6)", typeName, f.jsonName, f.goType)
+			return "", unsupported("%s: conditional compares %q (Go type %s) against a bool", typeName, f.jsonName, f.goType)
 		}
 		return fmt.Sprintf("%t", t), nil
 	case float64:
@@ -239,21 +239,21 @@ func conditionalLiteral(typeName string, f structField, v any) (string, error) {
 			// a fractional value has no integer form and the comparison
 			// would fail to compile rather than fail generation.
 			if t != math.Trunc(t) {
-				return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against the fractional number %v (phase 6)", typeName, f.jsonName, f.goType, t)
+				return "", unsupported("%s: conditional compares %q (Go type %s) against the fractional number %v", typeName, f.jsonName, f.goType, t)
 			}
 			// The range is stated as a float64 bound, so it has to be a
 			// float64-exact one: 2^63-1 is not representable and would round
 			// up to 2^63, letting through the one value int64 cannot hold.
 			if t < math.MinInt64 || t >= math.MaxInt64+1 {
-				return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against %v, which does not fit in an int64 (phase 6)", typeName, f.jsonName, f.goType, t)
+				return "", unsupported("%s: conditional compares %q (Go type %s) against %v, which does not fit in an int64", typeName, f.jsonName, f.goType, t)
 			}
 			return fmt.Sprintf("%d", int64(t)), nil
 		case "float64":
 			return formatNumber(t), nil
 		}
-		return "", fmt.Errorf("%s: conditional compares %q (Go type %s) against a number (phase 6)", typeName, f.jsonName, f.goType)
+		return "", unsupported("%s: conditional compares %q (Go type %s) against a number", typeName, f.jsonName, f.goType)
 	}
-	return "", fmt.Errorf("%s: conditional compares %q against an unsupported literal %T (phase 6)", typeName, f.jsonName, v)
+	return "", unsupported("%s: conditional compares %q against an unsupported literal %T", typeName, f.jsonName, v)
 }
 
 // compileConditional emits the guarded checks for every conditional rule
@@ -266,7 +266,11 @@ func conditionalLiteral(typeName string, f structField, v any) (string, error) {
 // and silently dropped the other, so discounts stopped having to be
 // negative.
 func compileConditional(e *fileEmitter, c *constraintSet, typeName string, schema map[string]any, fields []structField) error {
-	if err := compileOneConditional(e, c, typeName, schema, schema, fields); err != nil {
+	// A rule whose shape this compiler does not implement is skipped, not
+	// fatal: leaving it unmarked makes the accounting report it as a gap in
+	// the doc comment and the manifest. See errUnsupportedRule. A rule
+	// skipped here emits nothing, so it can never look enforced.
+	if err := compileOneConditional(e, c, typeName, schema, schema, fields); err != nil && !errors.Is(err, errUnsupportedRule) {
 		return err
 	}
 	branches, _ := schema["allOf"].([]any)
@@ -275,7 +279,7 @@ func compileConditional(e *fileEmitter, c *constraintSet, typeName string, schem
 		if !isObj {
 			continue
 		}
-		if err := compileOneConditional(e, c, typeName, schema, bm, fields); err != nil {
+		if err := compileOneConditional(e, c, typeName, schema, bm, fields); err != nil && !errors.Is(err, errUnsupportedRule) {
 			return fmt.Errorf("allOf branch %d: %w", i, err)
 		}
 	}
@@ -298,7 +302,7 @@ func compileConditional(e *fileEmitter, c *constraintSet, typeName string, schem
 // parent states the property declarations the rule's consequent tightens.
 func compileOneConditional(e *fileEmitter, c *constraintSet, typeName string, owner, node map[string]any, fields []structField) error {
 	if _, hasElse := node["else"]; hasElse {
-		return fmt.Errorf("%s: schema declares else, which is not supported (phase 6)", typeName)
+		return unsupported("%s: schema declares else, which is not supported", typeName)
 	}
 	ifNode, hasIf := node["if"].(map[string]any)
 	thenNode, hasThen := node["then"].(map[string]any)
@@ -306,7 +310,7 @@ func compileOneConditional(e *fileEmitter, c *constraintSet, typeName string, ow
 		return nil
 	}
 	if !hasIf || !hasThen {
-		return fmt.Errorf("%s: schema declares one of if/then without the other (phase 6)", typeName)
+		return unsupported("%s: schema declares one of if/then without the other", typeName)
 	}
 
 	// A request variant is a projection of its response schema: the
@@ -372,7 +376,7 @@ var thenKeywords = map[string]bool{
 func thenChecks(e *fileEmitter, c *constraintSet, typeName string, owner, node map[string]any, fields []structField, when string) (string, error) {
 	for k := range node {
 		if !thenKeywords[k] {
-			return "", fmt.Errorf("%s: conditional then declares %q, which is not supported (phase 6)", typeName, k)
+			return "", unsupported("%s: conditional then declares %q, which is not supported", typeName, k)
 		}
 	}
 
@@ -397,7 +401,7 @@ func thenChecks(e *fileEmitter, c *constraintSet, typeName string, owner, node m
 		for _, name := range names {
 			f, known := byJSON[name]
 			if !known {
-				return "", fmt.Errorf("%s: conditional then requires property %q, which this type does not declare (phase 6)", typeName, name)
+				return "", unsupported("%s: conditional then requires property %q, which this type does not declare", typeName, name)
 			}
 			switch accessFor(f.goType, f.required) {
 			case accessPointer, accessNilable:
@@ -424,7 +428,7 @@ func thenChecks(e *fileEmitter, c *constraintSet, typeName string, owner, node m
 			}
 			f, known := byJSON[name]
 			if !known {
-				return "", fmt.Errorf("%s: conditional then constrains property %q, which this type does not declare (phase 6)", typeName, name)
+				return "", unsupported("%s: conditional then constrains property %q, which this type does not declare", typeName, name)
 			}
 			// A consequent restates only the assertion it tightens —
 			// total.json's is a bare {"exclusiveMaximum": 0} — because the
@@ -585,7 +589,7 @@ func compileContains(e *fileEmitter, c *constraintSet, t target, node map[string
 	_, hasMax := node["maxContains"]
 	if !hasContains {
 		if hasMin || hasMax {
-			return fmt.Errorf("%s: %s declares minContains/maxContains with no contains, which asserts nothing (phase 6)",
+			return unsupported("%s: %s declares minContains/maxContains with no contains, which asserts nothing",
 				t.typeName, subjectOf(t.label))
 		}
 		return nil
@@ -615,11 +619,11 @@ func compileContains(e *fileEmitter, c *constraintSet, t target, node map[string
 
 	items, _ := node["items"].(map[string]any)
 	if items == nil {
-		return fmt.Errorf("%s: %s declares contains on an array with no items schema (phase 6)",
+		return unsupported("%s: %s declares contains on an array with no items schema",
 			t.typeName, subjectOf(t.label))
 	}
 	elemType, err := elementTypeName(e, t, node)
-	if errors.Is(err, errUntypedContainsElement) {
+	if errors.Is(err, errUntypedContainsElement) || errors.Is(err, errUnsupportedRule) {
 		// Leave contains/minContains/maxContains unmarked so the standing
 		// accounting reports them as gaps on this node. Returning nil here
 		// emits no check and claims none.
@@ -691,6 +695,36 @@ func compileContains(e *fileEmitter, c *constraintSet, t target, node map[string
 // create op, so the element type became map[string]any. Failing there would
 // have blocked the whole corpus over one rule the SDK simply cannot check.
 var errUntypedContainsElement = errors.New("contains element has no named type")
+
+// errUnsupportedRule marks a validation-only rule whose SHAPE this compiler
+// does not implement — a conditional guarded by anyOf, an else branch, a
+// discriminator that is not a const or enum, and so on.
+//
+// It used to be a plain error, which failed generation. That was the right
+// default while every such shape was hypothetical: refusing to emit is
+// better than emitting a rule that silently checks nothing. Spec 2026-08-25
+// made one real (common/types/location.json guards a conditional with
+// anyOf), and refusing there would block the entire corpus over a single
+// rule.
+//
+// So these now degrade to the standing treatment for validation-only
+// keywords: the rule is left unmarked, which makes the accounting report it
+// in the generated doc comment and in MANIFEST.json under `unenforced`.
+// Only type-affecting keywords still stop a build, because for those no
+// correct Go type exists at all.
+//
+// The distinction this preserves is between "a shape we have not
+// implemented", which is disclosed and survivable, and an internal
+// inconsistency, which is a bug and still fatal. It used to live in the
+// string "(phase 6)"; it is a sentinel now so the compiler enforces it.
+var errUnsupportedRule = errors.New("unsupported rule shape")
+
+// unsupported builds an errUnsupportedRule-tagged error. Every call site
+// that used to append "(phase 6)" to an fmt.Errorf message uses this
+// instead.
+func unsupported(format string, args ...any) error {
+	return fmt.Errorf("%w: "+format, append([]any{errUnsupportedRule}, args...)...)
+}
 
 // elementTypeName reports the Go type goTypeExpr gives an array's element,
 // stripped of its slice and pointer decoration. fieldsFor needs it both to

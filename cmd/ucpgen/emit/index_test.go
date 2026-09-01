@@ -93,3 +93,38 @@ func emitFromCorpus(t *testing.T, rel string, corpus map[string]map[string]any) 
 	// from the index, so a nil one leaves cross-file inheritance unresolved.
 	return EmitFileWithBreaks(idx, "m", rel, corpus[rel], "release/test@deadbeef", nil, corpus)
 }
+
+func TestIsNamespaceDefAllowsAnnotations(t *testing.T) {
+	// spec 2026-08-25's shopping/fulfillment.json documents its mount
+	// points. A described namespace is still a namespace: before this, the
+	// string value of "description" failed the "every value is a schema"
+	// test, so the def was treated as a schema and emitted as `type X any`
+	// with a Validate method — invalid Go, since an interface cannot be a
+	// receiver, which broke the build for the whole package.
+	described := map[string]any{
+		"description": "Catalog lookup composition with fulfillment.",
+		"$defs": map[string]any{
+			"lookup_request": map[string]any{"$ref": "#/$defs/fulfillment_lookup_request"},
+		},
+	}
+	if !isNamespaceDef(described) {
+		t.Error("a documented namespace is still a namespace")
+	}
+
+	// The guarantee it must not lose: a real schema is never mistaken for a
+	// namespace just because it is documented.
+	schema := map[string]any{
+		"description": "A real object.",
+		"type":        "object",
+		"properties":  map[string]any{"id": map[string]any{"type": "string"}},
+	}
+	if isNamespaceDef(schema) {
+		t.Error("a described schema must not be classified as a namespace")
+	}
+
+	// Nor may a non-schema, non-annotation value be waved through.
+	odd := map[string]any{"description": "x", "weird": 42}
+	if isNamespaceDef(odd) {
+		t.Error("a def holding a non-schema value is not a namespace")
+	}
+}

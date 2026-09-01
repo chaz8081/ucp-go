@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Availability of an item: whether it can be obtained, and a qualifying status.",
+  "properties": {
+    "available": {
+      "description": "Whether this can be obtained. See status for fulfillment details.",
+      "type": "boolean"
+    },
+    "status": {
+      "description": "Qualifies available with fulfillment state. Well-known values: `in_stock`, `backorder`, `preorder`, `out_of_stock`, `discontinued`.",
+      "type": "string"
+    }
+  },
+  "title": "Availability",
+  "type": "object"
+}

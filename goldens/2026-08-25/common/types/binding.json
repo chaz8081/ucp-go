@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Binds a credential or token to a specific capability resource. Prevents reuse across different resources.",
+  "properties": {
+    "id": {
+      "description": "Opaque identifier of the bound resource within the owning capability, for example a checkout identifier.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "type": {
+      "$ref": "reverse_domain_name.json",
+      "description": "The capability that owns the bound resource, for example dev.ucp.shopping.checkout. MUST be a capability name declared in the UCP namespace."
+    }
+  },
+  "required": [
+    "id",
+    "type"
+  ],
+  "title": "Binding",
+  "type": "object"
+}

@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -383,6 +384,23 @@ func declaredCheckable(node map[string]any) []string {
 	return out
 }
 
+// asString converts a value expression for the stdlib string functions.
+//
+// A property whose schema is an enum or has a const gets its own named
+// string type, and `utf8.RuneCountInString` and `Regexp.MatchString` both
+// take `string` exactly — a named type with string as its underlying type
+// is not assignable to it. spec 2026-08-25's transports/embedded_message
+// is the first schema to put minLength on such a property
+// (EmbeddedMessageMethod), so the mismatch had never been reachable.
+//
+// The conversion is written unconditionally rather than only for named
+// types: `string(s)` where s is already a string is a no-op the compiler
+// erases, and deciding per call site would need type information this
+// layer does not carry.
+func asString(value string) string {
+	return "string(" + value + ")"
+}
+
 func compileLength(e *fileEmitter, c *constraintSet, t target, node map[string]any, kw, guard, value string) error {
 	n, err := integerBound(t, node, kw)
 	if err != nil {
@@ -394,7 +412,7 @@ func compileLength(e *fileEmitter, c *constraintSet, t target, node map[string]a
 	if kw == "minLength" {
 		op, wording = "<", "is shorter than minLength"
 	}
-	c.check(guard, fmt.Sprintf("utf8.RuneCountInString(%s) %s %d", value, op, n),
+	c.check(guard, fmt.Sprintf("utf8.RuneCountInString(%s) %s %d", asString(value), op, n),
 		fmt.Sprintf("%s: %s %d", t.label, wording, n))
 	return nil
 }
@@ -410,7 +428,7 @@ func compilePattern(e *fileEmitter, c *constraintSet, t target, node map[string]
 	}
 	// JSON Schema pattern is an unanchored search, so MatchString (not a
 	// full-string match) is intentional.
-	c.check(guard, fmt.Sprintf("!%s().MatchString(%s)", name, value),
+	c.check(guard, fmt.Sprintf("!%s().MatchString(%s)", name, asString(value)),
 		fmt.Sprintf("%s: does not match pattern", t.label))
 	return nil
 }
@@ -563,7 +581,7 @@ func compileArray(e *fileEmitter, c *constraintSet, t target, node map[string]an
 		e.enforced.mark(node, "uniqueItems")
 	}
 
-	if err := compileContains(e, c, t, node); err != nil {
+	if err := compileContains(e, c, t, node); err != nil && !errors.Is(err, errUnsupportedRule) {
 		return err
 	}
 

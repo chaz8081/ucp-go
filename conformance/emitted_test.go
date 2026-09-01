@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	commontypes "github.com/chaz8081/ucp-go/common/types"
 	"github.com/chaz8081/ucp-go/shopping"
-	"github.com/chaz8081/ucp-go/shopping/types"
+	shoppingtypes "github.com/chaz8081/ucp-go/shopping/types"
 )
 
 // validCheckoutJSON is a checkout that satisfies checkout.json in full.
@@ -38,7 +39,7 @@ func TestModelsRoundTrip(t *testing.T) {
 	}
 
 	// Fields inherited through a cross-file allOf must survive a round trip.
-	var d types.ShippingDestination
+	var d shoppingtypes.ShippingDestination
 	if err := json.Unmarshal([]byte(`{"id":"d1","street_address":"1 Main St","postal_code":"12345"}`), &d); err != nil {
 		t.Fatalf("shipping_destination decode: %v", err)
 	}
@@ -58,7 +59,7 @@ func TestModelsRoundTrip(t *testing.T) {
 
 	// UCP is extension-first: an open object exists so extensions can
 	// contribute keys the base schema never lists.
-	var sig types.Signals
+	var sig commontypes.Signals
 	if err := json.Unmarshal([]byte(`{"dev.ucp.buyer_ip":"1.2.3.4","com.example.device_id":"abc"}`), &sig); err != nil {
 		t.Fatalf("signals decode: %v", err)
 	}
@@ -106,15 +107,15 @@ func TestPrimaryTypesCanValidate(t *testing.T) {
 // only by luck, because the empty string fails its pattern — which is why
 // the rule cannot live in Validate.
 func TestBareNullRejected(t *testing.T) {
-	var a types.Amount
+	var a commontypes.Amount
 	if err := json.Unmarshal([]byte(`null`), &a); err == nil {
 		t.Error("Amount decoded a bare null; the schema is type: integer")
 	}
-	var tot types.Totals
+	var tot commontypes.Totals
 	if err := json.Unmarshal([]byte(`null`), &tot); err == nil {
 		t.Error("Totals decoded a bare null; the schema is type: array")
 	}
-	var code types.ErrorCode
+	var code commontypes.ErrorCode
 	if err := json.Unmarshal([]byte(`null`), &code); err == nil {
 		t.Error("ErrorCode decoded a bare null; the schema is type: string")
 	}
@@ -122,7 +123,7 @@ func TestBareNullRejected(t *testing.T) {
 	// A required property of one of these types is a value, not a pointer,
 	// so its decoder runs and the null is rejected there rather than
 	// reaching Validate. total.json requires amount.
-	var tl types.Total
+	var tl commontypes.Total
 	if err := json.Unmarshal([]byte(`{"amount":null,"type":"subtotal"}`), &tl); err == nil {
 		t.Error("Total accepted null for its required amount")
 	}
@@ -153,7 +154,7 @@ const validTotalsJSON = `[{"type":"subtotal","amount":1000,"display_text":"Subto
 // has started rejecting payloads the spec allows.
 func TestOptionalNullStillAccepted(t *testing.T) {
 	// price_filter.json makes both of its Amount properties optional.
-	var pf types.PriceFilter
+	var pf commontypes.PriceFilter
 	if err := json.Unmarshal([]byte(`{"max":null,"min":null}`), &pf); err != nil {
 		t.Fatalf("PriceFilter rejected an explicit null for its optional Amounts: %v", err)
 	}
@@ -165,7 +166,7 @@ func TestOptionalNullStillAccepted(t *testing.T) {
 	}
 
 	// Absence must behave identically to an explicit null.
-	var absent types.PriceFilter
+	var absent commontypes.PriceFilter
 	if err := json.Unmarshal([]byte(`{}`), &absent); err != nil {
 		t.Fatalf("PriceFilter rejected an absent optional: %v", err)
 	}
@@ -174,7 +175,7 @@ func TestOptionalNullStillAccepted(t *testing.T) {
 	}
 
 	// A real value still reaches the decoder and is kept.
-	var set types.PriceFilter
+	var set commontypes.PriceFilter
 	if err := json.Unmarshal([]byte(`{"max":5000}`), &set); err != nil {
 		t.Fatalf("PriceFilter rejected a real optional value: %v", err)
 	}
@@ -187,7 +188,7 @@ func TestOptionalNullStillAccepted(t *testing.T) {
 	// emitter would produce for one, which is what a spec release adding
 	// such a property would ship.
 	var opt struct {
-		Totals *types.Totals `json:"totals,omitzero"`
+		Totals *commontypes.Totals `json:"totals,omitzero"`
 	}
 	if err := json.Unmarshal([]byte(`{"totals":null}`), &opt); err != nil {
 		t.Fatalf("an optional Totals rejected an explicit null: %v", err)

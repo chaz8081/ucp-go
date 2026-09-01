@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A price range representing minimum and maximum values (e.g., a common example in retail shopping is when prices vary across product variants).",
+  "properties": {
+    "max": {
+      "$ref": "price.json",
+      "description": "Maximum price in the range."
+    },
+    "min": {
+      "$ref": "price.json",
+      "description": "Minimum price in the range."
+    }
+  },
+  "required": [
+    "max",
+    "min"
+  ],
+  "title": "Price Range",
+  "type": "object"
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "dependentRequired": {
+    "closes": [
+      "opens"
+    ],
+    "opens": [
+      "closes"
+    ]
+  },
+  "description": "Reusable opening and closing time fields for a containing schedule schema. Containing schemas determine whether the `opens` and `closes` pair is required; this fragment's standalone `{}` is not an interval.",
+  "properties": {},
+  "required": [],
+  "title": "Time Interval Update Request",
+  "type": "object"
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Line item object. Expected to use the currency of the parent object.",
+  "properties": {
+    "item": {
+      "$ref": "item_create_request.json"
+    },
+    "quantity": {
+      "description": "Always an integer step count. On Platform requests, steps use the item's Business-authoritative sale basis; omitting `item.quantity_unit` makes no assertion and does not imply `each`. On Business responses, `item.quantity_unit` describes the basis; if absent, it encodes the `each` machine identity (`C62`, 0) and `quantity` counts whole items.",
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "item",
+    "quantity"
+  ],
+  "title": "Line Item Create Request",
+  "type": "object"
+}

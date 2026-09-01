@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "agent_card": {
+      "additionalProperties": true,
+      "description": "A2A Agent Card fragment advertising UCP support through extensions.",
+      "properties": {
+        "extensions": {
+          "items": {
+            "$ref": "#/$defs/extension"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "extensions"
+      ],
+      "type": "object"
+    },
+    "extension": {
+      "additionalProperties": true,
+      "description": "A2A Agent Card extension advertisement for UCP.",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "Extension parameters such as advertised UCP capabilities.",
+          "type": "object"
+        },
+        "uri": {
+          "description": "Extension URI. UCP uses its versioned reference URI.",
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri"
+      ],
+      "type": "object"
+    },
+    "message": {
+      "additionalProperties": true,
+      "description": "A2A Message carrying natural-language or structured UCP data parts.",
+      "properties": {
+        "contextId": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "message",
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "parts": {
+          "items": {
+            "$ref": "#/$defs/part"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "role": {
+          "description": "Message sender role.",
+          "enum": [
+            "user",
+            "agent"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "contextId",
+        "kind",
+        "messageId",
+        "parts",
+        "role"
+      ],
+      "type": "object"
+    },
+    "message_request": {
+      "allOf": [
+        {
+          "$ref": "jsonrpc.json#/$defs/request"
+        }
+      ],
+      "description": "A2A message/send JSON-RPC request whose params carry a UCP-bearing Message from the platform to the business agent.",
+      "properties": {
+        "method": {
+          "const": "message/send"
+        },
+        "params": {
+          "additionalProperties": true,
+          "properties": {
+            "message": {
+              "$ref": "#/$defs/message"
+            }
+          },
+          "required": [
+            "message"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "params"
+      ],
+      "type": "object"
+    },
+    "message_response": {
+      "allOf": [
+        {
+          "$ref": "jsonrpc.json#/$defs/success_response"
+        }
+      ],
+      "description": "JSON-RPC success response whose result is an A2A Message from the business agent.",
+      "properties": {
+        "result": {
+          "$ref": "#/$defs/message"
+        }
+      },
+      "type": "object"
+    },
+    "part": {
+      "additionalProperties": true,
+      "description": "A2A message part. UCP examples use text parts for natural language and data parts for structured UCP payloads.",
+      "properties": {
+        "data": {
+          "description": "Structured data payload. UCP reserves a2a.ucp.* keys for UCP payloads.",
+          "type": "object"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Minimal A2A envelope shapes used by UCP's A2A checkout binding. This schema validates UCP's transport mapping points — Agent Card extension advertisement, inbound A2A Message requests, and JSON-RPC responses carrying A2A Message results — without attempting to re-specify the full A2A protocol.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/agent_card"
+    },
+    {
+      "$ref": "#/$defs/message_request"
+    },
+    {
+      "$ref": "#/$defs/message_response"
+    }
+  ],
+  "title": "A2A UCP Message Envelope"
+}

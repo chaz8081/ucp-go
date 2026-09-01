@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "time_interval.json"
+    }
+  ],
+  "description": "A date-specific operating interval or full closure. Its `valid_from`, `valid_through`, `opens`, and `closes` are local civil values interpreted in the containing Location's `timezone`. Date bounds are inclusive.",
+  "properties": {
+    "title": {
+      "description": "A short human-readable heading naming the exception (for example, 'Thanksgiving'). Presentation metadata that does not affect schedule evaluation.",
+      "type": "string",
+      "ucp_request": "omit"
+    },
+    "valid_from": {
+      "description": "The first local civil date to which this exception applies, interpreted in the containing Location's `timezone`.",
+      "format": "date",
+      "type": "string",
+      "ucp_request": "omit"
+    },
+    "valid_through": {
+      "description": "The last local civil date to which this exception applies, interpreted in the containing Location's `timezone`.",
+      "format": "date",
+      "type": "string",
+      "ucp_request": "omit"
+    }
+  },
+  "required": [
+    "valid_from",
+    "valid_through"
+  ],
+  "title": "Exception Hour",
+  "type": "object"
+}

@@ -1,0 +1,41 @@
+{
+  "$defs": {
+    "instance": {
+      "additionalProperties": true,
+      "description": "Common fields for one outstanding Action instance are id and optional config. The extension declaring the Action type defines type-specific processing data under config. Additional properties are permitted for forward compatibility.",
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "description": "Configuration defined by the extension that declares this Action type.",
+          "type": "object",
+          "ucp_request": "omit"
+        },
+        "id": {
+          "description": "Identifier for this Action instance.",
+          "minLength": 1,
+          "type": "string",
+          "ucp_request": "omit"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": {
+    "description": "Non-empty instances of one Action type. JSON preserves array order; the declaring extension defines whether order has processing semantics.",
+    "items": {
+      "$ref": "#/$defs/instance"
+    },
+    "minItems": 1,
+    "type": "array"
+  },
+  "description": "Outstanding extension-defined Action instances, keyed by reverse-domain Action type, not extension name.",
+  "propertyNames": {
+    "$ref": "reverse_domain_name.json"
+  },
+  "title": "Actions",
+  "type": "object"
+}
