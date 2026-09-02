@@ -53,8 +53,8 @@ func (v *FulfillmentMethod) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
-	v.present = make(map[string]bool, 3)
-	for _, name := range []string{"id", "line_item_ids", "type"} {
+	v.present = make(map[string]bool, 4)
+	for _, name := range []string{"destinations", "id", "line_item_ids", "type"} {
 		if _, ok := all[name]; ok {
 			v.present[name] = true
 		}
@@ -108,6 +108,11 @@ func (v *FulfillmentMethod) Validate() error {
 		}
 		if !v.present["type"] {
 			return errors.New("type: required property is missing")
+		}
+	}
+	if v.present != nil {
+		if v.present["destinations"] && !v.present["type"] {
+			return errors.New("type: required when destinations is present")
 		}
 	}
 	for i := range v.Destinations {

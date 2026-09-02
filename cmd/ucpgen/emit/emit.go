@@ -1230,7 +1230,10 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		body.WriteString("\tExtra map[string]json.RawMessage `json:\"-\"`\n")
 	}
 	req := requiredNames(fields)
-	if len(req) > 0 {
+	// The record must cover dependentRequired's participants too, not only
+	// the unconditionally required ones — see presenceNames.
+	tracked := presenceNames(schema, fields)
+	if len(tracked) > 0 {
 		e.imports["encoding/json"] = "json"
 		renderPresenceField(body)
 	}
@@ -1241,10 +1244,10 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 		// One UnmarshalJSON per type: an open object's decoder carries the
 		// presence capture rather than getting a second one of its own.
 		e.usesErrors = true // the decoder's null guard
-		renderExtraCodec(body, typeName, names, fieldNames, req)
-	case len(req) > 0:
+		renderExtraCodec(body, typeName, names, fieldNames, tracked)
+	case len(tracked) > 0:
 		e.usesErrors = true // the decoder's null guard
-		renderPresenceCodec(body, typeName, req)
+		renderPresenceCodec(body, typeName, tracked)
 	default:
 		// A closed object requiring nothing still must not accept null.
 		// See renderNullOnlyObjectCodec.
@@ -1254,6 +1257,9 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	}
 
 	compilePresenceChecks(e, &c, req)
+	if err := compileDependentRequired(e, &c, schema, fields); err != nil {
+		return err
+	}
 	renderValidate(body, typeName, &c)
 	return nil
 }

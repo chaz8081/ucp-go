@@ -23,6 +23,11 @@ type TimeInterval struct {
 	// open (additionalProperties is not false), so extension keys are
 	// preserved here and re-emitted on marshal rather than dropped.
 	Extra map[string]json.RawMessage `json:"-"`
+
+	// present records which properties the decoder saw, so a required
+	// property that was absent can be told from one decoded to its zero
+	// value. A nil map means this value was never decoded from JSON.
+	present map[string]bool
 }
 
 // UnmarshalJSON decodes the named properties and keeps everything else
@@ -41,6 +46,12 @@ func (v *TimeInterval) UnmarshalJSON(data []byte) error {
 	var all map[string]json.RawMessage
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
+	}
+	v.present = make(map[string]bool, 2)
+	for _, name := range []string{"closes", "opens"} {
+		if _, ok := all[name]; ok {
+			v.present[name] = true
+		}
 	}
 	delete(all, "closes")
 	delete(all, "opens")
@@ -82,6 +93,14 @@ var pattern_TimeInterval_Opens = sync.OnceValue(func() *regexp.Regexp { return r
 
 // Validate reports the first constraint violation, or nil.
 func (v *TimeInterval) Validate() error {
+	if v.present != nil {
+		if v.present["closes"] && !v.present["opens"] {
+			return errors.New("opens: required when closes is present")
+		}
+		if v.present["opens"] && !v.present["closes"] {
+			return errors.New("closes: required when opens is present")
+		}
+	}
 	if v.Closes != nil && !pattern_TimeInterval_Closes().MatchString(string(*v.Closes)) {
 		return errors.New("closes: does not match pattern")
 	}

@@ -57,8 +57,8 @@ func (v *ExceptionHour) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
-	v.present = make(map[string]bool, 2)
-	for _, name := range []string{"valid_from", "valid_through"} {
+	v.present = make(map[string]bool, 4)
+	for _, name := range []string{"closes", "opens", "valid_from", "valid_through"} {
 		if _, ok := all[name]; ok {
 			v.present[name] = true
 		}
@@ -112,6 +112,14 @@ func (v *ExceptionHour) Validate() error {
 		}
 		if !v.present["valid_through"] {
 			return errors.New("valid_through: required property is missing")
+		}
+	}
+	if v.present != nil {
+		if v.present["closes"] && !v.present["opens"] {
+			return errors.New("opens: required when closes is present")
+		}
+		if v.present["opens"] && !v.present["closes"] {
+			return errors.New("closes: required when opens is present")
 		}
 	}
 	if v.Closes != nil && !pattern_ExceptionHour_Closes().MatchString(string(*v.Closes)) {

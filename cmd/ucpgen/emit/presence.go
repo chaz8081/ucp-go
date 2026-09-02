@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -108,4 +109,123 @@ func renderNullOnlyObjectCodec(body *strings.Builder, typeName string) {
 	fmt.Fprintf(body, "\n// UnmarshalJSON rejects a bare null. encoding/json treats null as a\n// no-op for every Go type, so without this a null document would decode\n// to the zero value and validate as though it were a real object.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
 	writeNullGuard(body, typeName, "object")
 	fmt.Fprintf(body, "\ttype %s %s\n\tvar named %s\n\tif err := json.Unmarshal(data, &named); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(named)\n\treturn nil\n}\n", alias, typeName, alias, typeName)
+}
+
+// dependentRequiredRules returns the schema's dependentRequired entries in a
+// deterministic order, as (trigger, required) pairs.
+//
+// JSON Schema: if the trigger property is PRESENT, every name in its list
+// must be present too. Absence of the trigger asserts nothing — which is
+// why this is a presence rule and not a required-property rule, and why it
+// can only be checked on a value that was decoded.
+func dependentRequiredRules(schema map[string]any) [][2]any {
+	raw, ok := schema["dependentRequired"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	triggers := make([]string, 0, len(raw))
+	for name := range raw {
+		triggers = append(triggers, name)
+	}
+	sort.Strings(triggers)
+
+	var out [][2]any
+	for _, trigger := range triggers {
+		list, isList := raw[trigger].([]any)
+		if !isList {
+			continue
+		}
+		names := make([]string, 0, len(list))
+		for _, n := range list {
+			if s, isStr := n.(string); isStr {
+				names = append(names, s)
+			}
+		}
+		sort.Strings(names)
+		if len(names) > 0 {
+			out = append(out, [2]any{trigger, names})
+		}
+	}
+	return out
+}
+
+// presenceNames returns every property whose presence the decoder must
+// record: the unconditionally required ones, plus every property named by a
+// dependentRequired rule.
+//
+// The two sets are tracked together but checked apart. A schema can carry a
+// dependentRequired rule while requiring nothing outright — common/types/
+// time_interval makes `opens` and `closes` require each other and neither
+// on its own — and such a type used to get no presence record at all,
+// leaving the rule with nothing to read.
+func presenceNames(schema map[string]any, fields []structField) []string {
+	seen := map[string]bool{}
+	for _, name := range requiredNames(fields) {
+		seen[name] = true
+	}
+	declared := map[string]bool{}
+	for _, f := range fields {
+		declared[f.jsonName] = true
+	}
+	for _, rule := range dependentRequiredRules(schema) {
+		trigger := rule[0].(string)
+		if !declared[trigger] {
+			continue
+		}
+		for _, name := range rule[1].([]string) {
+			if declared[name] {
+				seen[name] = true
+			}
+		}
+		seen[trigger] = true
+	}
+	out := make([]string, 0, len(seen))
+	for name := range seen {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// compileDependentRequired emits the conditional presence checks.
+//
+// Guarded on `v.present != nil` like every other presence check: a value
+// built in Go rather than decoded has no record, and reporting a dependency
+// unmet on one would fail every hand-constructed request. A decoded value
+// always has the record, so the rule holds exactly where it can be judged.
+func compileDependentRequired(e *fileEmitter, c *constraintSet, schema map[string]any, fields []structField) error {
+	rules := dependentRequiredRules(schema)
+	if len(rules) == 0 {
+		return nil
+	}
+	declared := map[string]bool{}
+	for _, f := range fields {
+		declared[f.jsonName] = true
+	}
+	var body strings.Builder
+	for _, rule := range rules {
+		trigger := rule[0].(string)
+		if !declared[trigger] {
+			// A request variant drops properties while keeping the rules, so
+			// a rule can name a property this type no longer has. Nothing to
+			// bind it to; leaving the keyword unmarked reports it.
+			return nil
+		}
+		for _, name := range rule[1].([]string) {
+			if !declared[name] {
+				return nil
+			}
+			fmt.Fprintf(&body, "if v.present[%q] && !v.present[%q] {\nreturn errors.New(%q)\n}\n",
+				trigger, name, fmt.Sprintf("%s: required when %s is present", name, trigger))
+		}
+	}
+	if body.Len() == 0 {
+		return nil
+	}
+	e.usesErrors = true
+	c.presence.WriteString("if v.present != nil {\n")
+	c.presence.WriteString(body.String())
+	c.presence.WriteString("}\n")
+	e.enforced.mark(schema, "dependentRequired")
+	return nil
 }
