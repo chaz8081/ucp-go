@@ -185,12 +185,7 @@
       "type": "Actions",
       "package": "types",
       "file": "common/types/actions.go",
-      "fields": 0,
-      "unenforced": {
-        "Actions.Actions_value": [
-          "minItems"
-        ]
-      }
+      "fields": 0
     },
     "common/types/amenity_type.json": {
       "type": "AmenityType",
@@ -220,12 +215,7 @@
       "type": "BusinessSplitPaymentsConfig",
       "package": "types",
       "file": "common/types/business_split_payments_config.go",
-      "fields": 1,
-      "unenforced": {
-        "BusinessSplitPaymentsConfig.allowed_combinations_item": [
-          "minItems"
-        ]
-      }
+      "fields": 1
     },
     "common/types/card_credential.json": {
       "type": "CardCredential",

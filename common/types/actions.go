@@ -37,8 +37,13 @@ var pattern_Actions_Key = sync.OnceValue(func() *regexp.Regexp {
 
 // Validate reports the first constraint violation, or nil.
 func (v *Actions) Validate() error {
-	for k := range *v {
-		if !pattern_Actions_Key().MatchString(string(k)) {
+	for _, k := range *v {
+		if len(k) < 1 {
+			return errors.New("Actions value: has fewer than minItems 1")
+		}
+	}
+	for k2 := range *v {
+		if !pattern_Actions_Key().MatchString(string(k2)) {
 			return errors.New("Actions property name: does not match pattern")
 		}
 	}
