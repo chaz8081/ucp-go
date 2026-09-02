@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path"
 	"sort"
 )
 
@@ -25,10 +26,20 @@ type fileEmitter struct {
 	// referenced property without restating its type, and only the
 	// referenced document says what that type is. Nil outside a full
 	// corpus run, where such a lookup fails loudly rather than guessing.
-	corpus  map[string]map[string]any
-	pkg     string            // package it belongs to
-	prefix  string            // type-name prefix for nested types
-	imports map[string]string // import path -> package name
+	corpus map[string]map[string]any
+	pkg    string // package it belongs to
+	// imp is the import path of the package this file belongs to. Package
+	// NAMES are not unique — spec 2026-08-25 has both common/types and
+	// shopping/types, each declaring `package types` — so identity has to be
+	// the path. Comparing names made a reference from shopping/types into
+	// common/types look local, and it was emitted unqualified.
+	imp    string
+	prefix string // type-name prefix for nested types
+	// imports maps an import path to the LOCAL name this file refers to it
+	// by, which is the package name unless that name is already taken — by
+	// this file's own package or another import — in which case it is an
+	// alias. See localNameFor.
+	imports map[string]string
 	nested  []nestedType
 	// nestedSchemas maps a generated nested type name to the schema that
 	// produced it, so a reused name with a different shape is caught.
@@ -77,6 +88,7 @@ func newFileEmitterWithBreaks(idx *TypeIndex, rel, pkg string, breaks map[string
 		presenceGated: map[string]bool{},
 		breaks:        breaks,
 	}
+	_, e.imp = PackageForSchema(rel, idx.modulePath)
 	// Nested type names hang off the enclosing type, so a file's inline
 	// objects are namespaced by whatever type encloses them. Callers
 	// rendering a $def override this per type.
@@ -89,11 +101,55 @@ func newFileEmitterWithBreaks(idx *TypeIndex, rel, pkg string, breaks map[string
 // qualify renders a resolved type reference as it must appear in this file,
 // recording an import when the target lives in another package.
 func (e *fileEmitter) qualify(ref TypeRef) string {
-	if ref.Package == e.pkg {
+	// Import path, not package name. Two directories may share a basename
+	// and therefore a package name while being different packages.
+	if ref.ImportPath == e.imp {
 		return ref.Name
 	}
-	e.imports[ref.ImportPath] = ref.Package
-	return ref.Package + "." + ref.Name
+	return e.localNameFor(ref.ImportPath, ref.Package) + "." + ref.Name
+}
+
+// localNameFor returns the name this file uses for an imported package,
+// recording the import. It is the package's own name where that is
+// unambiguous, and a path-derived alias where it is not.
+//
+// Ambiguity is real here rather than hypothetical: common/types and
+// shopping/types both declare `package types`, so a file importing both —
+// or a file in one of them importing the other — cannot write `types.X` and
+// mean anything definite. The alias prefixes the parent directory
+// ("commontypes"), which is stable, derived only from the path, and
+// therefore identical on every run.
+func (e *fileEmitter) localNameFor(importPath, pkgName string) string {
+	if name, ok := e.imports[importPath]; ok {
+		return name
+	}
+	taken := func(name string) bool {
+		if name == e.pkg {
+			return true
+		}
+		for _, used := range e.imports {
+			if used == name {
+				return true
+			}
+		}
+		return false
+	}
+	name := pkgName
+	if taken(name) {
+		// Prefix the parent directory: ".../common/types" -> "commontypes".
+		parent := path.Base(path.Dir(importPath))
+		if parent != "" && parent != "." && parent != "/" && parent != pkgName {
+			name = parent + pkgName
+		}
+		// A second collision would be a repository laid out with three
+		// same-named leaves under same-named parents. Numbering keeps the
+		// output valid rather than silently ambiguous.
+		for i := 2; taken(name); i++ {
+			name = fmt.Sprintf("%s%d", pkgName, i)
+		}
+	}
+	e.imports[importPath] = name
+	return name
 }
 
 // sortedImports returns the recorded import paths in a stable order.

@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "search_request": {
+      "description": "Request body for location search. The `distance` and `serves` relations and every supplied `filters` predicate combine with AND; `query` does not relax them.",
+      "properties": {
+        "context": {
+          "$ref": "types/context.json"
+        },
+        "distance": {
+          "$ref": "types/location_distance.json",
+          "description": "Optional explicit-center radius predicate. When present, it combines with `serves` and every supplied `filters` predicate using AND.",
+          "ucp_request": "optional"
+        },
+        "filters": {
+          "$ref": "types/location_filter.json"
+        },
+        "pagination": {
+          "$ref": "types/pagination.json#/$defs/request"
+        },
+        "query": {
+          "description": "Free-text search query for natural language location search (e.g., 'restaurants near me that deliver', 'hotels with pool').",
+          "type": "string"
+        },
+        "serves": {
+          "$ref": "types/location_serves.json",
+          "description": "Optional authoritative service-target predicate. When present, it combines with `distance` and every supplied `filters` predicate using AND.",
+          "ucp_request": "optional"
+        },
+        "signals": {
+          "$ref": "types/signals.json"
+        }
+      },
+      "type": "object"
+    },
+    "search_response": {
+      "properties": {
+        "locations": {
+          "description": "Locations matching the search criteria.",
+          "items": {
+            "$ref": "types/location.json"
+          },
+          "type": "array"
+        },
+        "messages": {
+          "description": "Errors, warnings, or informational messages about the search results.",
+          "items": {
+            "$ref": "types/message.json"
+          },
+          "type": "array"
+        },
+        "pagination": {
+          "$ref": "types/pagination.json#/$defs/response"
+        },
+        "ucp": {
+          "$ref": "../ucp.json#/$defs/response_location_schema"
+        }
+      },
+      "required": [
+        "locations",
+        "ucp"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Location search capability. Supports natural language queries, distance and serviceability relations, structured filtering including current item availability, and pagination.",
+  "name": "dev.ucp.common.location.search",
+  "title": "Location Search",
+  "type": "object"
+}

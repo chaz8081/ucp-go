@@ -1,0 +1,282 @@
+{
+  "$defs": {
+    "cart": {
+      "allOf": [
+        {
+          "$ref": "../shopping/cart.json"
+        }
+      ],
+      "description": "Cart extended with Loyalty capability.",
+      "properties": {
+        "loyalty": {
+          "$ref": "#/$defs/loyalty",
+          "ucp_request": "omit"
+        }
+      },
+      "title": "Cart with Loyalty",
+      "type": "object"
+    },
+    "checkout": {
+      "allOf": [
+        {
+          "$ref": "../shopping/checkout.json"
+        }
+      ],
+      "description": "Checkout extended with Loyalty capability.",
+      "properties": {
+        "loyalty": {
+          "$ref": "#/$defs/loyalty",
+          "ucp_request": "omit"
+        }
+      },
+      "title": "Checkout with Loyalty",
+      "type": "object"
+    },
+    "earning_breakdown": {
+      "description": "Breakdown rule of the reward earnings",
+      "properties": {
+        "amount": {
+          "$ref": "#/$defs/reward_amount",
+          "description": "Rewards earned from this rule."
+        },
+        "benefit_id": {
+          "description": "Optional `id` of the membership_tier_benefit that produced this rewards rule. Resolves against `membership_tier_benefit.id` within the same parent loyalty membership.",
+          "type": "string"
+        },
+        "description": {
+          "description": "A display-ready, human-readable rationale for the specific rewards (e.g. 2x on footwear).",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique rewards breakdown rule identifier.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "description",
+        "id"
+      ],
+      "type": "object"
+    },
+    "earning_forecast": {
+      "description": "Preview of rewards to be earned from the current transaction.",
+      "properties": {
+        "amount": {
+          "$ref": "#/$defs/reward_amount",
+          "description": "Total rewards to be earned if the transaction completes."
+        },
+        "breakdown": {
+          "description": "List of breakdown of earning contributing to the total.",
+          "items": {
+            "$ref": "#/$defs/earning_breakdown"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "amount"
+      ],
+      "type": "object"
+    },
+    "lookup": {
+      "description": "Catalog Lookup response extended with Loyalty capability.",
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "../shopping/catalog_lookup.json#/$defs/lookup_response"
+            }
+          ],
+          "properties": {
+            "loyalty": {
+              "$ref": "#/$defs/loyalty",
+              "ucp_request": "omit"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "../shopping/catalog_lookup.json#/$defs/get_product_response"
+            }
+          ],
+          "properties": {
+            "loyalty": {
+              "$ref": "#/$defs/loyalty",
+              "ucp_request": "omit"
+            }
+          },
+          "type": "object"
+        }
+      ],
+      "title": "Catalog Lookup with Loyalty"
+    },
+    "loyalty": {
+      "additionalProperties": {
+        "$ref": "#/$defs/loyalty_membership",
+        "description": "Payload that describes the membership information corresponding to the claim.",
+        "ucp_request": "omit"
+      },
+      "description": "Key-value map whose keys represent buyer/platform asserted eligibility claims and whose values represent associated membership information. All loyalty keys MUST use reverse-domain naming to ensure provenance and prevent collisions when multiple extensions contribute to the shared namespace.",
+      "propertyNames": {
+        "$ref": "types/reverse_domain_name.json",
+        "description": "Reverse-domain identifier that represents eligibility claim accepted by the Business for this membership."
+      },
+      "type": "object"
+    },
+    "loyalty_membership": {
+      "description": "Loyalty membership the business has accepted for the eligibility claim represented by the parent map key. Programs that can be joined independently MUST be modeled as separate sibling entries under the loyalty map, distinguished by reverse-domain naming (e.g., 'com.example.rewards' and 'com.example.rewards.card').",
+      "properties": {
+        "display_id": {
+          "description": "A masked or partial version of the membership id for user recognition (e.g., '****5678'). MUST NOT be set if the membership has not been verified.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique loyalty membership identifier.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Business specific name of the loyalty membership/program.",
+          "type": "string"
+        },
+        "provisional": {
+          "description": "True if this membership requires additional verification.",
+          "type": "boolean"
+        },
+        "rewards": {
+          "description": "Reward types and earning forecasts associated with this membership. Each object encapsulates one type of reward.",
+          "items": {
+            "$ref": "#/$defs/membership_reward"
+          },
+          "type": "array"
+        },
+        "tiers": {
+          "description": "Active or display-safe tier context for this membership. Most programs are single-status (one entry); programs with parallel status dimensions (e.g., current and lifetime) populate one entry per active tier. Omitted when no tier context has been resolved.",
+          "items": {
+            "$ref": "#/$defs/membership_tier"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "provisional"
+      ],
+      "type": "object"
+    },
+    "membership_reward": {
+      "description": "Quantifiable reward type and optional earning forecast for the current transaction.",
+      "properties": {
+        "currency": {
+          "$ref": "#/$defs/reward_currency",
+          "description": "A unit of value that customers can accumulate through various commercial activities.",
+          "type": "object"
+        },
+        "earning_forecast": {
+          "$ref": "#/$defs/earning_forecast",
+          "description": "Preview of rewards to be earned from the current transaction.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "currency"
+      ],
+      "type": "object"
+    },
+    "membership_tier": {
+      "description": "Specific achievement rank or status milestone that unlocks escalating value as a member progresses through activity or spend.",
+      "properties": {
+        "benefits": {
+          "description": "List of benefits associated with this tier.",
+          "items": {
+            "$ref": "#/$defs/membership_tier_benefit"
+          },
+          "type": "array"
+        },
+        "id": {
+          "description": "Unique identifier for the membership tier.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The human-readable name of the tier (e.g., 'Platinum').",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "membership_tier_benefit": {
+      "description": "Benefits associated with a membership tier.",
+      "properties": {
+        "description": {
+          "description": "A display-ready, human-readable explanation of this benefit (e.g. 'Early access to sales').",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique identifier for the tier benefit.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "id"
+      ],
+      "type": "object"
+    },
+    "reward_amount": {
+      "description": "Non-negative integer amount denominated in the minor unit of the associated reward currency. The associated reward currency's `decimal_places` defines the minor-to-major ratio and defaults to 0 when omitted.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "reward_currency": {
+      "description": "The currency of the loyalty reward.",
+      "properties": {
+        "code": {
+          "description": "Business-specific representation of the currency (e.g. 'LST').",
+          "type": "string"
+        },
+        "decimal_places": {
+          "default": 0,
+          "description": "The position of a digit to the right of a decimal point. Applies to all amount related fields for rewards.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "description": "Human-readable name of the currency (e.g. 'LoyaltyStars').",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "name"
+      ],
+      "type": "object"
+    },
+    "search": {
+      "allOf": [
+        {
+          "$ref": "../shopping/catalog_search.json#/$defs/search_response"
+        }
+      ],
+      "description": "Catalog Search response extended with Loyalty capability.",
+      "properties": {
+        "loyalty": {
+          "$ref": "#/$defs/loyalty",
+          "ucp_request": "omit"
+        }
+      },
+      "title": "Catalog Search with Loyalty",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Extends various Capabilities with loyalty support using memberships info.",
+  "name": "dev.ucp.common.loyalty",
+  "title": "Loyalty Extension"
+}

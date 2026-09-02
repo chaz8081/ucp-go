@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Line item object. Expected to use the currency of the parent object.",
+  "properties": {
+    "id": {
+      "type": "string",
+      "ucp_request": {
+        "create": "omit",
+        "update": "optional"
+      }
+    },
+    "item": {
+      "$ref": "item.json"
+    },
+    "parent_id": {
+      "description": "Parent line item identifier for any nested structures.",
+      "type": "string",
+      "ucp_request": {
+        "create": "omit",
+        "update": "optional"
+      }
+    },
+    "quantity": {
+      "description": "Always an integer step count. On Platform requests, steps use the item's Business-authoritative sale basis; omitting `item.quantity_unit` makes no assertion and does not imply `each`. On Business responses, `item.quantity_unit` describes the basis; if absent, it encodes the `each` machine identity (`C62`, 0) and `quantity` counts whole items.",
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "totals": {
+      "description": "Line item totals breakdown.",
+      "items": {
+        "$ref": "../../common/types/total.json"
+      },
+      "type": "array",
+      "ucp_request": "omit"
+    }
+  },
+  "required": [
+    "id",
+    "item",
+    "quantity",
+    "totals"
+  ],
+  "title": "Line Item",
+  "type": "object"
+}

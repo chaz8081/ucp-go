@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "search_request": {
+      "properties": {
+        "attribution": {
+          "$ref": "types/attribution.json"
+        },
+        "context": {
+          "$ref": "../common/types/context.json"
+        },
+        "filters": {
+          "$ref": "types/search_filters.json"
+        },
+        "pagination": {
+          "$ref": "../common/types/pagination.json#/$defs/request"
+        },
+        "query": {
+          "description": "Free-text search query.",
+          "type": "string"
+        },
+        "signals": {
+          "$ref": "../common/types/signals.json"
+        }
+      },
+      "type": "object"
+    },
+    "search_response": {
+      "properties": {
+        "actions": {
+          "$ref": "../common/types/actions.json",
+          "description": "Outstanding extension-defined Actions for this catalog search response.",
+          "ucp_request": "omit"
+        },
+        "messages": {
+          "description": "Errors, warnings, or informational messages about the search results.",
+          "items": {
+            "$ref": "../common/types/message.json"
+          },
+          "type": "array"
+        },
+        "pagination": {
+          "$ref": "../common/types/pagination.json#/$defs/response"
+        },
+        "policies": {
+          "description": "Policies (e.g., return/refund terms) that apply to the products in these search results. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
+          "items": {
+            "$ref": "../common/types/policy.json"
+          },
+          "type": "array"
+        },
+        "products": {
+          "description": "Products matching the search criteria.",
+          "items": {
+            "$ref": "types/product.json"
+          },
+          "type": "array"
+        },
+        "ucp": {
+          "$ref": "../ucp.json#/$defs/response_catalog_schema"
+        }
+      },
+      "required": [
+        "products",
+        "ucp"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Product catalog search capability.",
+  "name": "dev.ucp.shopping.catalog.search",
+  "title": "Catalog Search",
+  "type": "object"
+}

@@ -1,0 +1,138 @@
+{
+  "$defs": {
+    "arguments": {
+      "additionalProperties": true,
+      "description": "MCP tool arguments. UCP reserves meta for transport metadata; operation payload fields such as checkout, cart, order id, or catalog inputs are operation-specific.",
+      "properties": {
+        "meta": {
+          "$ref": "#/$defs/meta"
+        }
+      },
+      "type": "object"
+    },
+    "content_part": {
+      "additionalProperties": true,
+      "description": "MCP content part returned for clients that do not consume structuredContent.",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "meta": {
+      "additionalProperties": true,
+      "description": "UCP request metadata passed through MCP params.arguments.meta.",
+      "properties": {
+        "idempotency-key": {
+          "description": "Optional idempotency key for retry-safe mutating operations.",
+          "type": "string"
+        },
+        "ucp-agent": {
+          "$ref": "#/$defs/ucp_agent"
+        }
+      },
+      "type": "object"
+    },
+    "request": {
+      "allOf": [
+        {
+          "$ref": "jsonrpc.json#/$defs/request"
+        }
+      ],
+      "description": "MCP tools/call request envelope for invoking a UCP operation.",
+      "properties": {
+        "method": {
+          "const": "tools/call"
+        },
+        "params": {
+          "additionalProperties": true,
+          "properties": {
+            "arguments": {
+              "$ref": "#/$defs/arguments"
+            },
+            "name": {
+              "description": "MCP tool name matching the UCP operation binding, such as create_checkout or get_cart.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "arguments",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "params"
+      ],
+      "type": "object"
+    },
+    "response": {
+      "allOf": [
+        {
+          "$ref": "jsonrpc.json#/$defs/success_response"
+        }
+      ],
+      "description": "MCP tools/call response envelope. UCP payloads are carried in result.structuredContent; content is compatibility output.",
+      "properties": {
+        "result": {
+          "additionalProperties": true,
+          "properties": {
+            "content": {
+              "items": {
+                "$ref": "#/$defs/content_part"
+              },
+              "type": "array"
+            },
+            "structuredContent": {
+              "description": "The UCP response payload for the operation.",
+              "type": "object"
+            }
+          },
+          "required": [
+            "structuredContent"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "ucp_agent": {
+      "additionalProperties": true,
+      "description": "UCP-Agent metadata carried inside MCP tool arguments.",
+      "properties": {
+        "profile": {
+          "description": "Platform profile URI advertised to the business.",
+          "format": "uri-reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "UCP's MCP transport envelope for JSON-RPC tools/call messages. The schema validates the MCP mapping layer: operation name in params.name, UCP metadata and domain arguments in params.arguments, and UCP output in result.structuredContent.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    },
+    {
+      "$ref": "jsonrpc.json#/$defs/error_response"
+    }
+  ],
+  "title": "MCP Tool Call Envelope"
+}

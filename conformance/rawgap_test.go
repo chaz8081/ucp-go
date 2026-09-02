@@ -134,3 +134,31 @@ func TestRawJSONPropertiesIgnoresTheOpenObjectCatchAll(t *testing.T) {
 		t.Errorf("got %v, want only ucp: Extra is tagged \"-\" and is not a named property", got)
 	}
 }
+
+func TestRawTypeCannotValidate(t *testing.T) {
+	// A union whose alternatives share no properties is emitted as a
+	// defined type over json.RawMessage — the whole type, not one field.
+	// Its Validate has nothing to inspect, so it accepts anything the
+	// decoder accepts, which for raw bytes is everything.
+	//
+	// That is a documented gap (see the README's first "what is and isn't
+	// modeled" bullet), not a missing check the harness should report as a
+	// disagreement. It is recognised by shape rather than by a list of type
+	// names, so it cannot fall out of date as the corpus changes.
+	if !isRawCarriedType(new(rawUnionModel)) {
+		t.Error("a defined type over json.RawMessage must be recognised")
+	}
+	if isRawCarriedType(new(gapModel)) {
+		t.Error("a struct that merely CONTAINS a raw field is not raw-carried; " +
+			"its other fields are still validated and must stay comparable")
+	}
+	if isRawCarriedType(new(noRawModel)) {
+		t.Error("an ordinary struct is not raw-carried")
+	}
+}
+
+// rawUnionModel mirrors the emitted shape: a defined type over
+// json.RawMessage, with a Validate that can only return nil.
+type rawUnionModel json.RawMessage
+
+func (v *rawUnionModel) Validate() error { return nil }

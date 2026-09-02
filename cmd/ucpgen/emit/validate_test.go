@@ -12,7 +12,7 @@ func TestEmitValidate(t *testing.T) {
 	}
 	for _, want := range []string{
 		"func (v *Link) Validate() error {",
-		`utf8.RuneCountInString(v.URL) > 2048`,
+		`utf8.RuneCountInString(string(v.URL)) > 2048`,
 		"pattern_Link_Title",
 		"sync.OnceValue",
 		"errors.New(",

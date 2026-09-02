@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "amenity": {
+      "additionalProperties": true,
+      "description": "Buyer-facing presentation metadata for one amenity identifier. The containing map key, not this metadata, defines amenity identity and filter matching.",
+      "properties": {
+        "description": {
+          "description": "Short, plain-text, buyer-facing label or phrase for the amenity, suitable for direct use in a compact list (e.g., 'Curbside pickup'). The Business SHOULD localize it for the request when possible. This content does not participate in amenity identity or filter matching.",
+          "minLength": 1,
+          "type": "string",
+          "ucp_request": "omit"
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "title": "Amenity",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "$ref": "location_summary_create_request.json"
+    }
+  ],
+  "description": "The full, rich representation of a physical business location. Builds on the Location Summary schema with discovery-centric details such as geographic coordinates, operating hours, timezone, and amenities.",
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "hours"
+        ]
+      },
+      {
+        "required": [
+          "exception_hours"
+        ]
+      }
+    ]
+  },
+  "properties": {},
+  "required": [],
+  "then": {
+    "required": [
+      "timezone"
+    ]
+  },
+  "title": "Location Create Request",
+  "type": "object"
+}

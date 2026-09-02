@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Filter criteria to narrow Location Search and Lookup results. All supplied filters combine with AND.",
+  "properties": {
+    "amenities": {
+      "description": "Filter by amenity identifier. A Location matches only when its `amenities` map contains every supplied identifier as an exact key; descriptions and namespace prefixes do not participate in matching.",
+      "items": {
+        "$ref": "amenity_type.json"
+      },
+      "type": "array"
+    },
+    "hours": {
+      "description": "Filter by operating hours, evaluated at the one supplied instant.",
+      "properties": {
+        "open_at": {
+          "description": "The RFC 3339 instant at which matching Locations must be open, expressed with `Z` or a numeric offset. The Platform selects the instant that represents the Buyer's intent. The Business evaluates it exactly as supplied using each Location's authoritative `timezone`; the supplied offset does not identify that timezone.",
+          "format": "date-time",
+          "pattern": "(?:[Zz]|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "open_at"
+      ],
+      "type": "object"
+    },
+    "items": {
+      "description": "Current item-availability filter. A candidate Location matches only when the Business can currently provide every referenced item at that Location; all references combine with AND.",
+      "items": {
+        "description": "A non-empty, opaque Business-scoped item identifier.",
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "title": "Location Filter",
+  "type": "object"
+}

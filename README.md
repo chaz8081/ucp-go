@@ -7,8 +7,8 @@ mirroring the architecture of the official
 [python-sdk](https://github.com/Universal-Commerce-Protocol/python-sdk) and
 [js-sdk](https://github.com/Universal-Commerce-Protocol/js-sdk).
 
-Targets spec version `2026-04-08`: 159 preprocessed schemas emit 159 Go files
-across five packages, with no runtime dependencies.
+Targets spec version `2026-08-25`: 221 preprocessed schemas emit 221 Go files
+across six packages, with no runtime dependencies.
 
 ## Status
 
@@ -45,7 +45,7 @@ import (
 const response = `{"id":"chk_1","currency":"USD","status":"ready_for_complete",
 	"line_items":[],"links":[],
 	"totals":[{"type":"subtotal","amount":1000,"display_text":"Subtotal"}],
-	"ucp":{"version":"2026-04-08"}}`
+	"ucp":{"version":"2026-08-25"}}`
 
 func main() {
 	var c shopping.Checkout
@@ -74,9 +74,13 @@ func main() {
     valid
     incomplete: currency: required property is missing
 
-The five generated packages are `github.com/chaz8081/ucp-go` (package `ucp`,
-the protocol root), `/common`, `/shopping`, `/shopping/types` and
-`/transports`.
+The six generated packages are `github.com/chaz8081/ucp-go` (package `ucp`,
+the protocol root), `/common`, `/common/types`, `/shopping`,
+`/shopping/types` and `/transports`.
+
+`/common/types` and `/shopping/types` both declare `package types`, so a
+file naming both imports one under an alias. Package *names* are not unique
+in this corpus; import paths are.
 
 ## How correctness is established
 
@@ -84,9 +88,9 @@ Three layers. Each exists because the others cannot see the class of defect
 it catches.
 
 **1. Preprocessor parity.** `ucpgen preprocess` reproduces the output of the
-official python-sdk preprocessor **byte-for-byte** on all 159 files (78
-source schemas, plus 81 request variants generated from `ucp_request`
-markers). The committed goldens in `goldens/2026-04-08/` *are* the Python
+official python-sdk preprocessor **byte-for-byte** on all 221 files (116
+source schemas, plus 105 request variants generated from `ucp_request`
+markers). The committed goldens in `goldens/2026-08-25/` *are* the Python
 preprocessor's output, re-encoded through this repo's canonical JSON encoder
 so that any difference is a difference in content rather than formatting.
 
@@ -99,7 +103,7 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**1,082 payloads across 240 generated types (149 of them schema-file roots),
+**1,556 payloads across 349 generated types (182 of them schema-file roots),
 zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
@@ -109,7 +113,7 @@ implementation does.
 
 The denominator counts **emitted Go types**, which is a different quantity
 from the schema **files** it used to count, and larger: the emitter produces
-245 types from 159 files, because a file's `$defs` become types of their
+390 types from 221 files, because a file's `$defs` become types of their
 own. Iterating files reached only each file's root type, so every `$defs`
 type went unchecked — and eight files, holding the whole capability model
 along with ap2_mandate, buyer_consent, discount, fulfillment and
@@ -140,32 +144,43 @@ widening redefinition would surface here as a disagreement.
 Nothing is suppressed to reach zero. There is no skip list of known-failing
 payloads, and a disagreement fails the suite.
 
-Figures below the headline are equally literal. 5 targets are skipped. Three
-are a union alongside sibling `properties`, which the harness does not
-model. Two are `totals_create_request` and `totals_update_request`, whose
-`contains` rule the emitter reports as unenforced — every property of
-`total.json` is dropped for a request, so the element type is
-`map[string]any` and there is no field for a predicate to test. That skip is
-taken from `MANIFEST.json` itself rather than a list kept in the harness, so
-it can only excuse a gap the project has already published. All five are
-reported as skips, never folded into the exercised count.
+Figures below the headline are equally literal. 39 targets are skipped, each
+under a named reason the run prints every time:
 
-The skip count used to be 71. Every one of those was a schema the oracle
-could not compile because of the dangling `#/$defs/version` references
-described below, now fixed upstream. Unblocking them roughly tripled what
-the harness actually compares — from 693 payloads across 157 types to 1,024
-across 228 — and the very first run of the wider corpus found a real gap,
-described next. The coverage figure had looked healthy the whole time.
+| skipped | reason |
+| --- | --- |
+| 17 | out-of-scope keyword: `dependentRequired` |
+| 6 | recorded unenforced for this type: `dependentRequired` |
+| 4 | out-of-scope keyword: union alongside sibling `properties` |
+| 3 | recorded unenforced for this type: `propertyNames` |
+| 3 | recorded unenforced for this type: `if` |
+| 2 | recorded unenforced for this type: `contains` |
+| 2 | carried as raw JSON, so nothing is validated |
+| 1 | recorded unenforced for this type: `not` |
+| 1 | no object instance |
 
-One payload disagrees and is reported rather than counted as agreement:
-`shopping/types/error_response.json`'s `ucp` property is carried as
-`json.RawMessage`, so `Validate` cannot see inside it and cannot reject a
-malformed value there. The harness proves that attribution instead of
-assuming it — every leaf of the oracle's rejection must fall inside a raw
-field, or the payload stays a mismatch — and prints the count every run
-(`TestRawFieldExplainsRejection` pins both directions). Two properties are
-carried this way: this one, to break an import cycle, and capability's
-`extends`, whose schema has no single Go shape.
+Two of those reasons are worth spelling out. "Recorded unenforced for this
+type" is read from `MANIFEST.json` rather than a list kept in the harness,
+so it can only ever excuse a gap the project has already published. "Carried
+as raw JSON" covers a union whose alternatives share no properties: it is
+emitted as a defined type over `json.RawMessage`, whose `Validate` has
+nothing to inspect, so the oracle enforces a constraint the SDK
+structurally cannot. Both are recognised by shape, not by a list of names
+that would rot.
+
+One payload is reported rather than counted as agreement:
+`common/types/error_response.json`'s `ucp` property is carried as
+`json.RawMessage` to break an import cycle, so `Validate` cannot see inside
+it. The harness proves that attribution instead of assuming it — every leaf
+of the oracle's rejection must fall inside a raw field, or the payload stays
+a mismatch — and prints the count every run
+(`TestRawFieldExplainsRejection` pins both directions).
+
+The skip count was 71 on spec 2026-04-08, when the dangling `#/$defs/version`
+references described below made those schemas uncompilable. Unblocking them
+roughly tripled what the harness compares, and the first run of the wider
+corpus found a real gap. The coverage figure had looked healthy the whole
+time.
 
 The oracle compiles `pattern` with **ECMA-262** semantics, via
 `dlclark/regexp2`, rather than the RE2 that Go's `regexp` and therefore the
@@ -236,7 +251,7 @@ full JSON Schema implementation, the gap is specific:
   outright. An optional property may still be `null` or absent, which
   `encoding/json` handles at the pointer before the type's decoder is
   reached.
-- **`format` is not asserted** (144 occurrences). In draft 2020-12 `format`
+- **`format` is not asserted** (187 occurrences). In draft 2020-12 `format`
   is an annotation, not an assertion, unless a validator opts in. Every
   schema in the corpus declares plain `draft/2020-12/schema` and none
   declares a `$vocabulary`, so the Format-Assertion vocabulary is not in
@@ -247,7 +262,8 @@ full JSON Schema implementation, the gap is specific:
   `MANIFEST.json` therefore records these under `not_asserted`, separate
   from `unenforced`. The two used to share a key, which made the manifest
   report every occurrence as an unmet obligation when the real gap is
-  **16** — `format` outnumbers it nine to one, so merging them buried it.
+  **54** — `format` outnumbers it more than three to one, so merging them
+  buried it.
   Both numbers stay visible; neither is a summary of the other.
   `TestCorpusUsesAnnotationOnlyFormat` fails the build if a future spec
   release opts into the assertion vocabulary, which would turn every
@@ -266,9 +282,12 @@ full JSON Schema implementation, the gap is specific:
   phase later — at which point it agreed. The coverage figure above was
   accurate throughout and still did not cover this; a number counts what it
   counts, and the thing worth stating is which schemas were behind it.
-- **Four `if`/`then` pairs remain unenforced**, on `TotalCreateRequest`,
-  `TotalUpdateRequest` and the element types of `TotalsCreateRequest` and
-  `TotalsUpdateRequest`. A request variant is a projection that drops every
+- **Fourteen `if`/`then` pairs remain unenforced.** A request variant is a
+  projection that drops every property marked `ucp_request:omit` while
+  keeping the rules, so some arrive carrying rules about properties the Go
+  struct no longer has; others are shapes this compiler does not implement,
+  such as a condition guarded by `anyOf`. Both are reported rather than
+  approximated. A request variant is a projection that drops every
   property marked `ucp_request:omit` while keeping the rules, so those two
   arrive carrying rules about properties the Go struct no longer has. There
   is nothing to bind them to and no rewriting recovers them, so they are
@@ -380,7 +399,7 @@ Upstream now synthesizes the union with `anyOf`, which is what it always meant: 
 
 ## Regenerating
 
-    ./generate.sh 2026-04-08
+    ./generate.sh 2026-08-25
 
 Three stages, each with a job:
 

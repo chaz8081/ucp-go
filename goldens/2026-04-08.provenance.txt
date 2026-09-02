@@ -1,3 +1,0 @@
-spec:       release/2026-04-08 @ a2d8bf0b8f5a6fc790f677899c2c7da0684fe33d
-python-sdk: 3e1aacee3f09dfdd04de801d2f9223841e7b369a
-generated:  2026-09-01T23:11:18Z

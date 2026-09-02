@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Media item (image, video, etc.).",
+  "properties": {
+    "alt_text": {
+      "description": "Accessibility text describing the media.",
+      "type": "string"
+    },
+    "height": {
+      "description": "Height in pixels (for images/video).",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "type": {
+      "description": "Media type. Well-known values: `image`, `video`, `model_3d`.",
+      "type": "string"
+    },
+    "url": {
+      "description": "URL to the media resource.",
+      "format": "uri",
+      "type": "string"
+    },
+    "width": {
+      "description": "Width in pixels (for images/video).",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "type",
+    "url"
+  ],
+  "title": "Media",
+  "type": "object"
+}

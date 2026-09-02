@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "$ref": "fulfillment_option_base_update_request.json"
+    }
+  ],
+  "description": "A fulfillment option within a group (e.g., Standard Shipping $5, Express $15). Extends the fulfillment option base with cost and timing.",
+  "properties": {},
+  "required": [],
+  "title": "Fulfillment Option Update Request",
+  "type": "object"
+}

@@ -1,5 +1,5 @@
 {
-  "spec_ref": "release/2026-04-08@a2d8bf0",
+  "spec_ref": "release/2026-08-25@cd78fb3",
   "schemas": {
     "capability.json": {
       "type": "UCPCapability",
@@ -43,6 +43,1084 @@
       "type": "IdentityLinking",
       "package": "common",
       "file": "common/identity_linking.go",
+      "fields": 0,
+      "unenforced": {
+        "IdentityLinkingProvider": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/location_lookup.json": {
+      "type": "LocationLookup",
+      "package": "common",
+      "file": "common/location_lookup.go",
+      "fields": 0,
+      "unenforced": {
+        "LocationLookupLookupLocation": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/location_search.json": {
+      "type": "LocationSearch",
+      "package": "common",
+      "file": "common/location_search.go",
+      "fields": 0
+    },
+    "common/loyalty.json": {
+      "type": "LoyaltyExtension",
+      "package": "common",
+      "file": "common/loyalty.go",
+      "fields": 0,
+      "not_asserted": {
+        "LoyaltyCart.continue_url": [
+          "format"
+        ],
+        "LoyaltyCart.expires_at": [
+          "format"
+        ],
+        "LoyaltyCheckout.continue_url": [
+          "format"
+        ],
+        "LoyaltyCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "common/payment_ap2_mandate.json": {
+      "type": "PaymentAP2MandateExtension",
+      "package": "common",
+      "file": "common/payment_ap2_mandate.go",
+      "fields": 0,
+      "not_asserted": {
+        "PaymentAP2MandateCheckout.continue_url": [
+          "format"
+        ],
+        "PaymentAP2MandateCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "common/payment_authentication.json": {
+      "type": "PaymentAuthenticationExtension",
+      "package": "common",
+      "file": "common/payment_authentication.go",
+      "fields": 0,
+      "not_asserted": {
+        "PaymentAuthenticationCheckout.continue_url": [
+          "format"
+        ],
+        "PaymentAuthenticationCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "common/payment_split_payments.json": {
+      "type": "PaymentSplitPaymentsExtension",
+      "package": "common",
+      "file": "common/payment_split_payments.go",
+      "fields": 0,
+      "not_asserted": {
+        "PaymentSplitPaymentsCheckout.continue_url": [
+          "format"
+        ],
+        "PaymentSplitPaymentsCheckout.expires_at": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ]
+      }
+    },
+    "common/payment_terms.json": {
+      "type": "PaymentTermsExtension",
+      "package": "common",
+      "file": "common/payment_terms.go",
+      "fields": 0,
+      "not_asserted": {
+        "PaymentTermsCheckout.continue_url": [
+          "format"
+        ],
+        "PaymentTermsCheckout.expires_at": [
+          "format"
+        ],
+        "PaymentTermsOrder.permalink_url": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ],
+        "expires_at": [
+          "format"
+        ],
+        "permalink_url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/actions.json": {
+      "type": "Actions",
+      "package": "types",
+      "file": "common/types/actions.go",
+      "fields": 0,
+      "unenforced": {
+        "Actions.Actions_value": [
+          "minItems"
+        ]
+      }
+    },
+    "common/types/amenity_type.json": {
+      "type": "AmenityType",
+      "package": "types",
+      "file": "common/types/amenity_type.go",
+      "fields": 0
+    },
+    "common/types/amount.json": {
+      "type": "Amount",
+      "package": "types",
+      "file": "common/types/amount.go",
+      "fields": 0
+    },
+    "common/types/available_payment_instrument.json": {
+      "type": "AvailablePaymentInstrument",
+      "package": "types",
+      "file": "common/types/available_payment_instrument.go",
+      "fields": 2
+    },
+    "common/types/binding.json": {
+      "type": "Binding",
+      "package": "types",
+      "file": "common/types/binding.go",
+      "fields": 2
+    },
+    "common/types/business_split_payments_config.json": {
+      "type": "BusinessSplitPaymentsConfig",
+      "package": "types",
+      "file": "common/types/business_split_payments_config.go",
+      "fields": 1,
+      "unenforced": {
+        "BusinessSplitPaymentsConfig.allowed_combinations_item": [
+          "minItems"
+        ]
+      }
+    },
+    "common/types/card_credential.json": {
+      "type": "CardCredential",
+      "package": "types",
+      "file": "common/types/card_credential.go",
+      "fields": 9
+    },
+    "common/types/card_payment_instrument.json": {
+      "type": "CardPaymentInstrument",
+      "package": "types",
+      "file": "common/types/card_payment_instrument.go",
+      "fields": 7,
+      "not_asserted": {
+        "CardPaymentInstrumentDisplay.card_art": [
+          "format"
+        ],
+        "card_art": [
+          "format"
+        ]
+      }
+    },
+    "common/types/constraint_expression.json": {
+      "type": "ConstraintExpression",
+      "package": "types",
+      "file": "common/types/constraint_expression.go",
+      "fields": 3
+    },
+    "common/types/context.json": {
+      "type": "Context",
+      "package": "types",
+      "file": "common/types/context.go",
+      "fields": 9
+    },
+    "common/types/context_create_request.json": {
+      "type": "ContextCreateRequest",
+      "package": "types",
+      "file": "common/types/context_create_request.go",
+      "fields": 9
+    },
+    "common/types/context_update_request.json": {
+      "type": "ContextUpdateRequest",
+      "package": "types",
+      "file": "common/types/context_update_request.go",
+      "fields": 9
+    },
+    "common/types/daily_hour.json": {
+      "type": "DailyHour",
+      "package": "types",
+      "file": "common/types/daily_hour.go",
+      "fields": 3,
+      "unenforced": {
+        "DailyHour": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/daily_hour_create_request.json": {
+      "type": "DailyHourCreateRequest",
+      "package": "types",
+      "file": "common/types/daily_hour_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "DailyHourCreateRequest": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/daily_hour_update_request.json": {
+      "type": "DailyHourUpdateRequest",
+      "package": "types",
+      "file": "common/types/daily_hour_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "DailyHourUpdateRequest": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/description.json": {
+      "type": "Description",
+      "package": "types",
+      "file": "common/types/description.go",
+      "fields": 3
+    },
+    "common/types/error_code.json": {
+      "type": "ErrorCode",
+      "package": "types",
+      "file": "common/types/error_code.go",
+      "fields": 0
+    },
+    "common/types/error_code_create_request.json": {
+      "type": "ErrorCodeCreateRequest",
+      "package": "types",
+      "file": "common/types/error_code_create_request.go",
+      "fields": 0
+    },
+    "common/types/error_code_update_request.json": {
+      "type": "ErrorCodeUpdateRequest",
+      "package": "types",
+      "file": "common/types/error_code_update_request.go",
+      "fields": 0
+    },
+    "common/types/error_response.json": {
+      "type": "ErrorResponse",
+      "package": "types",
+      "file": "common/types/error_response.go",
+      "fields": 3,
+      "not_asserted": {
+        "ErrorResponse.continue_url": [
+          "format"
+        ],
+        "continue_url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/exception_hour.json": {
+      "type": "ExceptionHour",
+      "package": "types",
+      "file": "common/types/exception_hour.go",
+      "fields": 5,
+      "unenforced": {
+        "ExceptionHour": [
+          "dependentRequired"
+        ]
+      },
+      "not_asserted": {
+        "ExceptionHour.valid_from": [
+          "format"
+        ],
+        "ExceptionHour.valid_through": [
+          "format"
+        ],
+        "valid_from": [
+          "format"
+        ],
+        "valid_through": [
+          "format"
+        ]
+      }
+    },
+    "common/types/exception_hour_create_request.json": {
+      "type": "ExceptionHourCreateRequest",
+      "package": "types",
+      "file": "common/types/exception_hour_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "ExceptionHourCreateRequest": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/exception_hour_update_request.json": {
+      "type": "ExceptionHourUpdateRequest",
+      "package": "types",
+      "file": "common/types/exception_hour_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "ExceptionHourUpdateRequest": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/geo.json": {
+      "type": "Geo",
+      "package": "types",
+      "file": "common/types/geo.go",
+      "fields": 2
+    },
+    "common/types/geo_create_request.json": {
+      "type": "GeoCreateRequest",
+      "package": "types",
+      "file": "common/types/geo_create_request.go",
+      "fields": 2
+    },
+    "common/types/geo_update_request.json": {
+      "type": "GeoUpdateRequest",
+      "package": "types",
+      "file": "common/types/geo_update_request.go",
+      "fields": 2
+    },
+    "common/types/info_code.json": {
+      "type": "InfoCode",
+      "package": "types",
+      "file": "common/types/info_code.go",
+      "fields": 0
+    },
+    "common/types/info_code_create_request.json": {
+      "type": "InfoCodeCreateRequest",
+      "package": "types",
+      "file": "common/types/info_code_create_request.go",
+      "fields": 0
+    },
+    "common/types/info_code_update_request.json": {
+      "type": "InfoCodeUpdateRequest",
+      "package": "types",
+      "file": "common/types/info_code_update_request.go",
+      "fields": 0
+    },
+    "common/types/instrument_group.json": {
+      "type": "InstrumentGroup",
+      "package": "types",
+      "file": "common/types/instrument_group.go",
+      "fields": 3
+    },
+    "common/types/link.json": {
+      "type": "Link",
+      "package": "types",
+      "file": "common/types/link.go",
+      "fields": 3,
+      "not_asserted": {
+        "Link.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/locality.json": {
+      "type": "Locality",
+      "package": "types",
+      "file": "common/types/locality.go",
+      "fields": 3
+    },
+    "common/types/locality_create_request.json": {
+      "type": "LocalityCreateRequest",
+      "package": "types",
+      "file": "common/types/locality_create_request.go",
+      "fields": 3
+    },
+    "common/types/locality_update_request.json": {
+      "type": "LocalityUpdateRequest",
+      "package": "types",
+      "file": "common/types/locality_update_request.go",
+      "fields": 3
+    },
+    "common/types/location.json": {
+      "type": "Location",
+      "package": "types",
+      "file": "common/types/location.go",
+      "fields": 8,
+      "unenforced": {
+        "Location": [
+          "if",
+          "then"
+        ],
+        "Location.amenities": [
+          "propertyNames"
+        ],
+        "amenities": [
+          "propertyNames"
+        ]
+      }
+    },
+    "common/types/location_create_request.json": {
+      "type": "LocationCreateRequest",
+      "package": "types",
+      "file": "common/types/location_create_request.go",
+      "fields": 1,
+      "unenforced": {
+        "LocationCreateRequest": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/types/location_distance.json": {
+      "type": "LocationDistance",
+      "package": "types",
+      "file": "common/types/location_distance.go",
+      "fields": 2
+    },
+    "common/types/location_filter.json": {
+      "type": "LocationFilter",
+      "package": "types",
+      "file": "common/types/location_filter.go",
+      "fields": 3,
+      "not_asserted": {
+        "LocationFilterHours.open_at": [
+          "format"
+        ],
+        "open_at": [
+          "format"
+        ]
+      }
+    },
+    "common/types/location_serves.json": {
+      "type": "LocationServes",
+      "package": "types",
+      "file": "common/types/location_serves.go",
+      "fields": 2,
+      "unenforced": {
+        "LocationServes": [
+          "propertyNames"
+        ]
+      }
+    },
+    "common/types/location_serves_create_request.json": {
+      "type": "LocationServesCreateRequest",
+      "package": "types",
+      "file": "common/types/location_serves_create_request.go",
+      "fields": 2,
+      "unenforced": {
+        "LocationServesCreateRequest": [
+          "propertyNames"
+        ]
+      }
+    },
+    "common/types/location_serves_update_request.json": {
+      "type": "LocationServesUpdateRequest",
+      "package": "types",
+      "file": "common/types/location_serves_update_request.go",
+      "fields": 2,
+      "unenforced": {
+        "LocationServesUpdateRequest": [
+          "propertyNames"
+        ]
+      }
+    },
+    "common/types/location_summary.json": {
+      "type": "LocationSummary",
+      "package": "types",
+      "file": "common/types/location_summary.go",
+      "fields": 3
+    },
+    "common/types/location_summary_create_request.json": {
+      "type": "LocationSummaryCreateRequest",
+      "package": "types",
+      "file": "common/types/location_summary_create_request.go",
+      "fields": 1
+    },
+    "common/types/location_summary_update_request.json": {
+      "type": "LocationSummaryUpdateRequest",
+      "package": "types",
+      "file": "common/types/location_summary_update_request.go",
+      "fields": 1
+    },
+    "common/types/location_update_request.json": {
+      "type": "LocationUpdateRequest",
+      "package": "types",
+      "file": "common/types/location_update_request.go",
+      "fields": 1,
+      "unenforced": {
+        "LocationUpdateRequest": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/types/measure.json": {
+      "type": "Measure",
+      "package": "types",
+      "file": "common/types/measure.go",
+      "fields": 4
+    },
+    "common/types/measure_create_request.json": {
+      "type": "MeasureCreateRequest",
+      "package": "types",
+      "file": "common/types/measure_create_request.go",
+      "fields": 4
+    },
+    "common/types/measure_update_request.json": {
+      "type": "MeasureUpdateRequest",
+      "package": "types",
+      "file": "common/types/measure_update_request.go",
+      "fields": 4
+    },
+    "common/types/media.json": {
+      "type": "Media",
+      "package": "types",
+      "file": "common/types/media.go",
+      "fields": 5,
+      "not_asserted": {
+        "Media.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/message.json": {
+      "type": "Message",
+      "package": "types",
+      "file": "common/types/message.go",
+      "fields": 0
+    },
+    "common/types/message_create_request.json": {
+      "type": "MessageCreateRequest",
+      "package": "types",
+      "file": "common/types/message_create_request.go",
+      "fields": 0
+    },
+    "common/types/message_error.json": {
+      "type": "MessageError",
+      "package": "types",
+      "file": "common/types/message_error.go",
+      "fields": 6
+    },
+    "common/types/message_error_create_request.json": {
+      "type": "MessageErrorCreateRequest",
+      "package": "types",
+      "file": "common/types/message_error_create_request.go",
+      "fields": 6
+    },
+    "common/types/message_error_update_request.json": {
+      "type": "MessageErrorUpdateRequest",
+      "package": "types",
+      "file": "common/types/message_error_update_request.go",
+      "fields": 6
+    },
+    "common/types/message_info.json": {
+      "type": "MessageInfo",
+      "package": "types",
+      "file": "common/types/message_info.go",
+      "fields": 5
+    },
+    "common/types/message_info_create_request.json": {
+      "type": "MessageInfoCreateRequest",
+      "package": "types",
+      "file": "common/types/message_info_create_request.go",
+      "fields": 5
+    },
+    "common/types/message_info_update_request.json": {
+      "type": "MessageInfoUpdateRequest",
+      "package": "types",
+      "file": "common/types/message_info_update_request.go",
+      "fields": 5
+    },
+    "common/types/message_update_request.json": {
+      "type": "MessageUpdateRequest",
+      "package": "types",
+      "file": "common/types/message_update_request.go",
+      "fields": 0
+    },
+    "common/types/message_warning.json": {
+      "type": "MessageWarning",
+      "package": "types",
+      "file": "common/types/message_warning.go",
+      "fields": 8,
+      "not_asserted": {
+        "MessageWarning.image_url": [
+          "format"
+        ],
+        "MessageWarning.url": [
+          "format"
+        ],
+        "image_url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/message_warning_create_request.json": {
+      "type": "MessageWarningCreateRequest",
+      "package": "types",
+      "file": "common/types/message_warning_create_request.go",
+      "fields": 8,
+      "not_asserted": {
+        "MessageWarningCreateRequest.image_url": [
+          "format"
+        ],
+        "MessageWarningCreateRequest.url": [
+          "format"
+        ],
+        "image_url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/message_warning_update_request.json": {
+      "type": "MessageWarningUpdateRequest",
+      "package": "types",
+      "file": "common/types/message_warning_update_request.go",
+      "fields": 8,
+      "not_asserted": {
+        "MessageWarningUpdateRequest.image_url": [
+          "format"
+        ],
+        "MessageWarningUpdateRequest.url": [
+          "format"
+        ],
+        "image_url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/network_token_credential.json": {
+      "type": "NetworkTokenCredential",
+      "package": "types",
+      "file": "common/types/network_token_credential.go",
+      "fields": 8
+    },
+    "common/types/pagination.json": {
+      "type": "Pagination",
+      "package": "types",
+      "file": "common/types/pagination.go",
+      "fields": 0
+    },
+    "common/types/pan_credential.json": {
+      "type": "PanCredential",
+      "package": "types",
+      "file": "common/types/pan_credential.go",
+      "fields": 6
+    },
+    "common/types/payment.json": {
+      "type": "Payment",
+      "package": "types",
+      "file": "common/types/payment.go",
+      "fields": 1
+    },
+    "common/types/payment_complete_request.json": {
+      "type": "PaymentCompleteRequest",
+      "package": "types",
+      "file": "common/types/payment_complete_request.go",
+      "fields": 1
+    },
+    "common/types/payment_create_request.json": {
+      "type": "PaymentCreateRequest",
+      "package": "types",
+      "file": "common/types/payment_create_request.go",
+      "fields": 1
+    },
+    "common/types/payment_credential.json": {
+      "type": "PaymentCredential",
+      "package": "types",
+      "file": "common/types/payment_credential.go",
+      "fields": 1
+    },
+    "common/types/payment_credential_complete_request.json": {
+      "type": "PaymentCredentialCompleteRequest",
+      "package": "types",
+      "file": "common/types/payment_credential_complete_request.go",
+      "fields": 1
+    },
+    "common/types/payment_credential_create_request.json": {
+      "type": "PaymentCredentialCreateRequest",
+      "package": "types",
+      "file": "common/types/payment_credential_create_request.go",
+      "fields": 1
+    },
+    "common/types/payment_credential_update_request.json": {
+      "type": "PaymentCredentialUpdateRequest",
+      "package": "types",
+      "file": "common/types/payment_credential_update_request.go",
+      "fields": 1
+    },
+    "common/types/payment_identity.json": {
+      "type": "PaymentIdentity",
+      "package": "types",
+      "file": "common/types/payment_identity.go",
+      "fields": 1
+    },
+    "common/types/payment_instrument.json": {
+      "type": "PaymentInstrument",
+      "package": "types",
+      "file": "common/types/payment_instrument.go",
+      "fields": 6
+    },
+    "common/types/payment_instrument_complete_request.json": {
+      "type": "PaymentInstrumentCompleteRequest",
+      "package": "types",
+      "file": "common/types/payment_instrument_complete_request.go",
+      "fields": 6
+    },
+    "common/types/payment_instrument_create_request.json": {
+      "type": "PaymentInstrumentCreateRequest",
+      "package": "types",
+      "file": "common/types/payment_instrument_create_request.go",
+      "fields": 6
+    },
+    "common/types/payment_instrument_update_request.json": {
+      "type": "PaymentInstrumentUpdateRequest",
+      "package": "types",
+      "file": "common/types/payment_instrument_update_request.go",
+      "fields": 6
+    },
+    "common/types/payment_schedule.json": {
+      "type": "PaymentSchedule",
+      "package": "types",
+      "file": "common/types/payment_schedule.go",
+      "fields": 5,
+      "not_asserted": {
+        "PaymentSchedule.due_at": [
+          "format"
+        ],
+        "due_at": [
+          "format"
+        ]
+      }
+    },
+    "common/types/payment_term.json": {
+      "type": "PaymentTerm",
+      "package": "types",
+      "file": "common/types/payment_term.go",
+      "fields": 4
+    },
+    "common/types/payment_update_request.json": {
+      "type": "PaymentUpdateRequest",
+      "package": "types",
+      "file": "common/types/payment_update_request.go",
+      "fields": 1
+    },
+    "common/types/policy.json": {
+      "type": "Policy",
+      "package": "types",
+      "file": "common/types/policy.go",
+      "fields": 4,
+      "not_asserted": {
+        "Policy.url": [
+          "format"
+        ],
+        "url": [
+          "format"
+        ]
+      }
+    },
+    "common/types/postal_address.json": {
+      "type": "PostalAddress",
+      "package": "types",
+      "file": "common/types/postal_address.go",
+      "fields": 9
+    },
+    "common/types/postal_address_complete_request.json": {
+      "type": "PostalAddressCompleteRequest",
+      "package": "types",
+      "file": "common/types/postal_address_complete_request.go",
+      "fields": 9
+    },
+    "common/types/postal_address_create_request.json": {
+      "type": "PostalAddressCreateRequest",
+      "package": "types",
+      "file": "common/types/postal_address_create_request.go",
+      "fields": 9
+    },
+    "common/types/postal_address_update_request.json": {
+      "type": "PostalAddressUpdateRequest",
+      "package": "types",
+      "file": "common/types/postal_address_update_request.go",
+      "fields": 9
+    },
+    "common/types/price.json": {
+      "type": "Price",
+      "package": "types",
+      "file": "common/types/price.go",
+      "fields": 2
+    },
+    "common/types/price_filter.json": {
+      "type": "PriceFilter",
+      "package": "types",
+      "file": "common/types/price_filter.go",
+      "fields": 2
+    },
+    "common/types/price_range.json": {
+      "type": "PriceRange",
+      "package": "types",
+      "file": "common/types/price_range.go",
+      "fields": 2
+    },
+    "common/types/quantity_unit.json": {
+      "type": "QuantityUnit",
+      "package": "types",
+      "file": "common/types/quantity_unit.go",
+      "fields": 4
+    },
+    "common/types/quantity_unit_create_request.json": {
+      "type": "QuantityUnitCreateRequest",
+      "package": "types",
+      "file": "common/types/quantity_unit_create_request.go",
+      "fields": 4
+    },
+    "common/types/quantity_unit_update_request.json": {
+      "type": "QuantityUnitUpdateRequest",
+      "package": "types",
+      "file": "common/types/quantity_unit_update_request.go",
+      "fields": 4
+    },
+    "common/types/request_constraints.json": {
+      "type": "RequestConstraints",
+      "package": "types",
+      "file": "common/types/request_constraints.go",
+      "fields": 4
+    },
+    "common/types/reverse_domain_name.json": {
+      "type": "ReverseDomainName",
+      "package": "types",
+      "file": "common/types/reverse_domain_name.go",
+      "fields": 0
+    },
+    "common/types/reverse_domain_name_create_request.json": {
+      "type": "ReverseDomainNameCreateRequest",
+      "package": "types",
+      "file": "common/types/reverse_domain_name_create_request.go",
+      "fields": 0
+    },
+    "common/types/reverse_domain_name_update_request.json": {
+      "type": "ReverseDomainNameUpdateRequest",
+      "package": "types",
+      "file": "common/types/reverse_domain_name_update_request.go",
+      "fields": 0
+    },
+    "common/types/signals.json": {
+      "type": "Signals",
+      "package": "types",
+      "file": "common/types/signals.go",
+      "fields": 2
+    },
+    "common/types/signals_complete_request.json": {
+      "type": "SignalsCompleteRequest",
+      "package": "types",
+      "file": "common/types/signals_complete_request.go",
+      "fields": 2
+    },
+    "common/types/signals_create_request.json": {
+      "type": "SignalsCreateRequest",
+      "package": "types",
+      "file": "common/types/signals_create_request.go",
+      "fields": 2
+    },
+    "common/types/signals_update_request.json": {
+      "type": "SignalsUpdateRequest",
+      "package": "types",
+      "file": "common/types/signals_update_request.go",
+      "fields": 2
+    },
+    "common/types/signed_amount.json": {
+      "type": "SignedAmount",
+      "package": "types",
+      "file": "common/types/signed_amount.go",
+      "fields": 0
+    },
+    "common/types/signed_amount_create_request.json": {
+      "type": "SignedAmountCreateRequest",
+      "package": "types",
+      "file": "common/types/signed_amount_create_request.go",
+      "fields": 0
+    },
+    "common/types/signed_amount_update_request.json": {
+      "type": "SignedAmountUpdateRequest",
+      "package": "types",
+      "file": "common/types/signed_amount_update_request.go",
+      "fields": 0
+    },
+    "common/types/time_interval.json": {
+      "type": "TimeInterval",
+      "package": "types",
+      "file": "common/types/time_interval.go",
+      "fields": 2,
+      "unenforced": {
+        "TimeInterval": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/time_interval_create_request.json": {
+      "type": "TimeIntervalCreateRequest",
+      "package": "types",
+      "file": "common/types/time_interval_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TimeIntervalCreateRequest": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/time_interval_update_request.json": {
+      "type": "TimeIntervalUpdateRequest",
+      "package": "types",
+      "file": "common/types/time_interval_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TimeIntervalUpdateRequest": [
+          "dependentRequired"
+        ]
+      }
+    },
+    "common/types/token_credential.json": {
+      "type": "TokenCredential",
+      "package": "types",
+      "file": "common/types/token_credential.go",
+      "fields": 2
+    },
+    "common/types/total.json": {
+      "type": "Total",
+      "package": "types",
+      "file": "common/types/total.go",
+      "fields": 3
+    },
+    "common/types/total_create_request.json": {
+      "type": "TotalCreateRequest",
+      "package": "types",
+      "file": "common/types/total_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalCreateRequest": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/types/total_update_request.json": {
+      "type": "TotalUpdateRequest",
+      "package": "types",
+      "file": "common/types/total_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalUpdateRequest": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/types/totals.json": {
+      "type": "Totals",
+      "package": "types",
+      "file": "common/types/totals.go",
+      "fields": 0
+    },
+    "common/types/totals_create_request.json": {
+      "type": "TotalsCreateRequest",
+      "package": "types",
+      "file": "common/types/totals_create_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalsCreateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsCreateRequest.TotalsCreateRequest_item": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/types/totals_update_request.json": {
+      "type": "TotalsUpdateRequest",
+      "package": "types",
+      "file": "common/types/totals_update_request.go",
+      "fields": 0,
+      "unenforced": {
+        "TotalsUpdateRequest": [
+          "contains",
+          "maxContains",
+          "minContains"
+        ],
+        "TotalsUpdateRequest.TotalsUpdateRequest_item": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "common/types/unit.json": {
+      "type": "Unit",
+      "package": "types",
+      "file": "common/types/unit.go",
+      "fields": 3
+    },
+    "common/types/unit_create_request.json": {
+      "type": "UnitCreateRequest",
+      "package": "types",
+      "file": "common/types/unit_create_request.go",
+      "fields": 3
+    },
+    "common/types/unit_update_request.json": {
+      "type": "UnitUpdateRequest",
+      "package": "types",
+      "file": "common/types/unit_update_request.go",
+      "fields": 3
+    },
+    "common/types/warning_code.json": {
+      "type": "WarningCode",
+      "package": "types",
+      "file": "common/types/warning_code.go",
+      "fields": 0
+    },
+    "common/types/warning_code_create_request.json": {
+      "type": "WarningCodeCreateRequest",
+      "package": "types",
+      "file": "common/types/warning_code_create_request.go",
+      "fields": 0
+    },
+    "common/types/warning_code_update_request.json": {
+      "type": "WarningCodeUpdateRequest",
+      "package": "types",
+      "file": "common/types/warning_code_update_request.go",
       "fields": 0
     },
     "payment_handler.json": {
@@ -80,6 +1158,17 @@
         ],
         "spec": [
           "format"
+        ]
+      }
+    },
+    "profile.json": {
+      "type": "UCPProfileDocument",
+      "package": "ucp",
+      "file": "profile.go",
+      "fields": 2,
+      "unenforced": {
+        "ProfileJWKPublicKey": [
+          "not"
         ]
       }
     },
@@ -136,32 +1225,18 @@
         ]
       }
     },
-    "shopping/ap2_mandate.json": {
-      "type": "AP2MandateExtension",
-      "package": "shopping",
-      "file": "shopping/ap2_mandate.go",
-      "fields": 0,
-      "not_asserted": {
-        "AP2MandateCheckout.continue_url": [
-          "format"
-        ],
-        "AP2MandateCheckout.expires_at": [
-          "format"
-        ],
-        "continue_url": [
-          "format"
-        ],
-        "expires_at": [
-          "format"
-        ]
-      }
-    },
     "shopping/buyer_consent.json": {
       "type": "BuyerConsentExtension",
       "package": "shopping",
       "file": "shopping/buyer_consent.go",
       "fields": 0,
       "not_asserted": {
+        "BuyerConsentCart.continue_url": [
+          "format"
+        ],
+        "BuyerConsentCart.expires_at": [
+          "format"
+        ],
         "BuyerConsentCheckout.continue_url": [
           "format"
         ],
@@ -180,7 +1255,7 @@
       "type": "Cart",
       "package": "shopping",
       "file": "shopping/cart.go",
-      "fields": 13,
+      "fields": 15,
       "not_asserted": {
         "Cart.continue_url": [
           "format"
@@ -212,7 +1287,7 @@
       "type": "CartUpdateRequest",
       "package": "shopping",
       "file": "shopping/cart_update_request.go",
-      "fields": 6
+      "fields": 5
     },
     "shopping/catalog_lookup.json": {
       "type": "CatalogLookup",
@@ -244,7 +1319,7 @@
       "type": "Checkout",
       "package": "shopping",
       "file": "shopping/checkout.go",
-      "fields": 16,
+      "fields": 18,
       "not_asserted": {
         "Checkout.continue_url": [
           "format"
@@ -316,10 +1391,28 @@
         "FulfillmentCheckout.expires_at": [
           "format"
         ],
+        "FulfillmentFulfillmentDetailProduct.url": [
+          "format"
+        ],
+        "FulfillmentFulfillmentLookupProduct.url": [
+          "format"
+        ],
+        "FulfillmentFulfillmentLookupVariant.url": [
+          "format"
+        ],
+        "FulfillmentFulfillmentProduct.url": [
+          "format"
+        ],
+        "FulfillmentFulfillmentVariant.url": [
+          "format"
+        ],
         "continue_url": [
           "format"
         ],
         "expires_at": [
+          "format"
+        ],
+        "url": [
           "format"
         ]
       }
@@ -328,7 +1421,7 @@
       "type": "Order",
       "package": "shopping",
       "file": "shopping/order.go",
-      "fields": 12,
+      "fields": 13,
       "not_asserted": {
         "Order.permalink_url": [
           "format"
@@ -384,35 +1477,16 @@
         ]
       }
     },
-    "shopping/payment.json": {
-      "type": "Payment",
+    "shopping/permalink.json": {
+      "type": "PermalinkCapability",
       "package": "shopping",
-      "file": "shopping/payment.go",
-      "fields": 1
-    },
-    "shopping/payment_complete_request.json": {
-      "type": "PaymentCompleteRequest",
-      "package": "shopping",
-      "file": "shopping/payment_complete_request.go",
-      "fields": 1
-    },
-    "shopping/payment_create_request.json": {
-      "type": "PaymentCreateRequest",
-      "package": "shopping",
-      "file": "shopping/payment_create_request.go",
-      "fields": 1
-    },
-    "shopping/payment_update_request.json": {
-      "type": "PaymentUpdateRequest",
-      "package": "shopping",
-      "file": "shopping/payment_update_request.go",
-      "fields": 1
-    },
-    "shopping/types/account_info.json": {
-      "type": "PaymentAccountInfo",
-      "package": "types",
-      "file": "shopping/types/account_info.go",
-      "fields": 1
+      "file": "shopping/permalink.go",
+      "fields": 0,
+      "not_asserted": {
+        "PermalinkEndpoint": [
+          "format"
+        ]
+      }
     },
     "shopping/types/adjustment.json": {
       "type": "Adjustment",
@@ -456,12 +1530,6 @@
         ]
       }
     },
-    "shopping/types/amount.json": {
-      "type": "Amount",
-      "package": "types",
-      "file": "shopping/types/amount.go",
-      "fields": 0
-    },
     "shopping/types/attribution.json": {
       "type": "Attribution",
       "package": "types",
@@ -486,28 +1554,17 @@
       "file": "shopping/types/attribution_update_request.go",
       "fields": 0
     },
-    "shopping/types/available_payment_instrument.json": {
-      "type": "AvailablePaymentInstrument",
+    "shopping/types/availability.json": {
+      "type": "Availability",
       "package": "types",
-      "file": "shopping/types/available_payment_instrument.go",
-      "fields": 2
-    },
-    "shopping/types/binding.json": {
-      "type": "Binding",
-      "package": "types",
-      "file": "shopping/types/binding.go",
+      "file": "shopping/types/availability.go",
       "fields": 2
     },
     "shopping/types/business_fulfillment_config.json": {
       "type": "BusinessFulfillmentConfig",
       "package": "types",
       "file": "shopping/types/business_fulfillment_config.go",
-      "fields": 2,
-      "unenforced": {
-        "BusinessFulfillmentConfig.allows_method_combinations_item_item": [
-          "enum"
-        ]
-      }
+      "fields": 2
     },
     "shopping/types/buyer.json": {
       "type": "Buyer",
@@ -527,93 +1584,17 @@
       "file": "shopping/types/buyer_update_request.go",
       "fields": 4
     },
-    "shopping/types/card_credential.json": {
-      "type": "CardCredential",
-      "package": "types",
-      "file": "shopping/types/card_credential.go",
-      "fields": 9
-    },
-    "shopping/types/card_payment_instrument.json": {
-      "type": "CardPaymentInstrument",
-      "package": "types",
-      "file": "shopping/types/card_payment_instrument.go",
-      "fields": 6,
-      "not_asserted": {
-        "CardPaymentInstrumentDisplay.card_art": [
-          "format"
-        ],
-        "card_art": [
-          "format"
-        ]
-      }
-    },
     "shopping/types/category.json": {
       "type": "Category",
       "package": "types",
       "file": "shopping/types/category.go",
       "fields": 2
     },
-    "shopping/types/context.json": {
-      "type": "Context",
-      "package": "types",
-      "file": "shopping/types/context.go",
-      "fields": 7
-    },
-    "shopping/types/context_create_request.json": {
-      "type": "ContextCreateRequest",
-      "package": "types",
-      "file": "shopping/types/context_create_request.go",
-      "fields": 7
-    },
-    "shopping/types/context_update_request.json": {
-      "type": "ContextUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/context_update_request.go",
-      "fields": 7
-    },
-    "shopping/types/description.json": {
-      "type": "Description",
-      "package": "types",
-      "file": "shopping/types/description.go",
-      "fields": 3
-    },
     "shopping/types/detail_option_value.json": {
       "type": "DetailOptionValue",
       "package": "types",
       "file": "shopping/types/detail_option_value.go",
       "fields": 4
-    },
-    "shopping/types/error_code.json": {
-      "type": "ErrorCode",
-      "package": "types",
-      "file": "shopping/types/error_code.go",
-      "fields": 0
-    },
-    "shopping/types/error_code_create_request.json": {
-      "type": "ErrorCodeCreateRequest",
-      "package": "types",
-      "file": "shopping/types/error_code_create_request.go",
-      "fields": 0
-    },
-    "shopping/types/error_code_update_request.json": {
-      "type": "ErrorCodeUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/error_code_update_request.go",
-      "fields": 0
-    },
-    "shopping/types/error_response.json": {
-      "type": "ErrorResponse",
-      "package": "types",
-      "file": "shopping/types/error_response.go",
-      "fields": 3,
-      "not_asserted": {
-        "ErrorResponse.continue_url": [
-          "format"
-        ],
-        "continue_url": [
-          "format"
-        ]
-      }
     },
     "shopping/types/expectation.json": {
       "type": "Expectation",
@@ -667,19 +1648,43 @@
       "type": "FulfillmentDestination",
       "package": "types",
       "file": "shopping/types/fulfillment_destination.go",
-      "fields": 0
+      "fields": 2,
+      "unenforced": {
+        "FulfillmentDestination": [
+          "if",
+          "then"
+        ]
+      }
     },
     "shopping/types/fulfillment_destination_create_request.json": {
       "type": "FulfillmentDestinationCreateRequest",
       "package": "types",
       "file": "shopping/types/fulfillment_destination_create_request.go",
-      "fields": 0
+      "fields": 2,
+      "unenforced": {
+        "FulfillmentDestinationCreateRequest": [
+          "if",
+          "then"
+        ]
+      }
+    },
+    "shopping/types/fulfillment_destination_filter.json": {
+      "type": "FulfillmentDestinationFilter",
+      "package": "types",
+      "file": "shopping/types/fulfillment_destination_filter.go",
+      "fields": 4
     },
     "shopping/types/fulfillment_destination_update_request.json": {
       "type": "FulfillmentDestinationUpdateRequest",
       "package": "types",
       "file": "shopping/types/fulfillment_destination_update_request.go",
-      "fields": 0
+      "fields": 2,
+      "unenforced": {
+        "FulfillmentDestinationUpdateRequest": [
+          "if",
+          "then"
+        ]
+      }
     },
     "shopping/types/fulfillment_event.json": {
       "type": "FulfillmentEvent",
@@ -763,19 +1768,38 @@
       "type": "FulfillmentMethod",
       "package": "types",
       "file": "shopping/types/fulfillment_method.go",
-      "fields": 6
+      "fields": 6,
+      "unenforced": {
+        "FulfillmentMethod": [
+          "dependentRequired"
+        ]
+      }
     },
     "shopping/types/fulfillment_method_create_request.json": {
       "type": "FulfillmentMethodCreateRequest",
       "package": "types",
       "file": "shopping/types/fulfillment_method_create_request.go",
-      "fields": 5
+      "fields": 3,
+      "unenforced": {
+        "FulfillmentMethodCreateRequest": [
+          "dependentRequired",
+          "if",
+          "then"
+        ]
+      }
     },
     "shopping/types/fulfillment_method_update_request.json": {
       "type": "FulfillmentMethodUpdateRequest",
       "package": "types",
       "file": "shopping/types/fulfillment_method_update_request.go",
-      "fields": 6
+      "fields": 5,
+      "unenforced": {
+        "FulfillmentMethodUpdateRequest": [
+          "dependentRequired",
+          "if",
+          "then"
+        ]
+      }
     },
     "shopping/types/fulfillment_option.json": {
       "type": "FulfillmentOption",
@@ -797,6 +1821,24 @@
         ]
       }
     },
+    "shopping/types/fulfillment_option_base.json": {
+      "type": "FulfillmentOptionBase",
+      "package": "types",
+      "file": "shopping/types/fulfillment_option_base.go",
+      "fields": 3
+    },
+    "shopping/types/fulfillment_option_base_create_request.json": {
+      "type": "FulfillmentOptionBaseCreateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_option_base_create_request.go",
+      "fields": 0
+    },
+    "shopping/types/fulfillment_option_base_update_request.json": {
+      "type": "FulfillmentOptionBaseUpdateRequest",
+      "package": "types",
+      "file": "shopping/types/fulfillment_option_base_update_request.go",
+      "fields": 0
+    },
     "shopping/types/fulfillment_option_create_request.json": {
       "type": "FulfillmentOptionCreateRequest",
       "package": "types",
@@ -815,24 +1857,6 @@
       "file": "shopping/types/fulfillment_update_request.go",
       "fields": 1
     },
-    "shopping/types/info_code.json": {
-      "type": "InfoCode",
-      "package": "types",
-      "file": "shopping/types/info_code.go",
-      "fields": 0
-    },
-    "shopping/types/info_code_create_request.json": {
-      "type": "InfoCodeCreateRequest",
-      "package": "types",
-      "file": "shopping/types/info_code_create_request.go",
-      "fields": 0
-    },
-    "shopping/types/info_code_update_request.json": {
-      "type": "InfoCodeUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/info_code_update_request.go",
-      "fields": 0
-    },
     "shopping/types/input_correlation.json": {
       "type": "InputCorrelation",
       "package": "types",
@@ -843,7 +1867,7 @@
       "type": "Item",
       "package": "types",
       "file": "shopping/types/item.go",
-      "fields": 4,
+      "fields": 6,
       "not_asserted": {
         "Item.image_url": [
           "format"
@@ -857,13 +1881,13 @@
       "type": "ItemCreateRequest",
       "package": "types",
       "file": "shopping/types/item_create_request.go",
-      "fields": 1
+      "fields": 2
     },
     "shopping/types/item_update_request.json": {
       "type": "ItemUpdateRequest",
       "package": "types",
       "file": "shopping/types/item_update_request.go",
-      "fields": 1
+      "fields": 2
     },
     "shopping/types/line_item.json": {
       "type": "LineItem",
@@ -883,158 +1907,23 @@
       "file": "shopping/types/line_item_update_request.go",
       "fields": 4
     },
-    "shopping/types/link.json": {
-      "type": "Link",
+    "shopping/types/location_destination.json": {
+      "type": "BusinessLocationDestination",
       "package": "types",
-      "file": "shopping/types/link.go",
-      "fields": 3,
-      "not_asserted": {
-        "Link.url": [
-          "format"
-        ],
-        "url": [
-          "format"
-        ]
-      }
+      "file": "shopping/types/location_destination.go",
+      "fields": 4
     },
-    "shopping/types/media.json": {
-      "type": "Media",
+    "shopping/types/location_destination_create_request.json": {
+      "type": "BusinessLocationDestinationCreateRequest",
       "package": "types",
-      "file": "shopping/types/media.go",
-      "fields": 5,
-      "not_asserted": {
-        "Media.url": [
-          "format"
-        ],
-        "url": [
-          "format"
-        ]
-      }
+      "file": "shopping/types/location_destination_create_request.go",
+      "fields": 1
     },
-    "shopping/types/merchant_fulfillment_config.json": {
-      "type": "MerchantFulfillmentConfig",
+    "shopping/types/location_destination_update_request.json": {
+      "type": "BusinessLocationDestinationUpdateRequest",
       "package": "types",
-      "file": "shopping/types/merchant_fulfillment_config.go",
-      "fields": 2,
-      "unenforced": {
-        "MerchantFulfillmentConfig.allows_method_combinations_item_item": [
-          "enum"
-        ]
-      }
-    },
-    "shopping/types/message.json": {
-      "type": "Message",
-      "package": "types",
-      "file": "shopping/types/message.go",
-      "fields": 0
-    },
-    "shopping/types/message_create_request.json": {
-      "type": "MessageCreateRequest",
-      "package": "types",
-      "file": "shopping/types/message_create_request.go",
-      "fields": 0
-    },
-    "shopping/types/message_error.json": {
-      "type": "MessageError",
-      "package": "types",
-      "file": "shopping/types/message_error.go",
-      "fields": 6
-    },
-    "shopping/types/message_error_create_request.json": {
-      "type": "MessageErrorCreateRequest",
-      "package": "types",
-      "file": "shopping/types/message_error_create_request.go",
-      "fields": 6
-    },
-    "shopping/types/message_error_update_request.json": {
-      "type": "MessageErrorUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/message_error_update_request.go",
-      "fields": 6
-    },
-    "shopping/types/message_info.json": {
-      "type": "MessageInfo",
-      "package": "types",
-      "file": "shopping/types/message_info.go",
-      "fields": 5
-    },
-    "shopping/types/message_info_create_request.json": {
-      "type": "MessageInfoCreateRequest",
-      "package": "types",
-      "file": "shopping/types/message_info_create_request.go",
-      "fields": 5
-    },
-    "shopping/types/message_info_update_request.json": {
-      "type": "MessageInfoUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/message_info_update_request.go",
-      "fields": 5
-    },
-    "shopping/types/message_update_request.json": {
-      "type": "MessageUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/message_update_request.go",
-      "fields": 0
-    },
-    "shopping/types/message_warning.json": {
-      "type": "MessageWarning",
-      "package": "types",
-      "file": "shopping/types/message_warning.go",
-      "fields": 8,
-      "not_asserted": {
-        "MessageWarning.image_url": [
-          "format"
-        ],
-        "MessageWarning.url": [
-          "format"
-        ],
-        "image_url": [
-          "format"
-        ],
-        "url": [
-          "format"
-        ]
-      }
-    },
-    "shopping/types/message_warning_create_request.json": {
-      "type": "MessageWarningCreateRequest",
-      "package": "types",
-      "file": "shopping/types/message_warning_create_request.go",
-      "fields": 8,
-      "not_asserted": {
-        "MessageWarningCreateRequest.image_url": [
-          "format"
-        ],
-        "MessageWarningCreateRequest.url": [
-          "format"
-        ],
-        "image_url": [
-          "format"
-        ],
-        "url": [
-          "format"
-        ]
-      }
-    },
-    "shopping/types/message_warning_update_request.json": {
-      "type": "MessageWarningUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/message_warning_update_request.go",
-      "fields": 8,
-      "not_asserted": {
-        "MessageWarningUpdateRequest.image_url": [
-          "format"
-        ],
-        "MessageWarningUpdateRequest.url": [
-          "format"
-        ],
-        "image_url": [
-          "format"
-        ],
-        "url": [
-          "format"
-        ]
-      }
+      "file": "shopping/types/location_destination_update_request.go",
+      "fields": 1
     },
     "shopping/types/option_value.json": {
       "type": "OptionValue",
@@ -1074,113 +1963,11 @@
       "file": "shopping/types/order_line_item_update_request.go",
       "fields": 6
     },
-    "shopping/types/pagination.json": {
-      "type": "Pagination",
-      "package": "types",
-      "file": "shopping/types/pagination.go",
-      "fields": 0
-    },
-    "shopping/types/payment_credential.json": {
-      "type": "PaymentCredential",
-      "package": "types",
-      "file": "shopping/types/payment_credential.go",
-      "fields": 1
-    },
-    "shopping/types/payment_credential_complete_request.json": {
-      "type": "PaymentCredentialCompleteRequest",
-      "package": "types",
-      "file": "shopping/types/payment_credential_complete_request.go",
-      "fields": 1
-    },
-    "shopping/types/payment_credential_create_request.json": {
-      "type": "PaymentCredentialCreateRequest",
-      "package": "types",
-      "file": "shopping/types/payment_credential_create_request.go",
-      "fields": 1
-    },
-    "shopping/types/payment_credential_update_request.json": {
-      "type": "PaymentCredentialUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/payment_credential_update_request.go",
-      "fields": 1
-    },
-    "shopping/types/payment_identity.json": {
-      "type": "PaymentIdentity",
-      "package": "types",
-      "file": "shopping/types/payment_identity.go",
-      "fields": 1
-    },
-    "shopping/types/payment_instrument.json": {
-      "type": "PaymentInstrument",
-      "package": "types",
-      "file": "shopping/types/payment_instrument.go",
-      "fields": 6
-    },
-    "shopping/types/payment_instrument_complete_request.json": {
-      "type": "PaymentInstrumentCompleteRequest",
-      "package": "types",
-      "file": "shopping/types/payment_instrument_complete_request.go",
-      "fields": 6
-    },
-    "shopping/types/payment_instrument_create_request.json": {
-      "type": "PaymentInstrumentCreateRequest",
-      "package": "types",
-      "file": "shopping/types/payment_instrument_create_request.go",
-      "fields": 6
-    },
-    "shopping/types/payment_instrument_update_request.json": {
-      "type": "PaymentInstrumentUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/payment_instrument_update_request.go",
-      "fields": 6
-    },
     "shopping/types/platform_fulfillment_config.json": {
       "type": "PlatformFulfillmentConfig",
       "package": "types",
       "file": "shopping/types/platform_fulfillment_config.go",
       "fields": 1
-    },
-    "shopping/types/postal_address.json": {
-      "type": "PostalAddress",
-      "package": "types",
-      "file": "shopping/types/postal_address.go",
-      "fields": 9
-    },
-    "shopping/types/postal_address_complete_request.json": {
-      "type": "PostalAddressCompleteRequest",
-      "package": "types",
-      "file": "shopping/types/postal_address_complete_request.go",
-      "fields": 9
-    },
-    "shopping/types/postal_address_create_request.json": {
-      "type": "PostalAddressCreateRequest",
-      "package": "types",
-      "file": "shopping/types/postal_address_create_request.go",
-      "fields": 9
-    },
-    "shopping/types/postal_address_update_request.json": {
-      "type": "PostalAddressUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/postal_address_update_request.go",
-      "fields": 9
-    },
-    "shopping/types/price.json": {
-      "type": "Price",
-      "package": "types",
-      "file": "shopping/types/price.go",
-      "fields": 2
-    },
-    "shopping/types/price_filter.json": {
-      "type": "PriceFilter",
-      "package": "types",
-      "file": "shopping/types/price_filter.go",
-      "fields": 2
-    },
-    "shopping/types/price_range.json": {
-      "type": "PriceRange",
-      "package": "types",
-      "file": "shopping/types/price_range.go",
-      "fields": 2
     },
     "shopping/types/product.json": {
       "type": "Product",
@@ -1208,42 +1995,6 @@
       "file": "shopping/types/rating.go",
       "fields": 4
     },
-    "shopping/types/retail_location.json": {
-      "type": "RetailLocation",
-      "package": "types",
-      "file": "shopping/types/retail_location.go",
-      "fields": 3
-    },
-    "shopping/types/retail_location_create_request.json": {
-      "type": "RetailLocationCreateRequest",
-      "package": "types",
-      "file": "shopping/types/retail_location_create_request.go",
-      "fields": 2
-    },
-    "shopping/types/retail_location_update_request.json": {
-      "type": "RetailLocationUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/retail_location_update_request.go",
-      "fields": 2
-    },
-    "shopping/types/reverse_domain_name.json": {
-      "type": "ReverseDomainName",
-      "package": "types",
-      "file": "shopping/types/reverse_domain_name.go",
-      "fields": 0
-    },
-    "shopping/types/reverse_domain_name_create_request.json": {
-      "type": "ReverseDomainNameCreateRequest",
-      "package": "types",
-      "file": "shopping/types/reverse_domain_name_create_request.go",
-      "fields": 0
-    },
-    "shopping/types/reverse_domain_name_update_request.json": {
-      "type": "ReverseDomainNameUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/reverse_domain_name_update_request.go",
-      "fields": 0
-    },
     "shopping/types/search_filters.json": {
       "type": "SearchFilters",
       "package": "types",
@@ -1260,143 +2011,31 @@
       "type": "ShippingDestination",
       "package": "types",
       "file": "shopping/types/shipping_destination.go",
-      "fields": 10
+      "fields": 11
     },
     "shopping/types/shipping_destination_create_request.json": {
       "type": "ShippingDestinationCreateRequest",
       "package": "types",
       "file": "shopping/types/shipping_destination_create_request.go",
-      "fields": 10
+      "fields": 11
     },
     "shopping/types/shipping_destination_update_request.json": {
       "type": "ShippingDestinationUpdateRequest",
       "package": "types",
       "file": "shopping/types/shipping_destination_update_request.go",
-      "fields": 10
+      "fields": 11
     },
-    "shopping/types/signals.json": {
-      "type": "Signals",
+    "shopping/types/unit_price.json": {
+      "type": "UnitPrice",
       "package": "types",
-      "file": "shopping/types/signals.go",
-      "fields": 2
-    },
-    "shopping/types/signals_complete_request.json": {
-      "type": "SignalsCompleteRequest",
-      "package": "types",
-      "file": "shopping/types/signals_complete_request.go",
-      "fields": 2
-    },
-    "shopping/types/signals_create_request.json": {
-      "type": "SignalsCreateRequest",
-      "package": "types",
-      "file": "shopping/types/signals_create_request.go",
-      "fields": 2
-    },
-    "shopping/types/signals_update_request.json": {
-      "type": "SignalsUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/signals_update_request.go",
-      "fields": 2
-    },
-    "shopping/types/signed_amount.json": {
-      "type": "SignedAmount",
-      "package": "types",
-      "file": "shopping/types/signed_amount.go",
-      "fields": 0
-    },
-    "shopping/types/signed_amount_create_request.json": {
-      "type": "SignedAmountCreateRequest",
-      "package": "types",
-      "file": "shopping/types/signed_amount_create_request.go",
-      "fields": 0
-    },
-    "shopping/types/signed_amount_update_request.json": {
-      "type": "SignedAmountUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/signed_amount_update_request.go",
-      "fields": 0
-    },
-    "shopping/types/token_credential.json": {
-      "type": "TokenCredential",
-      "package": "types",
-      "file": "shopping/types/token_credential.go",
-      "fields": 2
-    },
-    "shopping/types/total.json": {
-      "type": "Total",
-      "package": "types",
-      "file": "shopping/types/total.go",
-      "fields": 3
-    },
-    "shopping/types/total_create_request.json": {
-      "type": "TotalCreateRequest",
-      "package": "types",
-      "file": "shopping/types/total_create_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalCreateRequest": [
-          "if",
-          "then"
-        ]
-      }
-    },
-    "shopping/types/total_update_request.json": {
-      "type": "TotalUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/total_update_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalUpdateRequest": [
-          "if",
-          "then"
-        ]
-      }
-    },
-    "shopping/types/totals.json": {
-      "type": "Totals",
-      "package": "types",
-      "file": "shopping/types/totals.go",
-      "fields": 0
-    },
-    "shopping/types/totals_create_request.json": {
-      "type": "TotalsCreateRequest",
-      "package": "types",
-      "file": "shopping/types/totals_create_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalsCreateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsCreateRequest.TotalsCreateRequest_item": [
-          "if",
-          "then"
-        ]
-      }
-    },
-    "shopping/types/totals_update_request.json": {
-      "type": "TotalsUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/totals_update_request.go",
-      "fields": 0,
-      "unenforced": {
-        "TotalsUpdateRequest": [
-          "contains",
-          "maxContains",
-          "minContains"
-        ],
-        "TotalsUpdateRequest.TotalsUpdateRequest_item": [
-          "if",
-          "then"
-        ]
-      }
+      "file": "shopping/types/unit_price.go",
+      "fields": 4
     },
     "shopping/types/variant.json": {
       "type": "Variant",
       "package": "types",
       "file": "shopping/types/variant.go",
-      "fields": 18,
+      "fields": 19,
       "not_asserted": {
         "Variant.url": [
           "format"
@@ -1406,29 +2045,51 @@
         ]
       }
     },
-    "shopping/types/warning_code.json": {
-      "type": "WarningCode",
-      "package": "types",
-      "file": "shopping/types/warning_code.go",
-      "fields": 0
-    },
-    "shopping/types/warning_code_create_request.json": {
-      "type": "WarningCodeCreateRequest",
-      "package": "types",
-      "file": "shopping/types/warning_code_create_request.go",
-      "fields": 0
-    },
-    "shopping/types/warning_code_update_request.json": {
-      "type": "WarningCodeUpdateRequest",
-      "package": "types",
-      "file": "shopping/types/warning_code_update_request.go",
-      "fields": 0
+    "transports/a2a_message.json": {
+      "type": "A2AUCPMessageEnvelope",
+      "package": "transports",
+      "file": "transports/a2a_message.go",
+      "fields": 0,
+      "not_asserted": {
+        "A2AMessageExtension.uri": [
+          "format"
+        ],
+        "uri": [
+          "format"
+        ]
+      }
     },
     "transports/embedded_config.json": {
       "type": "EmbeddedTransportConfig",
       "package": "transports",
       "file": "transports/embedded_config.go",
       "fields": 2
+    },
+    "transports/embedded_message.json": {
+      "type": "EmbeddedProtocolMessageEnvelope",
+      "package": "transports",
+      "file": "transports/embedded_message.go",
+      "fields": 0
+    },
+    "transports/jsonrpc.json": {
+      "type": "JSONRpc20Envelope",
+      "package": "transports",
+      "file": "transports/jsonrpc.go",
+      "fields": 0
+    },
+    "transports/mcp_tool_call.json": {
+      "type": "MCPToolCallEnvelope",
+      "package": "transports",
+      "file": "transports/mcp_tool_call.go",
+      "fields": 0,
+      "not_asserted": {
+        "MCPToolCallUCPAgent.profile": [
+          "format"
+        ],
+        "profile": [
+          "format"
+        ]
+      }
     },
     "ucp.json": {
       "type": "UCPMetadata",

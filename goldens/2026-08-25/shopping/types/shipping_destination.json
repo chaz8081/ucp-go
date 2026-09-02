@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "../../common/types/postal_address.json"
+    }
+  ],
+  "description": "Shipping destination.",
+  "properties": {
+    "id": {
+      "description": "ID specific to this shipping destination.",
+      "type": "string",
+      "ucp_request": "optional"
+    },
+    "type": {
+      "const": "shipping_address",
+      "description": "Destination type discriminator.",
+      "type": "string",
+      "ucp_request": "optional"
+    }
+  },
+  "required": [
+    "id",
+    "type"
+  ],
+  "title": "Shipping Destination",
+  "type": "object"
+}

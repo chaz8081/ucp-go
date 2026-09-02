@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Base checkout schema. Extensions compose onto this using allOf.",
+  "name": "dev.ucp.shopping.checkout",
+  "properties": {
+    "attribution": {
+      "$ref": "types/attribution_update_request.json"
+    },
+    "buyer": {
+      "$ref": "types/buyer_update_request.json",
+      "description": "Representation of the buyer."
+    },
+    "context": {
+      "$ref": "../common/types/context_update_request.json"
+    },
+    "line_items": {
+      "description": "List of line items being checked out.",
+      "items": {
+        "$ref": "types/line_item_update_request.json"
+      },
+      "type": "array"
+    },
+    "payment": {
+      "$ref": "../common/types/payment_update_request.json"
+    },
+    "signals": {
+      "$ref": "../common/types/signals_update_request.json"
+    }
+  },
+  "required": [
+    "line_items"
+  ],
+  "title": "Checkout Update Request",
+  "type": "object"
+}

@@ -230,10 +230,15 @@ func TestCompileConditionalEmitsGuardedThen(t *testing.T) {
 	}
 }
 
-func TestCompileConditionalRejectsElse(t *testing.T) {
-	// else has zero occurrences in the corpus. Every other unimplemented
-	// keyword in this emitter fails loudly rather than guessing, and the
-	// first real else can justify itself.
+func TestCompileConditionalReportsElseRatherThanEnforcingIt(t *testing.T) {
+	// else has zero occurrences in the corpus and is not implemented.
+	//
+	// It used to fail generation. It now degrades to the standing treatment
+	// for a validation-only rule the compiler cannot express: emit nothing
+	// and leave the keywords unmarked, so the doc comment and MANIFEST.json
+	// report them as a gap. The guarantee that matters is unchanged and is
+	// what this asserts — the rule must never be reported as enforced while
+	// nothing was emitted for it.
 	schema := map[string]any{
 		"type":       "object",
 		"required":   []any{"type"},
@@ -251,12 +256,21 @@ func TestCompileConditionalRejectsElse(t *testing.T) {
 		t.Fatalf("fieldsFor: %v", err)
 	}
 	var c constraintSet
-	if err := compileConditional(e, &c, "Thing", schema, fields); err == nil {
-		t.Fatal("expected an error for else, got nil")
+	if err := compileConditional(e, &c, "Thing", schema, fields); err != nil {
+		t.Fatalf("an unsupported shape should degrade, not fail: %v", err)
+	}
+	if e.enforced.has(schema, "if") || e.enforced.has(schema, "then") {
+		t.Error("else is unsupported, so if/then must not be marked enforced")
+	}
+	if c.checks.Len() != 0 {
+		t.Errorf("nothing should be emitted for an unsupported rule, got:\n%s", c.checks.String())
 	}
 }
 
-func TestCompileConditionalRejectsHalfADeclaration(t *testing.T) {
+func TestCompileConditionalReportsHalfADeclaration(t *testing.T) {
+	// `then` without `if` asserts nothing under JSON Schema, so there is no
+	// rule to enforce and nothing to emit. Reported rather than fatal, for
+	// the same reason as else above.
 	schema := map[string]any{
 		"type":       "object",
 		"required":   []any{"type"},
@@ -269,8 +283,11 @@ func TestCompileConditionalRejectsHalfADeclaration(t *testing.T) {
 		t.Fatalf("fieldsFor: %v", err)
 	}
 	var c constraintSet
-	if err := compileConditional(e, &c, "Thing", schema, fields); err == nil {
-		t.Fatal("expected an error for then without if, got nil")
+	if err := compileConditional(e, &c, "Thing", schema, fields); err != nil {
+		t.Fatalf("a half-declared conditional should degrade, not fail: %v", err)
+	}
+	if e.enforced.has(schema, "then") {
+		t.Error("then without if enforces nothing and must not be marked enforced")
 	}
 }
 

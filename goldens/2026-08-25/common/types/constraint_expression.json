@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "value_constraint": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "properties": {
+            "const": {},
+            "enum": {
+              "description": "A non-empty array of unique JSON values.",
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "enum"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "const": {},
+            "enum": {
+              "description": "A non-empty array of unique JSON values.",
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "const"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "A Value Constraint containing `enum`, `const`, or both.",
+      "properties": {
+        "const": {},
+        "enum": {
+          "description": "A non-empty array of unique JSON values.",
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A closed JSON Schema Draft 2020-12 constraint expression with Object and Value Constraint positions.",
+  "properties": {
+    "anyOf": {
+      "description": "Alternative Object Constraints. The constrained object must satisfy at least one. A branch must be non-empty: an empty branch is satisfied by every object and neutralizes the alternation.",
+      "items": {
+        "$ref": "#",
+        "minProperties": 1
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "properties": {
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "$ref": "#"
+          },
+          {
+            "$ref": "#/$defs/value_constraint"
+          }
+        ]
+      },
+      "description": "Constraints keyed by property name. Must be non-empty: an empty object applies no constraint.",
+      "minProperties": 1,
+      "type": "object"
+    },
+    "required": {
+      "description": "Property names required by the constrained object. Must be non-empty: an empty array applies no constraint.",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "title": "Constraint Expression",
+  "type": "object"
+}

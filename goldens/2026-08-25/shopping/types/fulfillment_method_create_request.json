@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "shipping"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "destinations": {
+            "description": "Platform-authored shipping addresses for this method.",
+            "items": {
+              "$ref": "shipping_destination_create_request.json"
+            },
+            "type": "array",
+            "ucp_request": "optional"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "pickup"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "destinations": {
+            "description": "Business-authored business locations able to fulfill this method. Response-only: the Platform selects one via `selected_destination_id`, never writes one.",
+            "items": {
+              "$ref": "location_destination_create_request.json"
+            },
+            "type": "array",
+            "ucp_request": "omit"
+          }
+        }
+      }
+    }
+  ],
+  "dependentRequired": {
+    "destinations": [
+      "type"
+    ]
+  },
+  "description": "A fulfillment method with destinations and groups.",
+  "properties": {
+    "groups": {
+      "description": "Fulfillment groups for selecting options. Agent sets selected_option_id on groups to choose shipping method.",
+      "items": {
+        "$ref": "fulfillment_group_create_request.json"
+      },
+      "type": "array"
+    },
+    "selected_destination_id": {
+      "description": "ID of the selected destination. Accepts any stable, Business-scoped ID the Business recognizes for this method, including Location IDs not yet enumerated in `destinations`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "type": {
+      "description": "Fulfillment method type. Well-known values: `shipping`, `pickup`. Businesses MAY use additional values.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "title": "Fulfillment Method Create Request",
+  "type": "object"
+}

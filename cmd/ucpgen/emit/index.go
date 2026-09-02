@@ -37,6 +37,11 @@ type TypeRef struct {
 // schema file plus a $def name; an empty def name means the file-level type.
 type TypeIndex struct {
 	byLocation map[string]TypeRef
+	// modulePath is kept so an emitter can compute its OWN import path and
+	// compare identities by path rather than by package name, which is not
+	// unique across directories: spec 2026-08-25 has common/types and
+	// shopping/types, both declaring `package types`.
+	modulePath string
 }
 
 func indexKey(rel, def string) string { return rel + "#" + def }
@@ -89,13 +94,35 @@ func isNamespaceDef(def map[string]any) bool {
 			return false
 		}
 	}
-	// Every value must itself look like a schema object.
-	for _, v := range def {
+	// Every value must itself look like a schema object — annotations
+	// aside. A namespace may be documented: spec 2026-08-25's
+	// shopping/fulfillment.json gives its `lookup` and `search` mount points
+	// a description, and requiring every value to be an object then
+	// classified them as schemas. They emitted `type X any` with a method on
+	// it, which is not valid Go — an interface type cannot be a receiver —
+	// so the whole package failed to build.
+	//
+	// Annotations assert nothing and describe the grouping rather than a
+	// value, so they neither make a node a schema nor stop it being a
+	// namespace.
+	for k, v := range def {
+		if annotationKeywords[k] {
+			continue
+		}
 		if _, ok := v.(map[string]any); !ok {
 			return false
 		}
 	}
 	return true
+}
+
+// annotationKeywords carry documentation rather than assertions. They are
+// deliberately absent from schemaKeywords for the same reason: their
+// presence says nothing about whether a node is a schema.
+var annotationKeywords = map[string]bool{
+	"title": true, "description": true, "$comment": true,
+	"examples": true, "default": true, "deprecated": true,
+	"readOnly": true, "writeOnly": true,
 }
 
 // BuildTypeIndex registers every type the emitter will produce, before any
@@ -107,7 +134,7 @@ func isNamespaceDef(def map[string]any) bool {
 // while Go shares a package across a directory. The qualified form has no
 // collisions anywhere in the corpus.
 func BuildTypeIndex(files map[string]map[string]any, modulePath string) (*TypeIndex, error) {
-	idx := &TypeIndex{byLocation: map[string]TypeRef{}}
+	idx := &TypeIndex{byLocation: map[string]TypeRef{}, modulePath: modulePath}
 	seen := map[string]string{} // package.Name -> origin, for collision detection
 
 	rels := make([]string, 0, len(files))

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const goldenVersion = "2026-04-08"
+const goldenVersion = "2026-08-25"
 
 // TestPreprocessMatchesGoldens runs the Go preprocessor over the real spec
 // schemas and requires byte-identical canonical output against the goldens

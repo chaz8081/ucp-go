@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "code": {
+      "$ref": "error_code.json"
+    },
+    "content": {
+      "description": "Human-readable message.",
+      "type": "string"
+    },
+    "content_type": {
+      "default": "plain",
+      "description": "Content format, default = plain.",
+      "enum": [
+        "plain",
+        "markdown"
+      ],
+      "type": "string"
+    },
+    "path": {
+      "description": "RFC 9535 JSONPath to the component the message refers to (e.g., $.line_items[0]).",
+      "type": "string"
+    },
+    "severity": {
+      "description": "Reflects the resource state and recommended action. 'recoverable': platform can resolve the condition in band, for example by modifying inputs or processing a related Action, and submit a new operation when needed. 'requires_buyer_input': merchant requires information their API doesn't support collecting programmatically (checkout incomplete). 'requires_buyer_review': buyer must authorize before order placement due to policy, regulatory, or entitlement rules. 'unrecoverable': no valid resource exists to act on, retry with new resource or inputs. Errors with 'requires_*' severity contribute to 'status: requires_escalation'.",
+      "enum": [
+        "recoverable",
+        "requires_buyer_input",
+        "requires_buyer_review",
+        "unrecoverable"
+      ],
+      "type": "string"
+    },
+    "type": {
+      "const": "error",
+      "description": "Message type discriminator.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "code",
+    "content",
+    "severity",
+    "type"
+  ],
+  "title": "Message Error",
+  "type": "object"
+}

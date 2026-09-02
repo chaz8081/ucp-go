@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -383,6 +384,23 @@ func declaredCheckable(node map[string]any) []string {
 	return out
 }
 
+// asString converts a value expression for the stdlib string functions.
+//
+// A property whose schema is an enum or has a const gets its own named
+// string type, and `utf8.RuneCountInString` and `Regexp.MatchString` both
+// take `string` exactly — a named type with string as its underlying type
+// is not assignable to it. spec 2026-08-25's transports/embedded_message
+// is the first schema to put minLength on such a property
+// (EmbeddedMessageMethod), so the mismatch had never been reachable.
+//
+// The conversion is written unconditionally rather than only for named
+// types: `string(s)` where s is already a string is a no-op the compiler
+// erases, and deciding per call site would need type information this
+// layer does not carry.
+func asString(value string) string {
+	return "string(" + value + ")"
+}
+
 func compileLength(e *fileEmitter, c *constraintSet, t target, node map[string]any, kw, guard, value string) error {
 	n, err := integerBound(t, node, kw)
 	if err != nil {
@@ -394,7 +412,7 @@ func compileLength(e *fileEmitter, c *constraintSet, t target, node map[string]a
 	if kw == "minLength" {
 		op, wording = "<", "is shorter than minLength"
 	}
-	c.check(guard, fmt.Sprintf("utf8.RuneCountInString(%s) %s %d", value, op, n),
+	c.check(guard, fmt.Sprintf("utf8.RuneCountInString(%s) %s %d", asString(value), op, n),
 		fmt.Sprintf("%s: %s %d", t.label, wording, n))
 	return nil
 }
@@ -410,7 +428,7 @@ func compilePattern(e *fileEmitter, c *constraintSet, t target, node map[string]
 	}
 	// JSON Schema pattern is an unanchored search, so MatchString (not a
 	// full-string match) is intentional.
-	c.check(guard, fmt.Sprintf("!%s().MatchString(%s)", name, value),
+	c.check(guard, fmt.Sprintf("!%s().MatchString(%s)", name, asString(value)),
 		fmt.Sprintf("%s: does not match pattern", t.label))
 	return nil
 }
@@ -563,7 +581,7 @@ func compileArray(e *fileEmitter, c *constraintSet, t target, node map[string]an
 		e.enforced.mark(node, "uniqueItems")
 	}
 
-	if err := compileContains(e, c, t, node); err != nil {
+	if err := compileContains(e, c, t, node); err != nil && !errors.Is(err, errUnsupportedRule) {
 		return err
 	}
 
@@ -694,6 +712,24 @@ func compileObjectSelf(e *fileEmitter, c *constraintSet, typeName string, schema
 	if !ok {
 		return nil
 	}
+	// A propertyNames given as a $ref says nothing on its own, so the
+	// checks below found nothing to emit — and marked the keyword enforced
+	// anyway, which is the precise failure this file warns about elsewhere:
+	// a rule that quietly does nothing is worse than an absent one, because
+	// the caller cannot tell the two apart.
+	//
+	// spec 2026-08-25 is the first corpus to write it that way, in
+	// common/types/actions, common/loyalty and shopping/buyer_consent, each
+	// constraining its keys to a reverse-domain identifier. Resolve the ref
+	// to what it SAYS — refTarget, not ResolveRef, since the question is the
+	// constraint rather than the Go type.
+	if ref, isRef := names["$ref"].(string); isRef {
+		resolved, _, found := e.refTarget(e.rel, ref)
+		if !found {
+			return unsupported("%s: propertyNames references %q, which does not resolve", typeName, ref)
+		}
+		names = resolved
+	}
 	// The named properties are literals the schema author wrote, so they are
 	// checkable now. Letting one through that violates the constraint would
 	// leave the generated code quietly weaker than the schema, since the
@@ -719,11 +755,15 @@ func compileObjectSelf(e *fileEmitter, c *constraintSet, typeName string, schema
 	}
 	c.loops = body.loops
 	c.vars.WriteString(body.vars.String())
-	if body.checks.Len() > 0 {
-		fmt.Fprintf(&c.checks, "for %s := range v.Extra {\n", key)
-		c.checks.WriteString(body.checks.String())
-		c.checks.WriteString("}\n")
+	if body.checks.Len() == 0 {
+		// Nothing was emitted, so nothing is enforced. Leaving the keyword
+		// unmarked reports it as a gap rather than claiming a check that
+		// does not exist.
+		return nil
 	}
+	fmt.Fprintf(&c.checks, "for %s := range v.Extra {\n", key)
+	c.checks.WriteString(body.checks.String())
+	c.checks.WriteString("}\n")
 	e.enforced.mark(schema, "propertyNames")
 	return nil
 }
@@ -783,6 +823,18 @@ func compileMap(e *fileEmitter, c *constraintSet, t target, node map[string]any)
 	if !ok {
 		return nil
 	}
+	// Resolve a propertyNames written as a $ref to what it says, for the
+	// same reason as in compileObjectSelf: on its own it declares no string
+	// constraint, so the checks below found nothing and the keyword was
+	// marked enforced regardless. common/types/actions and common/loyalty
+	// both constrain their keys this way in spec 2026-08-25.
+	if ref, isRef := names["$ref"].(string); isRef {
+		resolved, _, found := e.refTarget(e.rel, ref)
+		if !found {
+			return unsupported("%s: %s propertyNames references %q, which does not resolve", t.typeName, subjectOf(t.label), ref)
+		}
+		names = resolved
+	}
 	// Map keys are always Go strings, so a propertyNames subschema reduces
 	// to the string checks applied to the loop variable.
 	if kind := shapeOf(names); kind != shapeString && kind != shapeUnknown {
@@ -797,14 +849,17 @@ func compileMap(e *fileEmitter, c *constraintSet, t target, node map[string]any)
 	}
 	c.loops = body.loops
 	c.vars.WriteString(body.vars.String())
-	if body.checks.Len() > 0 {
-		open, closed := guardBlock(guard)
-		c.checks.WriteString(open)
-		fmt.Fprintf(&c.checks, "for %s := range %s {\n", key, value)
-		c.checks.WriteString(body.checks.String())
-		c.checks.WriteString("}\n")
-		c.checks.WriteString(closed)
+	if body.checks.Len() == 0 {
+		// Nothing emitted means nothing enforced; report it rather than
+		// claiming a check that was never written.
+		return nil
 	}
+	open, closed := guardBlock(guard)
+	c.checks.WriteString(open)
+	fmt.Fprintf(&c.checks, "for %s := range %s {\n", key, value)
+	c.checks.WriteString(body.checks.String())
+	c.checks.WriteString("}\n")
+	c.checks.WriteString(closed)
 	e.enforced.mark(node, "propertyNames")
 	return nil
 }

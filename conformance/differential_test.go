@@ -14,7 +14,7 @@ import (
 
 	"github.com/chaz8081/ucp-go/cmd/ucpgen/emit"
 	"github.com/chaz8081/ucp-go/cmd/ucpgen/preprocess"
-	"github.com/chaz8081/ucp-go/shopping/types"
+	commontypes "github.com/chaz8081/ucp-go/common/types"
 )
 
 // loadGoldens reads the committed corpus.
@@ -201,6 +201,13 @@ func TestDifferentialAgreement(t *testing.T) {
 			// so this is inherited from upstream rather than introduced
 			// here — counted and named, not silently passed over.
 			skipped["oracle cannot compile: "+oracleSkipReason(err)]++
+			continue
+		}
+		// A union carried as json.RawMessage has a Validate that can inspect
+		// nothing, so the oracle enforces a constraint the SDK structurally
+		// cannot. Counted and named, never compared as if it could.
+		if make, ok := models[tg.location]; ok && isRawCarriedType(make()) {
+			skipped["carried as raw JSON, so nothing is validated"]++
 			continue
 		}
 		comparedTypes++
@@ -392,7 +399,7 @@ func FuzzReverseDomainNameAgreement(f *testing.F) {
 	if err != nil {
 		f.Fatalf("register corpus: %v", err)
 	}
-	const rel = "shopping/types/reverse_domain_name.json"
+	const rel = "common/types/reverse_domain_name.json"
 	compiled, err := oracle.Compile(ids[rel])
 	if err != nil {
 		f.Fatalf("compile %s: %v", rel, err)
@@ -405,7 +412,7 @@ func FuzzReverseDomainNameAgreement(f *testing.F) {
 		}
 		oracleOK := compiled.Validate(inst) == nil
 
-		var v types.ReverseDomainName
+		var v commontypes.ReverseDomainName
 		sdkOK := json.Unmarshal(payload, &v) == nil && v.Validate() == nil
 
 		if oracleOK != sdkOK {
@@ -418,7 +425,7 @@ func FuzzReverseDomainNameAgreement(f *testing.F) {
 // rejected inst lies inside a field that model carries as json.RawMessage.
 //
 // The emitter falls back to raw JSON in two situations: a property whose
-// type would create an import cycle (shopping/types.ErrorResponseBase.UCP
+// type would create an import cycle (shopping/commontypes.ErrorResponse.UCP
 // would have to name the root package, which already imports this one), and
 // a property whose schema has no single Go shape (capability's `extends` is
 // a string or an array of strings). In both cases Validate has nothing to

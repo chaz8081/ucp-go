@@ -544,6 +544,20 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 		seen[target+"#"+fragment] = true
 
 		inlined := preprocess.CopyTree(resolved).(map[string]any)
+		// Resolve the borrowed body's OWN local refs first, against the
+		// document that owns them, so the copy is self-contained before it
+		// travels. jsonrpc.json's `request` def references "#/$defs/id";
+		// inlined into a2a_message.json — which has no such $def, and whose
+		// $defs are deleted below anyway — that pointer would resolve to
+		// nothing.
+		//
+		// This is python-sdk#72's mechanism in our own emitter: a relative
+		// reference does not survive being copied. Upstream fixed theirs by
+		// resolving at extraction rather than rebasing at each destination,
+		// and ResolveLocalRefs is the port of that fix, reused here for the
+		// same shape of problem. rebaseRefs below handles the other half,
+		// the refs that name a file.
+		preprocess.ResolveLocalRefs(inlined, targetSchema, nil)
 		// Relative refs inside the borrowed schema were written against its
 		// own directory; once inlined they are read against the borrowing
 		// file's. Without rebasing, product.json's "category.json" becomes
@@ -556,8 +570,17 @@ func resolveCrossFileAllOf(node map[string]any, relPath string, corpus map[strin
 		delete(inlined, "$id")
 		delete(inlined, "$schema")
 		delete(inlined, "$defs")
-		// The inlined schema may itself inherit across files.
-		if err := resolveCrossFileAllOf(inlined, target, corpus, seen); err != nil {
+		// The inlined schema may itself inherit across files. Recurse with
+		// relPath, not target: rebaseRefs above has already rewritten this
+		// copy's refs to read against the BORROWING file, so resolving them
+		// against the borrowed file would shift them a second time.
+		//
+		// Latent until spec 2026-08-25, whose common/location_lookup.json is
+		// the first schema to inherit across directories from a parent that
+		// itself inherits across files. Every earlier nesting was
+		// same-directory, which makes the rebase a no-op and the two bases
+		// indistinguishable.
+		if err := resolveCrossFileAllOf(inlined, relPath, corpus, seen); err != nil {
 			return err
 		}
 		lifted = append(lifted, liftConditionals(inlined)...)
@@ -755,6 +778,9 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 		e.usesErrors = true
 		e.imports["encoding/json"] = "json"
 		renderNullCodec(body, typeName, underlying, schema)
+	} else if underlying == "json.RawMessage" {
+		e.imports["encoding/json"] = "json"
+		renderRawMessageCodec(body, typeName)
 	}
 
 	// A named primitive usually exists for its constraint, so emitting an
@@ -1219,6 +1245,12 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	case len(req) > 0:
 		e.usesErrors = true // the decoder's null guard
 		renderPresenceCodec(body, typeName, req)
+	default:
+		// A closed object requiring nothing still must not accept null.
+		// See renderNullOnlyObjectCodec.
+		e.usesErrors = true
+		e.imports["encoding/json"] = "json"
+		renderNullOnlyObjectCodec(body, typeName)
 	}
 
 	compilePresenceChecks(e, &c, req)
@@ -1318,12 +1350,23 @@ func assembleFile(e *fileEmitter, relPath, pkg, specRef, body string) (string, e
 	imports = append(imports, e.sortedImports()...)
 	sort.Strings(imports)
 
+	// An import whose local name differs from its package name is written
+	// with that name as an explicit alias. Two spec directories can share a
+	// basename — common/types and shopping/types both declare `package
+	// types` — and a file naming both has to distinguish them.
+	spell := func(importPath string) string {
+		if local, ok := e.imports[importPath]; ok && local != path.Base(importPath) {
+			return fmt.Sprintf("%s %q", local, importPath)
+		}
+		return fmt.Sprintf("%q", importPath)
+	}
+
 	if len(imports) == 1 {
-		fmt.Fprintf(&out, "import %q\n\n", imports[0])
+		fmt.Fprintf(&out, "import %s\n\n", spell(imports[0]))
 	} else if len(imports) > 1 {
 		out.WriteString("import (\n")
 		for _, imp := range imports {
-			fmt.Fprintf(&out, "\t%q\n", imp)
+			fmt.Fprintf(&out, "\t%s\n", spell(imp))
 		}
 		out.WriteString(")\n\n")
 	}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "../../common/types/location_summary_update_request.json"
+    }
+  ],
+  "description": "A business location fulfillment destination. Business-authored and response-only: the Platform selects a location via `selected_destination_id` rather than writing destinations.",
+  "properties": {},
+  "required": [],
+  "title": "Business Location Destination Update Request",
+  "type": "object"
+}

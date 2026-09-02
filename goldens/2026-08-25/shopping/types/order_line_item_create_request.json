@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "id": {
+      "description": "Line item identifier.",
+      "type": "string"
+    },
+    "item": {
+      "$ref": "item_create_request.json",
+      "description": "Purchased item data, including identity, price, and sale basis."
+    },
+    "parent_id": {
+      "description": "Parent line item identifier for any nested structures.",
+      "type": "string"
+    },
+    "quantity": {
+      "description": "Tracks the line item's original, current active, and fulfilled quantities. All three values use the same inherited `item.quantity_unit`. When `item.quantity_unit` is absent on an authoritative order response, each step is one whole item (`each`) under the shared default.",
+      "properties": {
+        "fulfilled": {
+          "description": "Quantity fulfilled so far, expressed as an integer step count.",
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "original": {
+          "description": "Quantity from the original checkout, expressed as an integer step count.",
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "description": "Current active quantity after returns, cancellations, or other order changes, expressed as an integer step count.",
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fulfilled",
+        "total"
+      ],
+      "type": "object"
+    },
+    "status": {
+      "description": "Derived status: removed if quantity.total == 0, fulfilled if quantity.total \u003e 0 and quantity.fulfilled == quantity.total, partial if quantity.total \u003e 0 and quantity.fulfilled \u003e 0, otherwise processing.",
+      "enum": [
+        "processing",
+        "partial",
+        "fulfilled",
+        "removed"
+      ],
+      "type": "string"
+    },
+    "totals": {
+      "description": "Line item totals breakdown.",
+      "items": {
+        "$ref": "../../common/types/total_create_request.json"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "item",
+    "quantity",
+    "status",
+    "totals"
+  ],
+  "title": "Order Line Item Create Request",
+  "type": "object"
+}
