@@ -103,7 +103,7 @@ an independent implementation is the only thing that catches it.
 **2. Differential agreement.** The same JSON bytes are driven through the
 generated models' `Validate` and through a real draft-2020-12 validator
 (`santhosh-tekuri/jsonschema/v6`), and the two must reach the same verdict:
-**1,556 payloads across 349 generated types (182 of them schema-file roots),
+**1,630 payloads across 368 generated types (195 of them schema-file roots),
 zero disagreements.**
 
 This layer catches wrong *enforcement*. Golden tests prove the emitter is
@@ -144,14 +144,13 @@ widening redefinition would surface here as a disagreement.
 Nothing is suppressed to reach zero. There is no skip list of known-failing
 payloads, and a disagreement fails the suite.
 
-Figures below the headline are equally literal. 39 targets are skipped, each
+Figures below the headline are equally literal. 20 targets are skipped, each
 under a named reason the run prints every time:
 
 | skipped | reason |
 | --- | --- |
-| 17 | out-of-scope keyword: `dependentRequired` |
-| 6 | recorded unenforced for this type: `dependentRequired` |
 | 4 | out-of-scope keyword: union alongside sibling `properties` |
+| 4 | recorded unenforced for this type: `dependentRequired` |
 | 3 | recorded unenforced for this type: `propertyNames` |
 | 3 | recorded unenforced for this type: `if` |
 | 2 | recorded unenforced for this type: `contains` |
@@ -262,7 +261,7 @@ full JSON Schema implementation, the gap is specific:
   `MANIFEST.json` therefore records these under `not_asserted`, separate
   from `unenforced`. The two used to share a key, which made the manifest
   report every occurrence as an unmet obligation when the real gap is
-  **54** — `format` outnumbers it more than three to one, so merging them
+  **50** — `format` outnumbers it more than three to one, so merging them
   buried it.
   Both numbers stay visible; neither is a summary of the other.
   `TestCorpusUsesAnnotationOnlyFormat` fails the build if a future spec
@@ -282,6 +281,22 @@ full JSON Schema implementation, the gap is specific:
   phase later — at which point it agreed. The coverage figure above was
   accurate throughout and still did not cover this; a number counts what it
   counts, and the thing worth stating is which schemas were behind it.
+- **`dependentRequired` is enforced.** If the trigger property was present
+  in the decoded payload, every property it names must be present too. It
+  is a presence rule, not a value rule, so it reads the decoder's record and
+  is guarded on it — a value built in Go rather than decoded has no record,
+  and judging a dependency against one would fail every hand-constructed
+  request.
+
+  The record now tracks the rule's participants as well as the
+  unconditionally required properties. `common/types/time_interval` makes
+  `opens` and `closes` require each other and neither on its own, so it
+  previously got no presence record at all and the rule had nothing to read.
+
+  Eight occurrences remain unenforced, all in request variants: a variant
+  drops properties marked `ucp_request:omit` while keeping the rules, so the
+  rule names a property the Go struct no longer has. There is nothing to
+  bind it to, so it is reported rather than approximated.
 - **Fourteen `if`/`then` pairs remain unenforced.** A request variant is a
   projection that drops every property marked `ucp_request:omit` while
   keeping the rules, so some arrive carrying rules about properties the Go

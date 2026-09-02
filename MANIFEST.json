@@ -275,12 +275,7 @@
       "type": "DailyHour",
       "package": "types",
       "file": "common/types/daily_hour.go",
-      "fields": 3,
-      "unenforced": {
-        "DailyHour": [
-          "dependentRequired"
-        ]
-      }
+      "fields": 3
     },
     "common/types/daily_hour_create_request.json": {
       "type": "DailyHourCreateRequest",
@@ -347,11 +342,6 @@
       "package": "types",
       "file": "common/types/exception_hour.go",
       "fields": 5,
-      "unenforced": {
-        "ExceptionHour": [
-          "dependentRequired"
-        ]
-      },
       "not_asserted": {
         "ExceptionHour.valid_from": [
           "format"
@@ -982,12 +972,7 @@
       "type": "TimeInterval",
       "package": "types",
       "file": "common/types/time_interval.go",
-      "fields": 2,
-      "unenforced": {
-        "TimeInterval": [
-          "dependentRequired"
-        ]
-      }
+      "fields": 2
     },
     "common/types/time_interval_create_request.json": {
       "type": "TimeIntervalCreateRequest",
@@ -1768,12 +1753,7 @@
       "type": "FulfillmentMethod",
       "package": "types",
       "file": "shopping/types/fulfillment_method.go",
-      "fields": 6,
-      "unenforced": {
-        "FulfillmentMethod": [
-          "dependentRequired"
-        ]
-      }
+      "fields": 6
     },
     "shopping/types/fulfillment_method_create_request.json": {
       "type": "FulfillmentMethodCreateRequest",

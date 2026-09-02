@@ -107,6 +107,14 @@ func (v *DailyHour) Validate() error {
 			return errors.New("opens: required property is missing")
 		}
 	}
+	if v.present != nil {
+		if v.present["closes"] && !v.present["opens"] {
+			return errors.New("opens: required when closes is present")
+		}
+		if v.present["opens"] && !v.present["closes"] {
+			return errors.New("closes: required when opens is present")
+		}
+	}
 	if !pattern_DailyHour_Closes().MatchString(string(v.Closes)) {
 		return errors.New("closes: does not match pattern")
 	}

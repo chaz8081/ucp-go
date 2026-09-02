@@ -37,7 +37,6 @@ type payload struct {
 // and the emitter fails generation rather than guessing at it.
 var outOfScopeKeywords = map[string]bool{
 	"else":              true,
-	"dependentRequired": true,
 	"dependentSchemas":  true,
 	"patternProperties": true,
 	// format is annotation-only in draft 2020-12 and the oracle runs with

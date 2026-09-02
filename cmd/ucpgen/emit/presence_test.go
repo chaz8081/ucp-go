@@ -109,3 +109,93 @@ func TestEmitNoPresenceWithoutRequired(t *testing.T) {
 		t.Errorf("no required properties means no presence capture:\n%s", src)
 	}
 }
+
+func TestDependentRequiredMutualRule(t *testing.T) {
+	// common/types/time_interval: opens and closes require each other, and
+	// neither is required on its own. Such a type used to get no presence
+	// record at all — the record was emitted only for unconditionally
+	// required properties — leaving the rule with nothing to read.
+	schema := map[string]any{
+		"title": "Interval", "type": "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"opens":  map[string]any{"type": "string"},
+			"closes": map[string]any{"type": "string"},
+		},
+		"dependentRequired": map[string]any{
+			"opens":  []any{"closes"},
+			"closes": []any{"opens"},
+		},
+	}
+	src, err := emitOne(t, "test/interval.json", schema)
+	if err != nil {
+		t.Fatalf("EmitFile: %v", err)
+	}
+	if !strings.Contains(src, "present map[string]bool") {
+		t.Fatalf("a dependentRequired rule needs the presence record:\n%s", src)
+	}
+	for _, want := range []string{
+		`if v.present["opens"] && !v.present["closes"] {`,
+		`errors.New("closes: required when opens is present")`,
+		`if v.present["closes"] && !v.present["opens"] {`,
+		`errors.New("opens: required when closes is present")`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("missing %q in:\n%s", want, src)
+		}
+	}
+	// Guarded, like every presence check: a value built in Go rather than
+	// decoded has no record, and judging a dependency against it would fail
+	// every hand-constructed request.
+	if !strings.Contains(src, "if v.present != nil {") {
+		t.Errorf("dependent checks must be guarded on a decoded value:\n%s", src)
+	}
+	// The rule is conditional, so neither property may be reported missing
+	// on its own.
+	if strings.Contains(src, `errors.New("opens: required property is missing")`) {
+		t.Errorf("a dependentRequired participant is not unconditionally required:\n%s", src)
+	}
+}
+
+func TestDependentRequiredReportsRuleNamingAbsentProperty(t *testing.T) {
+	// A request variant drops properties marked ucp_request:omit while
+	// keeping the rules, so a rule can name a property the Go struct no
+	// longer has — every *_create_request form of time_interval and
+	// fulfillment_method in spec 2026-08-25 is shaped that way.
+	//
+	// There is nothing to bind the rule to, so it must be reported rather
+	// than approximated, and above all must not be marked enforced.
+	schema := map[string]any{
+		"title": "Dropped", "type": "object",
+		"additionalProperties": false,
+		"properties":           map[string]any{"kept": map[string]any{"type": "string"}},
+		"dependentRequired":    map[string]any{"gone": []any{"kept"}},
+	}
+	src, err := emitOne(t, "test/dropped.json", schema)
+	if err != nil {
+		t.Fatalf("EmitFile: %v", err)
+	}
+	if strings.Contains(src, "v.present[\"gone\"]") {
+		t.Errorf("no check may reference a property the type does not declare:\n%s", src)
+	}
+	if !strings.Contains(src, "Not enforced yet on the object itself: dependentRequired") {
+		t.Errorf("an unbindable rule must be reported as a gap:\n%s", src)
+	}
+}
+
+func TestPresenceNamesUnionsRequiredAndDependent(t *testing.T) {
+	fields := []structField{
+		{jsonName: "id", required: true},
+		{jsonName: "opens"},
+		{jsonName: "closes"},
+		{jsonName: "unrelated"},
+	}
+	schema := map[string]any{
+		"dependentRequired": map[string]any{"opens": []any{"closes"}},
+	}
+	got := presenceNames(schema, fields)
+	want := []string{"closes", "id", "opens"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("presenceNames = %v, want %v (required plus the rule's participants, and nothing else)", got, want)
+	}
+}
