@@ -778,6 +778,9 @@ func renderNamedType(e *fileEmitter, body *strings.Builder, typeName string, sch
 		e.usesErrors = true
 		e.imports["encoding/json"] = "json"
 		renderNullCodec(body, typeName, underlying, schema)
+	} else if underlying == "json.RawMessage" {
+		e.imports["encoding/json"] = "json"
+		renderRawMessageCodec(body, typeName)
 	}
 
 	// A named primitive usually exists for its constraint, so emitting an
@@ -1242,6 +1245,12 @@ func renderStruct(e *fileEmitter, body *strings.Builder, typeName string, schema
 	case len(req) > 0:
 		e.usesErrors = true // the decoder's null guard
 		renderPresenceCodec(body, typeName, req)
+	default:
+		// A closed object requiring nothing still must not accept null.
+		// See renderNullOnlyObjectCodec.
+		e.usesErrors = true
+		e.imports["encoding/json"] = "json"
+		renderNullOnlyObjectCodec(body, typeName)
 	}
 
 	compilePresenceChecks(e, &c, req)

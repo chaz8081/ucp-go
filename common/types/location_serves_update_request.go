@@ -9,6 +9,8 @@ import (
 )
 
 // LocationServesUpdateRequest A one-entry map whose key names the authoritative service-target representation. The Platform MUST supply exactly one target form. A Business that cannot evaluate a well-formed target, or receives an extension form that was not negotiated, MUST reject the request rather than ignore it, fall back, or broaden results. This dictionary-like representation map cannot host an ambient `ucp` member.
+//
+// Not enforced yet on the object itself: propertyNames.
 type LocationServesUpdateRequest struct {
 	// Coarse locality of the service target.
 	Address *LocationServesUpdateRequestAddress `json:"address,omitzero"`

@@ -9,6 +9,8 @@ import (
 	ucp "github.com/chaz8081/ucp-go"
 	"github.com/chaz8081/ucp-go/common/types"
 	shoppingtypes "github.com/chaz8081/ucp-go/shopping/types"
+	"regexp"
+	"sync"
 )
 
 // BuyerConsentBuyer Buyer object extended with per-purpose consent.
@@ -516,8 +518,17 @@ func (v *BuyerConsentConsent) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+var pattern_BuyerConsentConsent_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *BuyerConsentConsent) Validate() error {
+	for k := range *v {
+		if !pattern_BuyerConsentConsent_Key().MatchString(string(k)) {
+			return errors.New("BuyerConsentConsent property name: does not match pattern")
+		}
+	}
 	for _, m := range *v {
 		if err := m.Validate(); err != nil {
 			return err
@@ -610,6 +621,10 @@ func (v BuyerConsentConsentPurpose) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_BuyerConsentConsentPurpose_Segments_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *BuyerConsentConsentPurpose) Validate() error {
 	if v.present != nil {
@@ -621,6 +636,13 @@ func (v *BuyerConsentConsentPurpose) Validate() error {
 		}
 		if !v.present["source"] {
 			return errors.New("source: required property is missing")
+		}
+	}
+	if v.Segments != nil {
+		for k := range v.Segments {
+			if !pattern_BuyerConsentConsentPurpose_Segments_Key().MatchString(string(k)) {
+				return errors.New("segments property name: does not match pattern")
+			}
 		}
 	}
 	if v.Source != "business" && v.Source != "platform" {

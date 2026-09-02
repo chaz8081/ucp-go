@@ -203,6 +203,13 @@ func TestDifferentialAgreement(t *testing.T) {
 			skipped["oracle cannot compile: "+oracleSkipReason(err)]++
 			continue
 		}
+		// A union carried as json.RawMessage has a Validate that can inspect
+		// nothing, so the oracle enforces a constraint the SDK structurally
+		// cannot. Counted and named, never compared as if it could.
+		if make, ok := models[tg.location]; ok && isRawCarriedType(make()) {
+			skipped["carried as raw JSON, so nothing is validated"]++
+			continue
+		}
 		comparedTypes++
 		if !strings.Contains(tg.location, "#") {
 			comparedFiles++
@@ -392,7 +399,7 @@ func FuzzReverseDomainNameAgreement(f *testing.F) {
 	if err != nil {
 		f.Fatalf("register corpus: %v", err)
 	}
-	const rel = "shopping/types/reverse_domain_name.json"
+	const rel = "common/types/reverse_domain_name.json"
 	compiled, err := oracle.Compile(ids[rel])
 	if err != nil {
 		f.Fatalf("compile %s: %v", rel, err)

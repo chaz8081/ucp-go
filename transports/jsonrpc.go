@@ -277,6 +277,22 @@ func (v *JsonrpcErrorResponse) Validate() error {
 // phase 4.
 type JsonrpcID json.RawMessage
 
+// UnmarshalJSON stores the raw bytes. A defined type over
+// json.RawMessage does not inherit its methods, and the []byte default
+// would decode JSON strings as base64.
+func (v *JsonrpcID) UnmarshalJSON(data []byte) error {
+	*v = append((*v)[:0], data...)
+	return nil
+}
+
+// MarshalJSON emits the raw bytes unchanged.
+func (v JsonrpcID) MarshalJSON() ([]byte, error) {
+	if len(v) == 0 {
+		return []byte("null"), nil
+	}
+	return v, nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *JsonrpcID) Validate() error {
 	return nil

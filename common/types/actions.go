@@ -6,6 +6,8 @@ package types
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -29,8 +31,17 @@ func (v *Actions) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+var pattern_Actions_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *Actions) Validate() error {
+	for k := range *v {
+		if !pattern_Actions_Key().MatchString(string(k)) {
+			return errors.New("Actions property name: does not match pattern")
+		}
+	}
 	for _, m := range *v {
 		for i1 := range m {
 			if err := m[i1].Validate(); err != nil {

@@ -9,6 +9,8 @@ import (
 	ucp "github.com/chaz8081/ucp-go"
 	"github.com/chaz8081/ucp-go/common/types"
 	shoppingtypes "github.com/chaz8081/ucp-go/shopping/types"
+	"regexp"
+	"sync"
 )
 
 // LoyaltyCart Cart extended with Loyalty capability.
@@ -627,6 +629,22 @@ func (v *LoyaltyEarningForecast) Validate() error {
 // phase 4.
 type LoyaltyLookup json.RawMessage
 
+// UnmarshalJSON stores the raw bytes. A defined type over
+// json.RawMessage does not inherit its methods, and the []byte default
+// would decode JSON strings as base64.
+func (v *LoyaltyLookup) UnmarshalJSON(data []byte) error {
+	*v = append((*v)[:0], data...)
+	return nil
+}
+
+// MarshalJSON emits the raw bytes unchanged.
+func (v LoyaltyLookup) MarshalJSON() ([]byte, error) {
+	if len(v) == 0 {
+		return []byte("null"), nil
+	}
+	return v, nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *LoyaltyLookup) Validate() error {
 	return nil
@@ -652,8 +670,17 @@ func (v *LoyaltyLoyalty) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+var pattern_LoyaltyLoyalty_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *LoyaltyLoyalty) Validate() error {
+	for k := range *v {
+		if !pattern_LoyaltyLoyalty_Key().MatchString(string(k)) {
+			return errors.New("LoyaltyLoyalty property name: does not match pattern")
+		}
+	}
 	for _, m := range *v {
 		if err := m.Validate(); err != nil {
 			return err

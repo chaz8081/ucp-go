@@ -472,6 +472,12 @@
         "Location": [
           "if",
           "then"
+        ],
+        "Location.amenities": [
+          "propertyNames"
+        ],
+        "amenities": [
+          "propertyNames"
         ]
       }
     },
@@ -511,19 +517,34 @@
       "type": "LocationServes",
       "package": "types",
       "file": "common/types/location_serves.go",
-      "fields": 2
+      "fields": 2,
+      "unenforced": {
+        "LocationServes": [
+          "propertyNames"
+        ]
+      }
     },
     "common/types/location_serves_create_request.json": {
       "type": "LocationServesCreateRequest",
       "package": "types",
       "file": "common/types/location_serves_create_request.go",
-      "fields": 2
+      "fields": 2,
+      "unenforced": {
+        "LocationServesCreateRequest": [
+          "propertyNames"
+        ]
+      }
     },
     "common/types/location_serves_update_request.json": {
       "type": "LocationServesUpdateRequest",
       "package": "types",
       "file": "common/types/location_serves_update_request.go",
-      "fields": 2
+      "fields": 2,
+      "unenforced": {
+        "LocationServesUpdateRequest": [
+          "propertyNames"
+        ]
+      }
     },
     "common/types/location_summary.json": {
       "type": "LocationSummary",

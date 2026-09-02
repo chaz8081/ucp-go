@@ -20,6 +20,22 @@ type RequestConstraints struct {
 	Required []string `json:"required,omitzero"`
 }
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this a null document would decode
+// to the zero value and validate as though it were a real object.
+func (v *RequestConstraints) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("RequestConstraints: null is not a valid object")
+	}
+	type RequestConstraintsAlias RequestConstraints
+	var named RequestConstraintsAlias
+	if err := json.Unmarshal(data, &named); err != nil {
+		return err
+	}
+	*v = RequestConstraints(named)
+	return nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *RequestConstraints) Validate() error {
 	if v.Anyof != nil && len(v.Anyof) < 1 {

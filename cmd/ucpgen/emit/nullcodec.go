@@ -105,3 +105,26 @@ func renderNullCodec(body *strings.Builder, typeName, underlying string, schema 
 	fmt.Fprintf(body, "\ttype %s %s\n\tvar alias %s\n\tif err := json.Unmarshal(data, &alias); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(alias)\n\treturn nil\n}\n\n",
 		alias, typeName, alias, typeName)
 }
+
+// renderRawMessageCodec gives a DEFINED type over json.RawMessage the
+// pass-through codec that RawMessage itself has.
+//
+// `type JsonrpcID json.RawMessage` is a defined type, not an alias, so it
+// inherits none of RawMessage's methods. encoding/json then falls back to
+// the default treatment of its underlying []byte — which is base64 — and
+// `"x"` fails with "illegal base64 data at input byte 0". A union carrying
+// such a member then rejects every input, because the member never decodes.
+//
+// An alias would inherit the methods but cannot carry a Validate of its
+// own, since the type is not local. So the defined type stays and the codec
+// is written out: store the bytes verbatim, emit them verbatim, which is
+// exactly what RawMessage does.
+//
+// This is the Phase 8 defined-vs-alias defect in a second guise. There it
+// was a $def over another generated type, silently losing UnmarshalJSON and
+// Validate; here it is a $def over a stdlib type, silently losing the codec
+// that makes it mean anything.
+func renderRawMessageCodec(body *strings.Builder, typeName string) {
+	fmt.Fprintf(body, "// UnmarshalJSON stores the raw bytes. A defined type over\n// json.RawMessage does not inherit its methods, and the []byte default\n// would decode JSON strings as base64.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n\t*v = append((*v)[:0], data...)\n\treturn nil\n}\n\n", typeName)
+	fmt.Fprintf(body, "// MarshalJSON emits the raw bytes unchanged.\nfunc (v %s) MarshalJSON() ([]byte, error) {\n\tif len(v) == 0 {\n\t\treturn []byte(\"null\"), nil\n\t}\n\treturn v, nil\n}\n\n", typeName)
+}

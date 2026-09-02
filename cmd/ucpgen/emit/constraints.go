@@ -712,6 +712,24 @@ func compileObjectSelf(e *fileEmitter, c *constraintSet, typeName string, schema
 	if !ok {
 		return nil
 	}
+	// A propertyNames given as a $ref says nothing on its own, so the
+	// checks below found nothing to emit — and marked the keyword enforced
+	// anyway, which is the precise failure this file warns about elsewhere:
+	// a rule that quietly does nothing is worse than an absent one, because
+	// the caller cannot tell the two apart.
+	//
+	// spec 2026-08-25 is the first corpus to write it that way, in
+	// common/types/actions, common/loyalty and shopping/buyer_consent, each
+	// constraining its keys to a reverse-domain identifier. Resolve the ref
+	// to what it SAYS — refTarget, not ResolveRef, since the question is the
+	// constraint rather than the Go type.
+	if ref, isRef := names["$ref"].(string); isRef {
+		resolved, _, found := e.refTarget(e.rel, ref)
+		if !found {
+			return unsupported("%s: propertyNames references %q, which does not resolve", typeName, ref)
+		}
+		names = resolved
+	}
 	// The named properties are literals the schema author wrote, so they are
 	// checkable now. Letting one through that violates the constraint would
 	// leave the generated code quietly weaker than the schema, since the
@@ -737,11 +755,15 @@ func compileObjectSelf(e *fileEmitter, c *constraintSet, typeName string, schema
 	}
 	c.loops = body.loops
 	c.vars.WriteString(body.vars.String())
-	if body.checks.Len() > 0 {
-		fmt.Fprintf(&c.checks, "for %s := range v.Extra {\n", key)
-		c.checks.WriteString(body.checks.String())
-		c.checks.WriteString("}\n")
+	if body.checks.Len() == 0 {
+		// Nothing was emitted, so nothing is enforced. Leaving the keyword
+		// unmarked reports it as a gap rather than claiming a check that
+		// does not exist.
+		return nil
 	}
+	fmt.Fprintf(&c.checks, "for %s := range v.Extra {\n", key)
+	c.checks.WriteString(body.checks.String())
+	c.checks.WriteString("}\n")
 	e.enforced.mark(schema, "propertyNames")
 	return nil
 }
@@ -801,6 +823,18 @@ func compileMap(e *fileEmitter, c *constraintSet, t target, node map[string]any)
 	if !ok {
 		return nil
 	}
+	// Resolve a propertyNames written as a $ref to what it says, for the
+	// same reason as in compileObjectSelf: on its own it declares no string
+	// constraint, so the checks below found nothing and the keyword was
+	// marked enforced regardless. common/types/actions and common/loyalty
+	// both constrain their keys this way in spec 2026-08-25.
+	if ref, isRef := names["$ref"].(string); isRef {
+		resolved, _, found := e.refTarget(e.rel, ref)
+		if !found {
+			return unsupported("%s: %s propertyNames references %q, which does not resolve", t.typeName, subjectOf(t.label), ref)
+		}
+		names = resolved
+	}
 	// Map keys are always Go strings, so a propertyNames subschema reduces
 	// to the string checks applied to the loop variable.
 	if kind := shapeOf(names); kind != shapeString && kind != shapeUnknown {
@@ -815,14 +849,17 @@ func compileMap(e *fileEmitter, c *constraintSet, t target, node map[string]any)
 	}
 	c.loops = body.loops
 	c.vars.WriteString(body.vars.String())
-	if body.checks.Len() > 0 {
-		open, closed := guardBlock(guard)
-		c.checks.WriteString(open)
-		fmt.Fprintf(&c.checks, "for %s := range %s {\n", key, value)
-		c.checks.WriteString(body.checks.String())
-		c.checks.WriteString("}\n")
-		c.checks.WriteString(closed)
+	if body.checks.Len() == 0 {
+		// Nothing emitted means nothing enforced; report it rather than
+		// claiming a check that was never written.
+		return nil
 	}
+	open, closed := guardBlock(guard)
+	c.checks.WriteString(open)
+	fmt.Fprintf(&c.checks, "for %s := range %s {\n", key, value)
+	c.checks.WriteString(body.checks.String())
+	c.checks.WriteString("}\n")
+	c.checks.WriteString(closed)
 	e.enforced.mark(node, "propertyNames")
 	return nil
 }

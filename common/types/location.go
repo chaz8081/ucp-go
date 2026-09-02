@@ -16,6 +16,8 @@ type Location struct {
 	// Physical address of the location.
 	Address *PostalAddress `json:"address,omitzero"`
 	// Static features, services, or capabilities of the Location, keyed by reverse-domain amenity identifier. Each value provides a buyer-facing description; the key alone defines amenity identity and filter matching.
+	//
+	// Not enforced yet: propertyNames.
 	Amenities map[string]LocationAmenity `json:"amenities,omitzero"`
 	// Date-specific operating-hour exceptions, including full closures, whose date and time values use this Location's canonical local civil-time frame.
 	ExceptionHours []ExceptionHour `json:"exception_hours,omitzero"`

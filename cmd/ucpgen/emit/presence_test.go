@@ -75,7 +75,15 @@ func TestEmitPresenceCodecOnClosedObjectHasNoExtra(t *testing.T) {
 	}
 }
 
-// A schema with no required properties needs no presence machinery at all.
+// A schema with no required properties needs no presence machinery — but it
+// still needs a decoder, because nothing else rejects a bare null.
+//
+// This test used to assert the opposite, that such a type needs no
+// UnmarshalJSON at all. That was wrong for the reason recorded on
+// renderNullOnlyObjectCodec: object roots were exempted from the null guard
+// because their presence check would catch it, which silently assumes there
+// is something required to be missing. spec 2026-08-25's
+// common/types/constraint_expression requires nothing, and accepted null.
 func TestEmitNoPresenceWithoutRequired(t *testing.T) {
 	schema := map[string]any{
 		"title": "Loose", "type": "object",
@@ -89,7 +97,15 @@ func TestEmitNoPresenceWithoutRequired(t *testing.T) {
 	if strings.Contains(src, "present map[string]bool") {
 		t.Errorf("no required properties means no presence field:\n%s", src)
 	}
-	if strings.Contains(src, "UnmarshalJSON") {
-		t.Errorf("a closed object with no required properties needs no decoder:\n%s", src)
+	if !strings.Contains(src, "func (v *Loose) UnmarshalJSON") {
+		t.Errorf("a closed object still needs a decoder to reject null:\n%s", src)
+	}
+	if !strings.Contains(src, `null is not a valid object`) {
+		t.Errorf("the decoder must reject a bare null:\n%s", src)
+	}
+	// The decoder exists for the null guard alone; it must not smuggle in
+	// presence tracking there is nothing to track.
+	if strings.Contains(src, "v.present") {
+		t.Errorf("no required properties means no presence capture:\n%s", src)
 	}
 }

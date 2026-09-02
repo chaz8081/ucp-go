@@ -84,3 +84,28 @@ func renderPresenceCodec(body *strings.Builder, typeName string, required []stri
 	renderPresenceCapture(body, required)
 	body.WriteString("\treturn nil\n}\n")
 }
+
+// renderNullOnlyObjectCodec emits UnmarshalJSON for a closed object that
+// needs no presence tracking, purely so a bare null is rejected.
+//
+// Without it such a type has no decoder at all, and json.Unmarshal treats
+// null as a no-op for every Go type — so `null` decoded into the zero value
+// and Validate then found nothing wrong, because there is nothing required
+// to be missing.
+//
+// That is the same hole Phase 7 closed for named primitives and slices, and
+// the reasoning recorded then had a gap: object roots were exempted on the
+// grounds that "the presence codec allocates the record before checking, so
+// a decoded null leaves every required property unseen and the check
+// rejects it". True, and it silently assumes there IS a required property.
+// A schema requiring nothing — common/types/constraint_expression in spec
+// 2026-08-25 — got no codec and accepted null.
+//
+// A rejection that only works as a side effect of another rule is not a
+// rejection; it is a coincidence that holds until the corpus changes.
+func renderNullOnlyObjectCodec(body *strings.Builder, typeName string) {
+	alias := typeName + "Alias"
+	fmt.Fprintf(body, "\n// UnmarshalJSON rejects a bare null. encoding/json treats null as a\n// no-op for every Go type, so without this a null document would decode\n// to the zero value and validate as though it were a real object.\nfunc (v *%s) UnmarshalJSON(data []byte) error {\n", typeName)
+	writeNullGuard(body, typeName, "object")
+	fmt.Fprintf(body, "\ttype %s %s\n\tvar named %s\n\tif err := json.Unmarshal(data, &named); err != nil {\n\t\treturn err\n\t}\n\t*v = %s(named)\n\treturn nil\n}\n", alias, typeName, alias, typeName)
+}

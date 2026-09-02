@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 )
 
 // recordedUnenforced reads MANIFEST.json and returns, per schema path, the
@@ -76,4 +77,32 @@ func unenforcedOnNode(rel string, node map[string]any, recorded map[string]map[s
 		}
 	}
 	return ""
+}
+
+// isRawCarriedType reports whether a model IS a json.RawMessage rather than
+// merely containing one.
+//
+// The emitter falls back to a defined type over json.RawMessage for a union
+// whose alternatives share no properties — there is no struct to put them
+// in and no single Go type they all satisfy. Validate on such a type has
+// nothing to look at, so it accepts whatever decodes, which for raw bytes
+// is anything at all.
+//
+// The differential harness therefore cannot compare these targets: the
+// oracle enforces the union and the SDK cannot, so every payload the oracle
+// rejects is a disagreement, and none of them is a missing check. Skipped
+// by shape and named, the way every other gap here is, rather than by a
+// list of type names that would quietly rot.
+func isRawCarriedType(model any) bool {
+	t := reflect.TypeOf(model)
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil || t == reflect.TypeOf(json.RawMessage(nil)) {
+		// The alias itself is not what the emitter produces; a defined type
+		// over it is.
+		return false
+	}
+	return t.Kind() == reflect.Slice && t.ConvertibleTo(reflect.TypeOf(json.RawMessage(nil))) &&
+		t.Elem().Kind() == reflect.Uint8
 }

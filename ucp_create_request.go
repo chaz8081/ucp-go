@@ -268,11 +268,44 @@ func (v UCPCreateRequestBase) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestBase_Capabilities_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestBase_PaymentHandlers_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestBase_Services_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestBase) Validate() error {
 	if v.present != nil {
 		if !v.present["version"] {
 			return errors.New("version: required property is missing")
+		}
+	}
+	if v.Capabilities != nil {
+		for k := range v.Capabilities {
+			if !pattern_UCPCreateRequestBase_Capabilities_Key().MatchString(string(k)) {
+				return errors.New("capabilities property name: does not match pattern")
+			}
+		}
+	}
+	if v.PaymentHandlers != nil {
+		for k2 := range v.PaymentHandlers {
+			if !pattern_UCPCreateRequestBase_PaymentHandlers_Key().MatchString(string(k2)) {
+				return errors.New("payment_handlers property name: does not match pattern")
+			}
+		}
+	}
+	if v.Services != nil {
+		for k3 := range v.Services {
+			if !pattern_UCPCreateRequestBase_Services_Key().MatchString(string(k3)) {
+				return errors.New("services property name: does not match pattern")
+			}
 		}
 	}
 	if v.Status != nil && *v.Status != "success" && *v.Status != "error" {
@@ -396,6 +429,8 @@ func (v UCPCreateRequestBusinessSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestBusinessSchema_SupportedVersions_Key = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2}$") })
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestBusinessSchema) Validate() error {
 	if v.present != nil {
@@ -411,6 +446,13 @@ func (v *UCPCreateRequestBusinessSchema) Validate() error {
 	}
 	if v.Status != nil && *v.Status != "success" && *v.Status != "error" {
 		return errors.New("status: not one of the permitted values")
+	}
+	if v.SupportedVersions != nil {
+		for k := range v.SupportedVersions {
+			if !pattern_UCPCreateRequestBusinessSchema_SupportedVersions_Key().MatchString(string(k)) {
+				return errors.New("supported_versions property name: does not match pattern")
+			}
+		}
 	}
 	for _, m := range v.Capabilities {
 		for i1 := range m {
@@ -630,6 +672,18 @@ func (v UCPCreateRequestError) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestError_Capabilities_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestError_PaymentHandlers_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestError_Services_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestError) Validate() error {
 	if v.present != nil {
@@ -638,6 +692,27 @@ func (v *UCPCreateRequestError) Validate() error {
 		}
 		if !v.present["version"] {
 			return errors.New("version: required property is missing")
+		}
+	}
+	if v.Capabilities != nil {
+		for k := range v.Capabilities {
+			if !pattern_UCPCreateRequestError_Capabilities_Key().MatchString(string(k)) {
+				return errors.New("capabilities property name: does not match pattern")
+			}
+		}
+	}
+	if v.PaymentHandlers != nil {
+		for k2 := range v.PaymentHandlers {
+			if !pattern_UCPCreateRequestError_PaymentHandlers_Key().MatchString(string(k2)) {
+				return errors.New("payment_handlers property name: does not match pattern")
+			}
+		}
+	}
+	if v.Services != nil {
+		for k3 := range v.Services {
+			if !pattern_UCPCreateRequestError_Services_Key().MatchString(string(k3)) {
+				return errors.New("services property name: does not match pattern")
+			}
 		}
 	}
 	if v.Status != "error" {
@@ -972,8 +1047,19 @@ func (v UCPCreateRequestRequires) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestRequires_Capabilities_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestRequires) Validate() error {
+	if v.Capabilities != nil {
+		for k := range v.Capabilities {
+			if !pattern_UCPCreateRequestRequires_Capabilities_Key().MatchString(string(k)) {
+				return errors.New("capabilities property name: does not match pattern")
+			}
+		}
+	}
 	for _, m := range v.Capabilities {
 		if err := m.Validate(); err != nil {
 			return err
@@ -1072,11 +1158,33 @@ func (v UCPCreateRequestResponseCartSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestResponseCartSchema_PaymentHandlers_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestResponseCartSchema_Services_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestResponseCartSchema) Validate() error {
 	if v.present != nil {
 		if !v.present["version"] {
 			return errors.New("version: required property is missing")
+		}
+	}
+	if v.PaymentHandlers != nil {
+		for k := range v.PaymentHandlers {
+			if !pattern_UCPCreateRequestResponseCartSchema_PaymentHandlers_Key().MatchString(string(k)) {
+				return errors.New("payment_handlers property name: does not match pattern")
+			}
+		}
+	}
+	if v.Services != nil {
+		for k2 := range v.Services {
+			if !pattern_UCPCreateRequestResponseCartSchema_Services_Key().MatchString(string(k2)) {
+				return errors.New("services property name: does not match pattern")
+			}
 		}
 	}
 	if v.Status != nil && *v.Status != "success" && *v.Status != "error" {
@@ -1199,11 +1307,33 @@ func (v UCPCreateRequestResponseCatalogSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestResponseCatalogSchema_PaymentHandlers_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestResponseCatalogSchema_Services_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestResponseCatalogSchema) Validate() error {
 	if v.present != nil {
 		if !v.present["version"] {
 			return errors.New("version: required property is missing")
+		}
+	}
+	if v.PaymentHandlers != nil {
+		for k := range v.PaymentHandlers {
+			if !pattern_UCPCreateRequestResponseCatalogSchema_PaymentHandlers_Key().MatchString(string(k)) {
+				return errors.New("payment_handlers property name: does not match pattern")
+			}
+		}
+	}
+	if v.Services != nil {
+		for k2 := range v.Services {
+			if !pattern_UCPCreateRequestResponseCatalogSchema_Services_Key().MatchString(string(k2)) {
+				return errors.New("services property name: does not match pattern")
+			}
 		}
 	}
 	if v.Status != nil && *v.Status != "success" && *v.Status != "error" {
@@ -1454,11 +1584,33 @@ func (v UCPCreateRequestResponseLocationSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestResponseLocationSchema_PaymentHandlers_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestResponseLocationSchema_Services_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestResponseLocationSchema) Validate() error {
 	if v.present != nil {
 		if !v.present["version"] {
 			return errors.New("version: required property is missing")
+		}
+	}
+	if v.PaymentHandlers != nil {
+		for k := range v.PaymentHandlers {
+			if !pattern_UCPCreateRequestResponseLocationSchema_PaymentHandlers_Key().MatchString(string(k)) {
+				return errors.New("payment_handlers property name: does not match pattern")
+			}
+		}
+	}
+	if v.Services != nil {
+		for k2 := range v.Services {
+			if !pattern_UCPCreateRequestResponseLocationSchema_Services_Key().MatchString(string(k2)) {
+				return errors.New("services property name: does not match pattern")
+			}
 		}
 	}
 	if v.Status != nil && *v.Status != "success" && *v.Status != "error" {
@@ -1581,11 +1733,33 @@ func (v UCPCreateRequestResponseOrderSchema) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestResponseOrderSchema_PaymentHandlers_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestResponseOrderSchema_Services_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestResponseOrderSchema) Validate() error {
 	if v.present != nil {
 		if !v.present["version"] {
 			return errors.New("version: required property is missing")
+		}
+	}
+	if v.PaymentHandlers != nil {
+		for k := range v.PaymentHandlers {
+			if !pattern_UCPCreateRequestResponseOrderSchema_PaymentHandlers_Key().MatchString(string(k)) {
+				return errors.New("payment_handlers property name: does not match pattern")
+			}
+		}
+	}
+	if v.Services != nil {
+		for k2 := range v.Services {
+			if !pattern_UCPCreateRequestResponseOrderSchema_Services_Key().MatchString(string(k2)) {
+				return errors.New("services property name: does not match pattern")
+			}
 		}
 	}
 	if v.Status != nil && *v.Status != "success" && *v.Status != "error" {
@@ -1708,6 +1882,18 @@ func (v UCPCreateRequestSuccess) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_UCPCreateRequestSuccess_Capabilities_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestSuccess_PaymentHandlers_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
+var pattern_UCPCreateRequestSuccess_Services_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *UCPCreateRequestSuccess) Validate() error {
 	if v.present != nil {
@@ -1716,6 +1902,27 @@ func (v *UCPCreateRequestSuccess) Validate() error {
 		}
 		if !v.present["version"] {
 			return errors.New("version: required property is missing")
+		}
+	}
+	if v.Capabilities != nil {
+		for k := range v.Capabilities {
+			if !pattern_UCPCreateRequestSuccess_Capabilities_Key().MatchString(string(k)) {
+				return errors.New("capabilities property name: does not match pattern")
+			}
+		}
+	}
+	if v.PaymentHandlers != nil {
+		for k2 := range v.PaymentHandlers {
+			if !pattern_UCPCreateRequestSuccess_PaymentHandlers_Key().MatchString(string(k2)) {
+				return errors.New("payment_handlers property name: does not match pattern")
+			}
+		}
+	}
+	if v.Services != nil {
+		for k3 := range v.Services {
+			if !pattern_UCPCreateRequestSuccess_Services_Key().MatchString(string(k3)) {
+				return errors.New("services property name: does not match pattern")
+			}
 		}
 	}
 	if v.Status != "success" {

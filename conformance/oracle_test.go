@@ -75,10 +75,10 @@ func (v *Link) Validate() error {
 			return errors.New("url: required property is missing")
 		}
 	}
-	if v.Title != nil && !pattern_Link_Title().MatchString(*v.Title) {
+	if v.Title != nil && !pattern_Link_Title().MatchString(string(*v.Title)) {
 		return errors.New("title: does not match pattern")
 	}
-	if utf8.RuneCountInString(v.URL) > 2048 {
+	if utf8.RuneCountInString(string(v.URL)) > 2048 {
 		return errors.New("url: exceeds maxLength 2048")
 	}
 	return nil
@@ -125,10 +125,10 @@ func (v *Link) Validate() error {
 			return errors.New("url: required property is missing")
 		}
 	}
-	if v.Title != nil && !pattern_Link_Title().MatchString(*v.Title) {
+	if v.Title != nil && !pattern_Link_Title().MatchString(string(*v.Title)) {
 		return errors.New("title: does not match pattern")
 	}
-	if utf8.RuneCountInString(v.URL) > 2048 {
+	if utf8.RuneCountInString(string(v.URL)) > 2048 {
 		return errors.New("url: exceeds maxLength 2048")
 	}
 	return nil

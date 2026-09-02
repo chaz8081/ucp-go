@@ -6,6 +6,8 @@ package types
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
+	"sync"
 )
 
 // SignalsCreateRequest Environment data provided by the platform to support authorization and abuse prevention. Values MUST NOT be buyer-asserted claims — platforms provide signals based on direct observation or independently verifiable third-party attestations. All signal keys MUST use reverse-domain naming to ensure provenance and prevent collisions when multiple extensions contribute to the shared namespace.
@@ -72,7 +74,16 @@ func (v SignalsCreateRequest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
+var pattern_SignalsCreateRequest_Key = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile("^[a-z](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9_])?)+$")
+})
+
 // Validate reports the first constraint violation, or nil.
 func (v *SignalsCreateRequest) Validate() error {
+	for k := range v.Extra {
+		if !pattern_SignalsCreateRequest_Key().MatchString(string(k)) {
+			return errors.New("SignalsCreateRequest property name: does not match pattern")
+		}
+	}
 	return nil
 }

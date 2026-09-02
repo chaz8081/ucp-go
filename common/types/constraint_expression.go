@@ -18,6 +18,22 @@ type ConstraintExpression struct {
 	Required []string `json:"required,omitzero"`
 }
 
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this a null document would decode
+// to the zero value and validate as though it were a real object.
+func (v *ConstraintExpression) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ConstraintExpression: null is not a valid object")
+	}
+	type ConstraintExpressionAlias ConstraintExpression
+	var named ConstraintExpressionAlias
+	if err := json.Unmarshal(data, &named); err != nil {
+		return err
+	}
+	*v = ConstraintExpression(named)
+	return nil
+}
+
 // Validate reports the first constraint violation, or nil.
 func (v *ConstraintExpression) Validate() error {
 	if v.Anyof != nil && len(v.Anyof) < 1 {
@@ -57,6 +73,22 @@ type ConstraintExpressionValueConstraint struct {
 	Const any `json:"const,omitzero"`
 	// A non-empty array of unique JSON values.
 	Enum []any `json:"enum,omitzero"`
+}
+
+// UnmarshalJSON rejects a bare null. encoding/json treats null as a
+// no-op for every Go type, so without this a null document would decode
+// to the zero value and validate as though it were a real object.
+func (v *ConstraintExpressionValueConstraint) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return errors.New("ConstraintExpressionValueConstraint: null is not a valid object")
+	}
+	type ConstraintExpressionValueConstraintAlias ConstraintExpressionValueConstraint
+	var named ConstraintExpressionValueConstraintAlias
+	if err := json.Unmarshal(data, &named); err != nil {
+		return err
+	}
+	*v = ConstraintExpressionValueConstraint(named)
+	return nil
 }
 
 // Validate reports the first constraint violation, or nil.
