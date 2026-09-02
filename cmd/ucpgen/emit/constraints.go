@@ -589,7 +589,13 @@ func compileArray(e *fileEmitter, c *constraintSet, t target, node map[string]an
 	// loop: a scalar element produces no named Go type to hang a Validate
 	// on. Object elements are promoted to named types by goTypeExpr and
 	// validate themselves.
-	if items != nil && scalarGoType(items) != "" && len(declaredCheckable(items)) > 0 {
+	//
+	// An element that is itself an ARRAY is neither. `[][]InstrumentGroup`
+	// has no Validate to hang the inner array's minItems on, and the scalar
+	// test excluded it, so the constraint was dropped —
+	// common/types/business_split_payments_config declares minItems on both
+	// levels and only the outer one was checked.
+	if items != nil && (scalarGoType(items) != "" || shapeOf(items) == shapeArray) && len(declaredCheckable(items)) > 0 {
 		elem := c.loopVar()
 		sub := t.derive("item", "_Item", elem, accessElement)
 		var body constraintSet
@@ -817,6 +823,40 @@ func compileMap(e *fileEmitter, c *constraintSet, t target, node map[string]any)
 		c.check(guard, fmt.Sprintf("len(%s) %s %d", value, op, n),
 			fmt.Sprintf("%s: %s %d", t.label, wording, n))
 		e.enforced.mark(node, kw)
+	}
+
+	// A map's VALUE can carry constraints of its own, and nothing else
+	// reaches them: a scalar or array value produces no named Go type with a
+	// Validate to hang them on, and compileMap previously descended only
+	// into the keys. common/types/actions is
+	// map[string][]ActionsInstance whose value declares minItems 1, which
+	// was silently dropped.
+	//
+	// An object value is excluded for the same reason as in compileArray:
+	// goTypeExpr promotes it to a named type that validates itself, and
+	// compiling it here as well would check it twice.
+	if vals, hasVals := node["additionalProperties"].(map[string]any); hasVals {
+		if scalarGoType(vals) != "" || shapeOf(vals) == shapeArray {
+			if len(declaredCheckable(vals)) > 0 {
+				val := c.loopVar()
+				sub := t.derive("value", "_Value", val, accessElement)
+				var body constraintSet
+				body.loops = c.loops
+				if err := compileInto(e, &body, sub, vals, shapeOf(vals)); err != nil {
+					return err
+				}
+				c.loops = body.loops
+				c.vars.WriteString(body.vars.String())
+				if body.checks.Len() > 0 {
+					open, closed := guardBlock(guard)
+					c.checks.WriteString(open)
+					fmt.Fprintf(&c.checks, "for _, %s := range %s {\n", val, value)
+					c.checks.WriteString(body.checks.String())
+					c.checks.WriteString("}\n")
+					c.checks.WriteString(closed)
+				}
+			}
+		}
 	}
 
 	names, ok := node["propertyNames"].(map[string]any)

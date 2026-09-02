@@ -314,3 +314,88 @@ func TestCompileConstraintsReportsWhatItEnforced(t *testing.T) {
 		t.Errorf("notAsserted = %v, want [format]", ann)
 	}
 }
+
+func TestNestedArrayElementConstraintsAreCompiled(t *testing.T) {
+	// common/types/business_split_payments_config: allowed_combinations is
+	// an array of arrays, with minItems on BOTH levels. Only the outer one
+	// was checked. An array element is neither a scalar (which the descent
+	// tested for) nor an object promoted to a named type with its own
+	// Validate, so its constraints had nowhere to go and were dropped.
+	node := map[string]any{
+		"type":     "array",
+		"minItems": float64(1),
+		"items": map[string]any{
+			"type":     "array",
+			"minItems": float64(2),
+			"items":    map[string]any{"type": "string"},
+		},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	var c constraintSet
+	tg := target{typeName: "Thing", varStem: "Thing", label: "combos", expr: "v.Combos", access: accessValue}
+	if err := compileArray(e, &c, tg, node); err != nil {
+		t.Fatalf("compileArray: %v", err)
+	}
+	got := c.checks.String()
+	if !strings.Contains(got, "len(v.Combos) < 1") {
+		t.Errorf("outer minItems missing:\n%s", got)
+	}
+	if !strings.Contains(got, "< 2") {
+		t.Errorf("inner minItems missing — the element's own constraints were dropped:\n%s", got)
+	}
+	inner, _ := node["items"].(map[string]any)
+	if !e.enforced.has(inner, "minItems") {
+		t.Error("the element's minItems was checked and must be recorded as enforced")
+	}
+}
+
+func TestMapValueConstraintsAreCompiled(t *testing.T) {
+	// common/types/actions is map[string][]ActionsInstance whose VALUE
+	// declares minItems 1. compileMap descended only into the keys, so the
+	// value's constraints were never reached.
+	node := map[string]any{
+		"type": "object",
+		"additionalProperties": map[string]any{
+			"type":     "array",
+			"minItems": float64(1),
+			"items":    map[string]any{"type": "string"},
+		},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	var c constraintSet
+	tg := target{typeName: "Bag", varStem: "Bag", label: "Bag", expr: "*v", access: accessValue}
+	if err := compileMap(e, &c, tg, node); err != nil {
+		t.Fatalf("compileMap: %v", err)
+	}
+	got := c.checks.String()
+	if !strings.Contains(got, "< 1") {
+		t.Errorf("the map value's minItems was dropped:\n%s", got)
+	}
+	vals, _ := node["additionalProperties"].(map[string]any)
+	if !e.enforced.has(vals, "minItems") {
+		t.Error("the value's minItems was checked and must be recorded as enforced")
+	}
+}
+
+func TestObjectValuesAreNotCheckedTwice(t *testing.T) {
+	// An object element or value is promoted to a named type by goTypeExpr
+	// and validates itself, so compiling it here as well would emit the same
+	// check twice. The descent must skip it.
+	node := map[string]any{
+		"type": "object",
+		"additionalProperties": map[string]any{
+			"type":       "object",
+			"required":   []any{"id"},
+			"properties": map[string]any{"id": map[string]any{"type": "string"}},
+		},
+	}
+	e := newFileEmitter(idxFixture(t), "shopping/types/line_item.json", "types")
+	var c constraintSet
+	tg := target{typeName: "Bag", varStem: "Bag", label: "Bag", expr: "*v", access: accessValue}
+	if err := compileMap(e, &c, tg, node); err != nil {
+		t.Fatalf("compileMap: %v", err)
+	}
+	if strings.Contains(c.checks.String(), "required property is missing") {
+		t.Errorf("an object value validates itself; it must not be compiled here too:\n%s", c.checks.String())
+	}
+}

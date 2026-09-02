@@ -261,7 +261,7 @@ full JSON Schema implementation, the gap is specific:
   `MANIFEST.json` therefore records these under `not_asserted`, separate
   from `unenforced`. The two used to share a key, which made the manifest
   report every occurrence as an unmet obligation when the real gap is
-  **50** — `format` outnumbers it more than three to one, so merging them
+  **48** — `format` outnumbers it nearly four to one, so merging them
   buried it.
   Both numbers stay visible; neither is a summary of the other.
   `TestCorpusUsesAnnotationOnlyFormat` fails the build if a future spec
@@ -281,6 +281,16 @@ full JSON Schema implementation, the gap is specific:
   phase later — at which point it agreed. The coverage figure above was
   accurate throughout and still did not cover this; a number counts what it
   counts, and the thing worth stating is which schemas were behind it.
+- **Constraints on a nested element or a map value are enforced.** An
+  array of arrays checks `minItems` on both levels, and a map's value
+  schema is checked as well as its keys. Neither was reached before: the
+  descent tested for a *scalar* element, on the reasoning that an object
+  element is promoted to a named type and validates itself. An element that
+  is itself an array is neither, so its constraints were dropped —
+  `common/types/business_split_payments_config` declares `minItems` on both
+  levels of `allowed_combinations` and only the outer one was checked, and
+  `common/types/actions` is `map[string][]ActionsInstance` whose value
+  declares `minItems` and was never looked at.
 - **`dependentRequired` is enforced.** If the trigger property was present
   in the decoded payload, every property it names must be present too. It
   is a presence rule, not a value rule, so it reads the decoder's record and

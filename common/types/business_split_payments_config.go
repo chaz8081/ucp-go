@@ -90,6 +90,11 @@ func (v *BusinessSplitPaymentsConfig) Validate() error {
 	if len(v.AllowedCombinations) < 1 {
 		return errors.New("allowed_combinations: has fewer than minItems 1")
 	}
+	for _, k := range v.AllowedCombinations {
+		if len(k) < 1 {
+			return errors.New("allowed_combinations item: has fewer than minItems 1")
+		}
+	}
 	for i := range v.AllowedCombinations {
 		for i1 := range v.AllowedCombinations[i] {
 			if err := v.AllowedCombinations[i][i1].Validate(); err != nil {
